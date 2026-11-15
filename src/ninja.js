@@ -1,6 +1,6 @@
 // A ninja brother: his body, his weapons, how he moves, and his animations.
 import * as THREE from 'three';
-import { buildNinja, buildUzi, buildShotgun, buildKatana, buildSmokeBomb } from './models.js';
+import { buildNinja, buildUzi, buildShotgun, buildKatana, buildSmokeBomb, part } from './models.js';
 import { sfx } from './sound.js';
 
 export { part } from './models.js';
@@ -15,6 +15,58 @@ const POSES = {
   katana:  { r: [-0.35, 0.15, -0.9],  l: [0.1, -0.12, -0.2],   hold: [1.9, 0, 0] },
   smoke:   { r: [-0.3, 0.1, -1.0],    l: [0.1, -0.12, -0.2],   hold: [1.6, 0, 0] },
 };
+
+// Where each weapon is carried, and how the right arm reaches for it there
+// (shoulder x, shoulder y, shoulder z, elbow x).
+const REACH = {
+  uzi:     { sx: 0.15, sy: 0, sz: 0.3, ex: -0.5 },     // holster on the right hip
+  shotgun: { sx: 0.55, sy: 0, sz: 0.25, ex: -0.7 },    // stock at the right hip, slung across the back
+  katana:  { sx: -2.9, sy: 0, sz: 0.15, ex: -2.0 },    // handle over the right shoulder
+  smoke:   { sx: -0.45, sy: 0.5, sz: -0.5, ex: -1.3 }, // bombs on the left of the belt
+};
+const SWITCH_TIME = 0.5;   // seconds to put one weapon away and draw the next
+// Parts of a switch: put away the old one, reach for the new one, bring it up.
+const PUT_AWAY = 0.4, GRAB = 0.7;
+
+// Weapons he's carrying but not holding: Uzi in a hip holster, shotgun on his back,
+// smoke bombs hanging from his belt, plus a shuriken for the left hand to pull out of the pouch.
+function buildCarried(body, armL) {
+  const leather = new THREE.MeshStandardMaterial({ color: 0x3d2a1c, roughness: 0.7 });
+  const holster = new THREE.Group();
+  holster.position.set(0.25, 0.92, 0.02);
+  holster.rotation.z = 0.12;
+  body.add(holster);
+  holster.add(part(new THREE.BoxGeometry(0.075, 0.2, 0.11), leather, 0, -0.1, 0.02));
+  holster.add(part(new THREE.BoxGeometry(0.02, 0.12, 0.02), leather, 0, 0.04, 0.0));   // strap to the sash
+  const uzi = buildUzi();
+  uzi.rotation.x = Math.PI / 2;   // barrel down into the holster
+  uzi.position.set(0, 0.0, 0.05);
+  holster.add(uzi);
+
+  const sling = new THREE.Group();   // shotgun slung across the back, stock at the right hip
+  sling.position.set(0.02, 1.22, -0.21);
+  sling.rotation.z = 0.75;
+  body.add(sling);
+  const shotgun = buildShotgun();
+  shotgun.rotation.x = -Math.PI / 2;   // barrel up
+  shotgun.position.y = -0.1;
+  sling.add(shotgun);
+
+  const bombs = [[-0.21, 0.07], [-0.15, 0.13], [-0.075, 0.165]].map(([x, z]) => {
+    const b = buildSmokeBomb();
+    b.scale.setScalar(0.8);
+    b.position.set(x, 0.86, z);
+    body.add(b);
+    return b;
+  });
+
+  const star = part(new THREE.CylinderGeometry(0.05, 0.05, 0.008, 8),
+    new THREE.MeshStandardMaterial({ color: 0xc0c8d0, metalness: 0.9, roughness: 0.25 }), 0, -0.06, 0.03);
+  star.rotation.x = Math.PI / 2;
+  star.visible = false;
+  armL.hand.add(star);
+  return { uzi, shotgun, bombs, star };
+}
 
 export class Ninja {
   constructor(scene, world, cfg, weapons, { bandColor = 0xc0272d, x = 0, z = 0 } = {}) {
@@ -37,6 +89,7 @@ export class Ninja {
     // All the weapons he can hold; only the current one is shown.
     this.models = { uzi: buildUzi(), shotgun: buildShotgun(), katana: buildKatana(), smoke: buildSmokeBomb() };
     for (const m of Object.values(this.models)) { m.visible = false; this.armR.hand.add(m); }
+    this.carried = buildCarried(this.body, this.armL);
     scene.add(this.root);
     this.reset(x, z);
   }
@@ -62,10 +115,38 @@ export class Ninja {
     this.hold('uzi');
   }
 
+  // Instantly holding this weapon (new game, respawn).
   hold(type) {
     this.current = type;
-    for (const [k, m] of Object.entries(this.models)) m.visible = k === type;
-    this.sheath.visible = type !== 'katana';   // the katana comes out of its sheath
+    this.switching = null;
+    this.showHeld();
+  }
+
+  // Put the current weapon away and draw another one (takes SWITCH_TIME; can't fire meanwhile).
+  switchTo(type) {
+    if (type === this.current && !this.switching) return;
+    this.switching = { from: this.displayed, to: type, t: 0, drawn: false };
+    this.current = type;
+  }
+
+  // What's actually in his hand right now (nothing for a moment while switching).
+  get displayed() {
+    const w = this.switching;
+    if (!w) return this.current;
+    return w.t < PUT_AWAY ? w.from : w.t < GRAB ? null : w.to;
+  }
+
+  // Show the weapon in his hand, and everything else where it's carried.
+  showHeld() {
+    const d = this.displayed;
+    for (const [k, m] of Object.entries(this.models)) m.visible = k === d;
+    const c = this.carried, sp = this.special;
+    c.uzi.visible = d !== 'uzi';
+    c.shotgun.visible = !!sp && sp.type === 'shotgun' && d !== 'shotgun';
+    const bombs = sp && sp.type === 'smoke' ? Math.min(3, sp.count - (d === 'smoke' ? 1 : 0)) : 0;
+    c.bombs.forEach((b, i) => { b.visible = i < bombs; });
+    // The sheath stays on his back; only the handle goes when the katana is out.
+    this.sheath.children[1].visible = this.sheath.children[2].visible = d !== 'katana';
   }
 
   // Back on his feet after his brother helped him (or a new level started).
@@ -126,6 +207,15 @@ export class Ninja {
     this.recoil = Math.max(0, this.recoil - dt * 9);
     if (this.swing >= 0) { this.swing += dt / 0.32; if (this.swing > 1) this.swing = -1; }
     if (this.throwT >= 0) { this.throwT += dt / 0.3; if (this.throwT > 1) this.throwT = -1; }
+    const w = this.switching;
+    if (w) {
+      w.t += dt / SWITCH_TIME;
+      if (!w.drawn && w.t >= GRAB) {
+        w.drawn = true;
+        if (w.to === 'katana') sfx.katanaDraw(); else sfx.switchWeapon();
+      }
+      if (w.t >= 1) this.switching = null;
+    }
 
     if (!this.alive) {  // fall over
       this.fallen = Math.min(1, this.fallen + dt * 3);
@@ -208,6 +298,11 @@ export class Ninja {
       rExtra.sx = -1.45; rExtra.ex = -0.15;
       rExtra.sy = 1.3 - t * 2.6;
       rExtra.sz = 0.2;
+    } else if (this.switching) {
+      // Reach to where the old weapon goes, then to where the new one is, then back to the pose.
+      const t = this.switching.t;
+      const r = t < PUT_AWAY ? REACH[this.switching.from] : t < GRAB ? REACH[this.switching.to] : null;
+      if (r) Object.assign(rExtra, r);
     } else if (this.current !== 'katana' && this.current !== 'smoke') {
       rExtra.sx = pose.r[0] + this.recoil * 0.12 + s * 0.03 * k;
       rExtra.ex = pose.r[2] - this.recoil * 0.1;
@@ -220,20 +315,26 @@ export class Ninja {
     setArm(this.armR, pose.r, rExtra);
 
     const lExtra = {};
-    if (this.throwT >= 0 && this.current !== 'smoke') {
-      const t = this.throwT;                 // shuriken flick with the left hand
-      lExtra.sx = t < 0.35 ? -0.4 : -1.7;
-      lExtra.sz = t < 0.35 ? 0.9 : -0.15;
-      lExtra.ex = t < 0.35 ? -1.6 : -0.1;
+    const throwing = this.throwT >= 0 && this.current !== 'smoke';
+    this.carried.star.visible = throwing && this.throwT > 0.15 && this.throwT < 0.55;
+    if (throwing) {
+      const t = this.throwT;                 // pull a shuriken from the belt pouch, then flick it
+      lExtra.sx = t < 0.3 ? 0.1 : t < 0.45 ? -0.4 : -1.7;
+      lExtra.sz = t < 0.3 ? 0.1 : t < 0.45 ? 0.9 : -0.15;
+      lExtra.ex = t < 0.3 ? -0.9 : t < 0.45 ? -1.6 : -0.1;
     } else if (pose.l[0] > 0) {
       lExtra.sx = 0.1 - s * 0.35 * k;      // free arm swings when walking
     }
     setArm(this.armL, pose.l, lExtra);
 
-    const held = this.models[this.current];
-    held.rotation.set(pose.hold[0], pose.hold[1], pose.hold[2]);
-    if (this.current === 'katana' && this.swing >= 0) held.rotation.x = 1.6;   // blade forward during the slash
-    if (this.current === 'shotgun') held.userData.pump.position.z = 0.33 - Math.max(0, this.recoil - 0.3) * 0.12;
+    this.showHeld();
+    const d = this.displayed;
+    if (d) {
+      const held = this.models[d], hp = POSES[d].hold;
+      held.rotation.set(hp[0], hp[1], hp[2]);
+      if (d === 'katana' && this.swing >= 0) held.rotation.x = 1.6;   // blade forward during the slash
+      if (d === 'shotgun') held.userData.pump.position.z = 0.33 - Math.max(0, this.recoil - 0.3) * 0.12;
+    }
 
     // Headband tails flap in the wind.
     this.tails.forEach((t, i) => {

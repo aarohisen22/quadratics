@@ -65,7 +65,7 @@ Then open http://localhost:8080 (this server turns off browser caching so refres
   - [x] 2. Oni / demon masks on the samurai (red face, angry brows, glowing eyes, fangs, horns; helmet raised so the face shows; `buildOniMask` in samurai.js is reusable for the boss)
   - [x] 3. Water foam around legs when wading: foam patches drift downstream and fade, splashes when moving (foam.js; ninjas and samurai)
   - [x] 4. Minimap bottom-left in overhead modes: stream, landmarks, brothers (arrows), samurai, crates, boss (minimap.js; turns with the camera). Controller hint moved to bottom-center
-  - [ ] 5. Weapons carried on belt and back + switch animation (overhead and first person)
+  - [x] 5. Weapons carried on belt and back + switch animation: Uzi in hip holster, shotgun slung on back, smoke bombs on belt, katana handle leaves the sheath; 0.5 s switch (put away → reach → draw), no firing mid-switch; first person: old weapon drops away, new one comes up from the belt or over the shoulder (katana); left hand pulls shurikens from the pouch
   - [ ] 6. Samurai slide down vines instead of popping in
   - [ ] 7. Samurai mix attacks: quick jab / side slash / overhead chop, different damage
   - [ ] 8. Enemy archers (bow, dodgeable arrows) and nunchuck fighters

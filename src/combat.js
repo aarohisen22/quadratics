@@ -123,12 +123,9 @@ export class Combat {
       if (!p.alive) return;
       p.fireCooldown -= dt;
       const c = ctrls[i];
-      if (c.switchPressed && p.special) {
-        p.hold(p.current === 'uzi' ? p.special.type : 'uzi');
-        if (p.current === 'katana') sfx.katanaDraw(); else sfx.switchWeapon();
-      }
-      if (c.fire && p.fireCooldown <= 0) {
-        if (p.current !== 'uzi' && !p.special) p.hold('uzi');   // special just ran out
+      if (c.switchPressed && p.special && !p.switching) p.switchTo(p.current === 'uzi' ? p.special.type : 'uzi');
+      if (c.fire && p.current !== 'uzi' && !p.special) p.switchTo('uzi');   // special just ran out
+      if (c.fire && p.fireCooldown <= 0 && !p.switching) {
         if (p.current === 'uzi') this.fireUzi(p, i);
         else if (p.current === 'shotgun') this.fireShotgun(p, i);
         else if (p.current === 'katana') this.slashKatana(p);
@@ -234,7 +231,7 @@ export class Combat {
     p.special.count--;
     if (p.special.count <= 0) {
       p.special = null;
-      setTimeout(() => { if (!p.special) p.hold('uzi'); }, 350);
+      setTimeout(() => { if (!p.special) p.switchTo('uzi'); }, 350);
     }
   }
 

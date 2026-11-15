@@ -113,7 +113,7 @@ export class Drops {
       const s = this.specials[c.type];
       const count = c.type === 'shotgun' ? s.shells : c.type === 'katana' ? s.swings : s.bombs;
       p.special = { type: c.type, count };
-      p.hold(c.type);
+      p.switchTo(c.type);
       if (c.type === 'katana') sfx.katanaDraw(); else sfx.pickupWeapon();
       hud.toast(`${name} got the ${SPECIAL_NAMES[c.type].toLowerCase()}!  (Y / Q to switch)`);
     }

@@ -138,7 +138,11 @@ export class FpsView {
     this.flashLight.intensity = flashIntensity * 0.25;
 
     // Show what you're holding, with walk bob, recoil kick, katana slash and throws.
-    for (const [k, it] of Object.entries(this.items)) it.visible = p.alive && k === p.current;
+    // While switching: the old weapon drops out of view, then the new one comes up from the belt
+    // (or down over the shoulder for the katana).
+    const sw = p.switching;
+    const shown = sw ? (sw.t < 0.4 ? sw.from : sw.to) : p.current;
+    for (const [k, it] of Object.entries(this.items)) it.visible = p.alive && k === shown;
     const speed = Math.hypot(p.vel.x, p.vel.z);
     this.bob += dt * (2 + speed * 1.6);
     const k = Math.min(1, speed / 5);
@@ -152,6 +156,25 @@ export class FpsView {
         h.rotation.set(-0.3, 0.2, 1.2 - t * 2.2);
       } else {
         h.rotation.set(-0.3, 0, 0.28);   // blade leaning in toward the middle
+      }
+    }
+    if (sw) {
+      if (sw.t < 0.4) {
+        const a = sw.t / 0.4;   // away it goes
+        h.position.y -= a * a * 0.4;
+        h.rotation.x += a * 0.9;
+      } else {
+        const a = 1 - Math.min(1, (sw.t - 0.4) / 0.6);
+        const e = a * a * (3 - 2 * a);   // smooth
+        if (shown === 'katana') {        // pulled from the back, over the right shoulder
+          h.position.y += e * 0.45;
+          h.position.x += e * 0.15;
+          h.rotation.z -= e * 1.2;
+        } else {                         // drawn up from the belt or hip
+          h.position.y -= e * 0.4;
+          h.rotation.x += e * 0.9;
+          if (shown === 'smoke') h.position.x -= e * 0.2;
+        }
       }
     }
     if (p.current === 'smoke' && p.throwT >= 0) h.position.z -= Math.sin(p.throwT * Math.PI) * 0.3;
