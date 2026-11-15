@@ -156,6 +156,7 @@ export class World {
     this.limit = this.half - 6;   // how far ninjas may walk from the center
     this.obstacles = [];          // { x, z, r, h } circles you bump into
     this.brokenTrees = [];        // trees that may fall (Phase 4)
+    this.canopySpots = [];        // undersides of the big trees' leaves, where vines can hang from
     this.rnd = makeRandom(cfg.seed);
     this.templeSpot = { x: 30, z: -28 };
     this.templeTop = this.baseHeight(30, -28) + 3.5;
@@ -312,8 +313,11 @@ export class World {
         const br = 1.8 + r() * 1.6;
         dummy.position.set(s.x + Math.cos(a) * d, y + h - 0.5 + (r() - 0.3) * 2, s.z + Math.sin(a) * d);
         dummy.rotation.set(r() * 3, r() * 3, r() * 3);
-        dummy.scale.set(br, br * (0.55 + r() * 0.2), br); dummy.updateMatrix();
+        const sy = br * (0.55 + r() * 0.2);
+        dummy.scale.set(br, sy, br); dummy.updateMatrix();
         canopy.add(dummy.matrix, color.setHSL(0.26 + r() * 0.08, 0.45 + r() * 0.2, 0.16 + r() * 0.1));
+        // A vine can hang from under this clump of leaves (a bit out from the trunk).
+        if (d > 1.2) this.canopySpots.push({ x: dummy.position.x, z: dummy.position.z, top: dummy.position.y - sy * 0.6, tx: s.x, tz: s.z });
       }
       const vineCount = Math.floor(r() * 5);
       for (let v = 0; v < vineCount; v++) {

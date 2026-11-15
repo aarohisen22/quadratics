@@ -37,8 +37,8 @@ function buildClub(iron) {
 
 export class Boss extends Samurai {
   // appearance: 1 the first time (after level 5), 2 after level 10, and so on.
-  constructor(scene, world, cfg, x, z, appearance = 1) {
-    super(scene, world, cfg, x, z, 1, 0.8, 'sword');
+  constructor(scene, world, cfg, x, z, appearance = 1, vineTop = 13) {
+    super(scene, world, cfg, x, z, 1, 0.8, 'sword', vineTop);
     this.isBoss = true;
     const k = appearance - 1;
     this.maxHealth = this.health = cfg.health * (1 + cfg.healthPerAppearance * k);

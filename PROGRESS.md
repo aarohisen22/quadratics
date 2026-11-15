@@ -74,7 +74,7 @@ Then open http://localhost:8080 (this server turns off browser caching so refres
 - [ ] Feedback round 3 (parent's list)  ← in progress
   - [x] Uzi ammo 60 → 100 (crates +80, carry up to 250); health crates (22% of crates, white with red crosses, green beam and green on the map, +40 health)
   - [x] Pause button (top-right ❚❚) + Esc / P / Start pause menu (Resume / Restart / Main menu, mouse or controller); also pauses when you leave the window
-  - [ ] Samurai vines only hang from real tree branches (not from the open sky)
+  - [x] Samurai vines only hang from real tree branches: samurai (and the boss and his helpers) spawn under a big tree's leaf clump (world.canopySpots), vine length matches that tree
   - [ ] Enemies jump over logs and steer around boulders instead of getting stuck
   - [ ] Gatling gun: crate special (rarer), 150 rounds, 0.5 s spin-up then very fast fire, walk slower
   - [ ] Hiding: inside temple ruins / collapsed huts samurai lose track of you (unless right next to you); a few climbable trees with platforms (samurai can't reach, archers can shoot)

@@ -69,7 +69,7 @@ export class Combat {
       const spot = this.spawnSpot(players);
       // They come down their vines one after another, not all at once.
       const s = new Samurai(this.scene, this.world, this.samuraiCfg, spot.x, spot.z, this.toughness,
-        i * 0.45 + Math.random() * 0.3, this.pickKind());
+        i * 0.45 + Math.random() * 0.3, this.pickKind(), spot.vineTop);
       s.effects = this.effects;
       s.shoot = (from, dir, damage) => this.fireArrow(from, dir, damage);
       this.samurai.push(s);
@@ -81,14 +81,13 @@ export class Combat {
     const B = this.bossCfg;
     this.bossFor = this.level;
     const spot = this.spawnSpot(players);
-    const boss = new Boss(this.scene, this.world, B, spot.x, spot.z, this.level / B.every);
+    const boss = new Boss(this.scene, this.world, B, spot.x, spot.z, this.level / B.every, spot.vineTop);
     boss.effects = this.effects;
     boss.onShake = v => this.onShake?.(v);
     boss.onSummon = b => {   // at half health he calls for help
       for (let i = 0; i < B.summon; i++) {
-        const a = Math.random() * Math.PI * 2;
-        const x = b.pos.x + Math.cos(a) * 4, z = b.pos.z + Math.sin(a) * 4;
-        const s = new Samurai(this.scene, this.world, this.samuraiCfg, x, z, this.toughness, 0.3 + i * 0.4, this.pickKind());
+        const sp = this.spawnSpot(players, b.pos, 3, 14);
+        const s = new Samurai(this.scene, this.world, this.samuraiCfg, sp.x, sp.z, this.toughness, 0.3 + i * 0.4, this.pickKind(), sp.vineTop);
         s.effects = this.effects;
         s.shoot = (from, dir, damage) => this.fireArrow(from, dir, damage);
         this.samurai.push(s);
@@ -156,11 +155,31 @@ export class Combat {
     this.arrows = this.arrows.filter(a => a.life > 0);
   }
 
-  // Somewhere 14-26 m from the ninjas, not inside a tree or rock.
-  spawnSpot(players) {
+  // Under the leaves of a big tree, 14-26 m from the ninjas (or `near` a point, like the boss),
+  // so the vine hangs from a real tree. Returns { x, z, vineTop } (vineTop = height of the leaves).
+  spawnSpot(players, near = null, minD = 14, maxD = 26) {
     const alive = players.filter(p => p.alive);
-    const center = alive[0]?.pos ?? new THREE.Vector3();
+    const center = near ?? alive[0]?.pos ?? new THREE.Vector3();
     const lim = this.world.limit - 1;
+    const free = (x, z) => Math.abs(x) < lim && Math.abs(z) < lim
+      && !this.world.obstacles.some(o => Math.hypot(o.x - x, o.z - z) < o.r + 0.8)
+      && !alive.some(p => Math.hypot(p.pos.x - x, p.pos.z - z) < 10)
+      && !this.samurai.some(s => s.state === 'descend' && Math.hypot(s.pos.x - x, s.pos.z - z) < 1.5);
+    const spots = this.world.canopySpots.filter(c => {
+      const d = Math.hypot(c.x - center.x, c.z - center.z);
+      return d > minD && d < maxD;
+    });
+    for (let tries = 0; tries < 40 && spots.length; tries++) {
+      const c = spots[Math.floor(Math.random() * spots.length)];
+      if (free(c.x, c.z)) return { x: c.x, z: c.z, vineTop: c.top - this.world.heightAt(c.x, c.z) };
+    }
+    // No tree in range (rare): the nearest free canopy anywhere further than 8 m.
+    let best = null, bestD = Infinity;
+    for (const c of this.world.canopySpots) {
+      const d = Math.hypot(c.x - center.x, c.z - center.z);
+      if (d > 8 && d < bestD && free(c.x, c.z)) { best = c; bestD = d; }
+    }
+    if (best) return { x: best.x, z: best.z, vineTop: best.top - this.world.heightAt(best.x, best.z) };
     for (let tries = 0; tries < 80; tries++) {
       const a = Math.random() * Math.PI * 2, d = 14 + Math.random() * 12;
       const x = center.x + Math.cos(a) * d, z = center.z + Math.sin(a) * d;

@@ -229,14 +229,14 @@ const vineMat = new THREE.MeshStandardMaterial({ color: 0x3f5a22, roughness: 0.8
 const vineLeafMat = new THREE.MeshStandardMaterial({ color: 0x4f7a2a, roughness: 0.6, side: THREE.DoubleSide });
 const vineGeo = new THREE.CylinderGeometry(0.035, 0.035, 1, 5).translate(0, -0.5, 0);   // hangs down from its top
 const vineLeafGeo = new THREE.PlaneGeometry(0.18, 0.1);
-function buildVine() {
+function buildVine(length) {
   const g = new THREE.Group();
   const rope = new THREE.Mesh(vineGeo, vineMat);
-  rope.scale.y = VINE_TOP;
+  rope.scale.y = length;
   g.add(rope);
   for (let i = 0; i < 6; i++) {
     const leaf = new THREE.Mesh(vineLeafGeo, vineLeafMat);
-    leaf.position.set(0.05, -1 - Math.random() * (VINE_TOP - 3), 0);
+    leaf.position.set(0.05, -1 - Math.random() * (length - 3), 0);
     leaf.rotation.set(Math.random(), Math.random() * 6, 0.6);
     g.add(leaf);
   }
@@ -244,7 +244,8 @@ function buildVine() {
 }
 
 export class Samurai {
-  constructor(scene, world, cfg, x, z, toughness = 1, dropDelay = 0, kind = 'sword') {
+  // vineTop: the height (above the ground here) of the leaves his vine hangs from.
+  constructor(scene, world, cfg, x, z, toughness = 1, dropDelay = 0, kind = 'sword', vineTop = VINE_TOP) {
     this.scene = scene;
     this.world = world;
     this.cfg = cfg;
@@ -264,8 +265,9 @@ export class Samurai {
     // He arrives by sliding down a vine from the trees (waiting up there for dropDelay first).
     this.state = 'descend';
     this.timer = -dropDelay;
-    this.vine = buildVine();
-    this.vine.position.set(x, this.pos.y + VINE_TOP, z);
+    this.vineTop = Math.max(5, vineTop);
+    this.vine = buildVine(this.vineTop);
+    this.vine.position.set(x, this.pos.y + this.vineTop, z);
     scene.add(this.vine);
     this.slideSound = false;
     this.flash = 0;
@@ -282,7 +284,7 @@ export class Samurai {
     }
     this.root.scale.setScalar(1.15);
     this.root.position.copy(this.pos);
-    this.root.position.y += VINE_TOP;   // up in the canopy until his turn
+    this.root.position.y += this.vineTop + 0.8;   // hidden up in the leaves until his turn
     scene.add(this.root);
     this.effects = null;                // set by combat, for the dust when he lands
   }
@@ -294,13 +296,13 @@ export class Samurai {
     this.vine.rotation.z = Math.sin(t * 1.7) * 0.03;   // the vine sways
     this.vine.rotation.x = Math.sin(t * 1.3 + 1) * 0.03;
     if (this.timer < 0) {   // waiting his turn, hidden up in the leaves
-      this.root.position.set(this.pos.x, this.pos.y + VINE_TOP, this.pos.z);
+      this.root.position.set(this.pos.x, this.pos.y + this.vineTop + 0.8, this.pos.z);
       return;
     }
     if (!this.slideSound) { this.slideSound = true; sfx.vineSlide(); }
     const k = Math.min(1, this.timer / DROP_SECONDS);
     const fall = k < 0.8 ? (k / 0.8) ** 1.6 * 0.95 : 0.95 + (k - 0.8) / 0.2 * 0.05;   // fast, then brakes at the bottom
-    const height = (VINE_TOP - 2) * (1 - fall);
+    const height = (this.vineTop - 2) * (1 - fall);
     // Hands up on the vine, legs together, sword arm too (he grips with both hands).
     this.sword.rotation.x = -3.0;
     this.leftArm.rotation.x = -3.0;
