@@ -71,27 +71,26 @@ Then open http://localhost:8080 (this server turns off browser caching so refres
   - [x] 7. Samurai mix attacks (config.js `samurai.attacks`): quick jab (0.28 s warning, 7 dmg at level 1, narrow, lunges; step aside), side slash (0.45 s, 12 dmg, wide flat sweep from either side; back off), overhead chop (0.8 s with red glowing blade, 22 dmg). Shurikens still interrupt any windup
   - [x] 8. Enemy archers (green armor, quiver; keep 7-15 m away, 0.9 s draw with red aim line on the ground, arrow 16 m/s you can sidestep, sticks in trees) and nunchuck fighters (blue armor, faster, spin-up then 3-hit combo). Archers from level 3, nunchucks from level 4, 20% each +3%/level up to 35% (config.js `samurai.mix`); a toast warns the first time each appears
   - [x] 9. Giant Oni warlord mini boss after levels 5, 10, 15… (boss.js, config.js `boss`): comes down a thick vine with a roar, 2.3x size, studded club; wide club swing (20 dmg) and ground slam with red ring (32 dmg, knock-back, camera shake); calls 2 samurai at half health; shurikens don't interrupt him; health bar at the top + big marker on the minimap; 800 health, +50% each appearance
-- [ ] Feedback round 3 (parent's list)  ← in progress
+- [x] Feedback round 3 (parent's list) (waiting on the kids' playtest)
   - [x] Uzi ammo 60 → 100 (crates +80, carry up to 250); health crates (22% of crates, white with red crosses, green beam and green on the map, +40 health)
   - [x] Pause button (top-right ❚❚) + Esc / P / Start pause menu (Resume / Restart / Main menu, mouse or controller); also pauses when you leave the window
   - [x] Samurai vines only hang from real tree branches: samurai (and the boss and his helpers) spawn under a big tree's leaf clump (world.canopySpots), vine length matches that tree
   - [x] Enemies jump over logs and low walls and steer around boulders, trees, ruins and the plane (samurai.js `steer`); if still stuck for 0.6 s they try the other way round and hop. Tested 16 random obstacles: all got through in 0.7-3.4 s
   - [x] Gatling gun: crate special (half as likely as the others, config `specials.weights`), 150 rounds, barrels spin up 0.5 s (whirr) then ~20 shots/s, 9 dmg each; walk at 70%; slung on the back when not held; overhead + first person
   - [x] Hiding: temple ruins top (6.5 m) and around each collapsed hut (4.5 m) are hideouts (faint green ring on the ground + map): samurai lose track unless within 3.5 m; card says HIDDEN. 5 treehouses (treehouses.js, brown squares on the map): jump at the rope ladder to climb, platform 4 m up with railing; melee samurai wait below, archers aim up; walk off the edge to drop down
-  - [ ] Twin-blade ronin boss (fast, two katanas, dashes with a red streak warning); bosses: ronin after 3, Warlord after 5, ronin 8, Warlord 10, … tougher each time
-- [ ] Phase 7: Menus, polish, publish  ← after round 3
+  - [x] Twin-blade Ronin boss (ronin.js, config `ronin`): 1.5x size, straw hat, purple armor, katana in each hand, 450 health (+50% each time); jabs and double slashes up close; from 5-13 m a red streak (0.7 s) shows his dash path, then he dashes through it (22 dmg at level 3), step aside to dodge, shuriken cancels it. Bosses: Ronin after 3, 8, 13…, Oni Warlord after 5, 10, 15… (config `boss.every` / `boss.roninAt`)
+- [ ] Phase 7: Menus, polish, publish  ← next (pause menu already done in round 3)
 
 ## Notes and decisions made while building
 - Three.js r170 loads from the jsDelivr CDN through an import map, so there's nothing to install.
 - Phase 1 builds the ninja and jungle from code-made shapes. Swapping in free asset-pack models needs a download, which waits for the user's OK.
 - Treetops dissolve near the ninjas so the overhead camera can see them (`cutaway` in world.js).
-- Files: src/config.js (settings to tune), world.js (jungle), weather.js (light, rain), sound.js, effects.js, combat.js (weapons + levels + arrows + boss fight), samurai.js (sword/archer/nunchuck kinds, vines, attacks), boss.js (Oni Warlord), foam.js (water foam), minimap.js, hud.js, ninja.js, input.js, camera.js, main.js.
+- Files: src/config.js (settings to tune), world.js (jungle), weather.js (light, rain), sound.js, effects.js, combat.js (weapons + levels + arrows + boss fights), samurai.js (sword/archer/nunchuck kinds, vines, attacks, obstacle steering), boss.js (Oni Warlord), ronin.js (Twin-blade Ronin), treehouses.js, foam.js (water foam), minimap.js, hud.js, ninja.js, input.js, camera.js, main.js.
 
-## Where we left off (2026-11-15, after feedback round 2, before Phase 7)
-Everything through Phase 6 and feedback round 2 is committed. To resume, open this folder and say "continue the game from PROGRESS.md".
+## Where we left off (2026-11-15, after feedback round 3, before Phase 7)
+Everything through Phase 6 and feedback rounds 2 and 3 is committed. To resume, open this folder and say "continue the game from PROGRESS.md".
 
 **Phase 7 to-do (menus, polish, publish):**
-- Pause menu in every mode (Esc / Start button): resume, restart, back to menu
 - Settings screen: volume, mouse sensitivity, low graphics toggle (currently `?low` in the URL)
 - How-to-play / controls screen; game title + brothers' names from the kids
 - Publish to GitHub Pages for a shareable link (needs the parent's GitHub account; ask before pushing anything)

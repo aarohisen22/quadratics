@@ -119,9 +119,24 @@ export const CONFIG = {
     reviveOnNewLevel: 0.5, // a downed brother comes back with 50% health when a level starts
   },
 
+  // Bosses: the Twin-blade Ronin after levels 3, 8, 13... and the Oni Warlord after 5, 10, 15...
+  ronin: {
+    health: 450, healthPerAppearance: 0.5,
+    damage: 14, damagePerAppearance: 0.25,
+    speed: 4.2, attackRange: 2.0,
+    attacks: {
+      jab:   { chance: 0.45, windup: 0.25, damage: 0.8, range: 2.3, arc: 0.8, recover: 0.3 },
+      slash: { chance: 0.55, windup: 0.4, damage: 1.0, range: 2.3, arc: -0.1, recover: 0.45 },   // both swords sweep across
+      // The dash: from 5-13 m away a red streak shows his path, then he dashes through it. Step aside!
+      dash:  { chance: 0, windup: 0.7, damage: 1.6, range: 0, arc: 1, recover: 0.8, dash: true,
+               minRange: 5, maxRange: 13, speed: 22, cooldown: 3.5 },
+    },
+  },
+
   // The Oni Warlord mini boss: comes after every 5th level (5, 10, 15...).
   boss: {
     every: 5,
+    roninAt: 3,                               // the Ronin comes when level % every == roninAt (3, 8, 13...)
     health: 800, healthPerAppearance: 0.5,   // +50% health each time he comes back
     damage: 20, damagePerAppearance: 0.25,
     speed: 2.3, attackRange: 3.0,

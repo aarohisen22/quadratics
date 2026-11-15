@@ -29,12 +29,16 @@ export class Hud {
     this.bossEl.style.display = 'none';
     document.body.append(this.bossEl);
     this.bossFill = this.bossEl.querySelector('.bfill');
+    this.bossNameEl = this.bossEl.querySelector('.bname');
   }
 
   bossBar(boss) {
     const show = !!boss && boss.state !== 'descend';
     this.bossEl.style.display = show ? '' : 'none';
-    if (show) this.bossFill.style.width = Math.max(0, boss.health / boss.maxHealth * 100) + '%';
+    if (show) {
+      this.bossFill.style.width = Math.max(0, boss.health / boss.maxHealth * 100) + '%';
+      if (this.bossNameEl.textContent !== boss.bossName) this.bossNameEl.textContent = boss.bossName;
+    }
   }
 
   // Show one or two player cards.

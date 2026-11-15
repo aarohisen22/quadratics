@@ -2,6 +2,7 @@
 import * as THREE from 'three';
 import { Samurai, buildArrow } from './samurai.js';
 import { Boss } from './boss.js';
+import { Ronin } from './ronin.js';
 import { makeShurikenGeometry } from './models.js';
 import { sfx } from './sound.js';
 
@@ -24,6 +25,7 @@ export class Combat {
     this.weapons = config.weapons;
     this.samuraiCfg = config.samurai;
     this.bossCfg = config.boss;
+    this.roninCfg = config.ronin;
     this.bossFor = 0;   // the level whose boss fight has started
     this.levelsCfg = config.levels;
     this.coopCfg = config.coop;
@@ -76,12 +78,31 @@ export class Combat {
     }
   }
 
-  // After every 5th level: the Oni Warlord comes down his vine.
-  startBoss(players, hud) {
+  // Which boss comes after this level: the Ronin after 3, 8, 13..., the Oni Warlord after 5, 10, 15...
+  bossTypeFor(level) {
+    const B = this.bossCfg;
+    if (!B) return null;
+    if (level % B.every === 0) return 'warlord';
+    if (level % B.every === B.roninAt) return 'ronin';
+    return null;
+  }
+
+  startBoss(players, hud, type = 'warlord') {
     const B = this.bossCfg;
     this.bossFor = this.level;
     const spot = this.spawnSpot(players);
+    if (type === 'ronin') {
+      const ronin = new Ronin(this.scene, this.world, this.roninCfg, spot.x, spot.z,
+        Math.floor((this.level - B.roninAt) / B.every) + 1, spot.vineTop);
+      ronin.effects = this.effects;
+      this.samurai.push(ronin);
+      this.bossName = ronin.bossName;
+      hud.banner('The Twin-blade Ronin!', 3);
+      hud.toast('Red streak on the ground = he is about to dash through it. Step aside! A shuriken stops him.', 5);
+      return;
+    }
     const boss = new Boss(this.scene, this.world, B, spot.x, spot.z, this.level / B.every, spot.vineTop);
+    this.bossName = boss.bossName;
     boss.effects = this.effects;
     boss.onShake = v => this.onShake?.(v);
     boss.onSummon = b => {   // at half health he calls for help
@@ -266,7 +287,7 @@ export class Combat {
     if (!this.vs && this.level > 0 && this.wave >= this.waveTotal && this.samuraiLeft === 0 && players.some(p => p.alive)) {
       if (this.betweenLevels === 0) {
         this.betweenLevels = 3;
-        hud.banner(this.bossFor === this.level ? 'The Oni Warlord is defeated!' : 'Level cleared!', 2.5);
+        hud.banner(this.bossFor === this.level ? `The ${this.bossName} is defeated!` : 'Level cleared!', 2.5);
         sfx.levelUp();
       }
       this.betweenLevels -= dt;
@@ -277,7 +298,8 @@ export class Combat {
         }
         for (const p of players) if (!p.alive) p.revive(this.coopCfg.reviveOnNewLevel);
         const B = this.bossCfg;
-        if (B && this.level % B.every === 0 && this.bossFor !== this.level) this.startBoss(players, hud);
+        const type = this.bossTypeFor(this.level);
+        if (type && this.bossFor !== this.level) this.startBoss(players, hud, type);
         else this.startLevel(this.level + 1, players, hud);
       }
     }
