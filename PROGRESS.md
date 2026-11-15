@@ -67,7 +67,7 @@ Then open http://localhost:8080 (this server turns off browser caching so refres
   - [x] 4. Minimap bottom-left in overhead modes: stream, landmarks, brothers (arrows), samurai, crates, boss (minimap.js; turns with the camera). Controller hint moved to bottom-center
   - [x] 5. Weapons carried on belt and back + switch animation: Uzi in hip holster, shotgun slung on back, smoke bombs on belt, katana handle leaves the sheath; 0.5 s switch (put away → reach → draw), no firing mid-switch; first person: old weapon drops away, new one comes up from the belt or over the shoulder (katana); left hand pulls shurikens from the pouch
   - [x] Fixes after kids' check: first-person shuriken no longer a "third hand" (left hand lets go of the gun, reaches to the belt, flicks a real star shape); new smoke bomb look (steel shell, red band, paper cap, lit fuse); smoke lasts 5 s and thins out over the last 40%; minimap now also in first person
-  - [ ] 6. Samurai slide down vines instead of popping in
+  - [x] 6. Samurai slide down vines instead of popping in: one after another (~0.5 s apart), 1.4 s slide gripping with both hands, thump + dust on landing, vine pulls back up; can't be hit or attack until landed; hidden from the map while still up in the trees
   - [ ] 7. Samurai mix attacks: quick jab / side slash / overhead chop, different damage
   - [ ] 8. Enemy archers (bow, dodgeable arrows) and nunchuck fighters
   - [ ] 9. Giant Oni warlord mini boss after levels 5, 10, 15…

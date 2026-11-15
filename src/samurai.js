@@ -122,8 +122,29 @@ function buildSamurai() {
   return { root, body, legs, sword: shoulder, leftArm, mats: Object.values(mats) };
 }
 
+// The vine a samurai slides down on: a thin green rope hanging from the canopy, with a few leaves.
+const VINE_TOP = 13;        // meters above the ground where the vine hangs from
+const DROP_SECONDS = 1.4;   // time to slide all the way down
+const vineMat = new THREE.MeshStandardMaterial({ color: 0x3f5a22, roughness: 0.8 });
+const vineLeafMat = new THREE.MeshStandardMaterial({ color: 0x4f7a2a, roughness: 0.6, side: THREE.DoubleSide });
+const vineGeo = new THREE.CylinderGeometry(0.035, 0.035, 1, 5).translate(0, -0.5, 0);   // hangs down from its top
+const vineLeafGeo = new THREE.PlaneGeometry(0.18, 0.1);
+function buildVine() {
+  const g = new THREE.Group();
+  const rope = new THREE.Mesh(vineGeo, vineMat);
+  rope.scale.y = VINE_TOP;
+  g.add(rope);
+  for (let i = 0; i < 6; i++) {
+    const leaf = new THREE.Mesh(vineLeafGeo, vineLeafMat);
+    leaf.position.set(0.05, -1 - Math.random() * (VINE_TOP - 3), 0);
+    leaf.rotation.set(Math.random(), Math.random() * 6, 0.6);
+    g.add(leaf);
+  }
+  return g;
+}
+
 export class Samurai {
-  constructor(scene, world, cfg, x, z, toughness = 1) {
+  constructor(scene, world, cfg, x, z, toughness = 1, dropDelay = 0) {
     this.scene = scene;
     this.world = world;
     this.cfg = cfg;
@@ -135,22 +156,71 @@ export class Samurai {
     this.pos = new THREE.Vector3(x, world.heightAt(x, z), z);
     this.knock = new THREE.Vector2();
     this.facing = Math.random() * Math.PI * 2;
-    this.state = 'chase';
-    this.timer = 0;
+    // He arrives by sliding down a vine from the trees (waiting up there for dropDelay first).
+    this.state = 'descend';
+    this.timer = -dropDelay;
+    this.vine = buildVine();
+    this.vine.position.set(x, this.pos.y + VINE_TOP, z);
+    scene.add(this.vine);
+    this.slideSound = false;
     this.flash = 0;
     this.walkPhase = Math.random() * 6;
     this.gone = false;
     Object.assign(this, buildSamurai());
     this.root.scale.setScalar(1.15);
     this.root.position.copy(this.pos);
+    this.root.position.y += VINE_TOP;   // up in the canopy until his turn
     scene.add(this.root);
+    this.effects = null;                // set by combat, for the dust when he lands
+  }
+
+  // Sliding down the vine; can't be hit and doesn't attack until his feet touch the ground.
+  updateDescend(dt) {
+    this.timer += dt;
+    const t = this.vine.userData.t = (this.vine.userData.t || 0) + dt;
+    this.vine.rotation.z = Math.sin(t * 1.7) * 0.03;   // the vine sways
+    this.vine.rotation.x = Math.sin(t * 1.3 + 1) * 0.03;
+    if (this.timer < 0) {   // waiting his turn, hidden up in the leaves
+      this.root.position.set(this.pos.x, this.pos.y + VINE_TOP, this.pos.z);
+      return;
+    }
+    if (!this.slideSound) { this.slideSound = true; sfx.vineSlide(); }
+    const k = Math.min(1, this.timer / DROP_SECONDS);
+    const fall = k < 0.8 ? (k / 0.8) ** 1.6 * 0.95 : 0.95 + (k - 0.8) / 0.2 * 0.05;   // fast, then brakes at the bottom
+    const height = (VINE_TOP - 2) * (1 - fall);
+    // Hands up on the vine, legs together, sword arm too (he grips with both hands).
+    this.sword.rotation.x = -3.0;
+    this.leftArm.rotation.x = -3.0;
+    this.legs[0].rotation.x = -0.25; this.legs[1].rotation.x = -0.1;
+    this.root.position.set(this.pos.x, this.pos.y + height, this.pos.z);
+    this.root.rotation.y = this.facing + Math.sin(this.timer * 3) * 0.3;   // spins a little on the rope
+    if (k >= 1) {   // landed: thump, dust, and the vine pulls back up into the trees
+      this.state = 'chase';
+      this.timer = 0;
+      this.leftArm.rotation.x = 0;
+      sfx.thud();
+      if (this.effects) {
+        this.effects.burst(new THREE.Vector3(this.pos.x, this.pos.y + 0.2, this.pos.z), 'dirt', 12);
+        this.effects.burst(new THREE.Vector3(this.pos.x, this.pos.y + 0.2, this.pos.z), 'chip', 4);
+      }
+      this.vineUp = 0;
+    }
+  }
+
+  // After landing, the empty vine is pulled back up out of sight.
+  updateVine(dt) {
+    if (!this.vine || this.vineUp === undefined) return;
+    this.vineUp += dt;
+    this.vine.position.y += dt * 9 * Math.min(1, this.vineUp * 2);
+    if (this.vineUp > 1.6) { this.scene.remove(this.vine); this.vine = null; }
   }
 
   get alive() { return this.state !== 'dead'; }
+  get hiddenOnMap() { return this.state === 'descend' && this.timer < 0; }   // still hidden up in the trees
 
   // Returns true if this hit defeated him.
   hit(amount, dirX, dirZ, interrupt = false) {
-    if (!this.alive) return false;
+    if (!this.alive || this.state === 'descend') return false;
     this.health -= amount;
     this.flash = 0.08;
     this.knock.x += dirX * (interrupt ? 6 : 1.5);
@@ -171,7 +241,9 @@ export class Samurai {
     const glow = this.flash > 0 ? 1 : 0;
     for (const m of this.mats) if (!m.userData.glow) m.emissive.setScalar(glow * 0.8);
 
+    this.updateVine(dt);
     if (this.state === 'dead') return this.updateDead(dt);
+    if (this.state === 'descend') return this.updateDescend(dt);
 
     // Find the closest ninja who is still standing and not hidden in smoke.
     // A samurai inside smoke can't see anyone at all.
@@ -230,7 +302,7 @@ export class Samurai {
 
     // Keep a little space from other samurai and from the ninjas.
     for (const o of others) {
-      if (o === this || !o.alive) continue;
+      if (o === this || !o.alive || o.state === 'descend') continue;
       const dx = this.pos.x - o.pos.x, dz = this.pos.z - o.pos.z;
       const d = Math.hypot(dx, dz);
       if (d > 0 && d < 1.1) { moveX += (dx / d) * (1.1 - d) * 2; moveZ += (dz / d) * (1.1 - d) * 2; }
@@ -288,6 +360,7 @@ export class Samurai {
 
   remove() {
     this.gone = true;
+    if (this.vine) { this.scene.remove(this.vine); this.vine = null; }
     this.scene.remove(this.root);
     this.root.traverse(o => { if (o.geometry) o.geometry.dispose(); });
     for (const m of this.mats) m.dispose();

@@ -60,7 +60,10 @@ export class Combat {
     this.waveTimer = 0;
     for (let i = 0; i < this.waveSize; i++) {
       const spot = this.spawnSpot(players);
-      this.samurai.push(new Samurai(this.scene, this.world, this.samuraiCfg, spot.x, spot.z, this.toughness));
+      // They come down their vines one after another, not all at once.
+      const s = new Samurai(this.scene, this.world, this.samuraiCfg, spot.x, spot.z, this.toughness, i * 0.45 + Math.random() * 0.3);
+      s.effects = this.effects;
+      this.samurai.push(s);
     }
   }
 
@@ -96,7 +99,7 @@ export class Combat {
 
   // Everything a shooter's weapons can hit: samurai, plus the other brother in VS mode.
   targets(shooter) {
-    const list = this.samurai.filter(s => s.alive);
+    const list = this.samurai.filter(s => s.alive && s.state !== 'descend');   // can't hit them on the vine
     if (this.vs) for (const p of this.players) if (p !== shooter && p.alive) list.push(p);
     return list;
   }

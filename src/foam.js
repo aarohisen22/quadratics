@@ -69,7 +69,7 @@ export class Foam {
   update(dt, actors) {
     const seen = new Set();
     for (const a of actors) {
-      if (!a || !a.alive || !a.pos) continue;
+      if (!a || !a.alive || !a.pos || a.state === 'descend') continue;   // not while sliding down a vine
       const depth = this.world.waterDepthAt(a.pos.x, a.pos.z);
       let t = this.track.get(a);
       if (!t) { t = { x: a.pos.x, z: a.pos.z, timer: 0, splash: 0 }; this.track.set(a, t); }
