@@ -205,7 +205,7 @@ function step(dt) {
   rain.update(dt, rig.focus);
   effects.update(dt);
   const status = mode === 'vs' && state !== 'menu' ? versus.text
-    : combat.level > 0 ? `Level ${combat.level} · Samurai left: ${combat.samuraiLeft}` : '';
+    : combat.level > 0 ? `Level ${combat.level} · Wave ${combat.wave}/${combat.waveTotal} · Samurai left: ${combat.samuraiLeft}` : '';
   hud.update(dt, players, status);
   updatePadInfo(dt);
   renderer.render(scene, camera);

@@ -60,7 +60,7 @@ export const CONFIG = {
 
   specials: {
     shotgun: { shells: 8, pellets: 7, damagePerPellet: 12, spreadDegrees: 24, range: 14, shotsPerSecond: 1.5 },
-    katana:  { swings: 25, damage: 45, reach: 2.6, arcDegrees: 130, swingsPerSecond: 2.5 },
+    katana:  { swings: 15, damage: 30, reach: 2.4, arcDegrees: 100, swingsPerSecond: 1.8, maxHitsPerSwing: 2 },
     smoke:   { bombs: 3, radius: 5, seconds: 7, throwDistance: 7 }, // samurai can't see you in the smoke
   },
 
@@ -74,7 +74,7 @@ export const CONFIG = {
   samurai: {
     health: 40,
     damage: 12,           // per katana hit
-    speed: 3.4,
+    speed: 2.8,           // ninjas walk at 5, so samurai are a bit slower
     attackRange: 1.8,
     windupSeconds: 0.45,  // how long he raises his sword before striking (time to dodge!)
   },
@@ -94,8 +94,11 @@ export const CONFIG = {
   },
 
   levels: {
-    startSamurai: 5,      // samurai on level 1
-    extraPerLevel: 2,     // more samurai each level
+    startSamurai: 5,      // samurai in each wave on level 1
+    extraPerLevel: 2,     // more samurai per wave each level
+    wavesPerLevel: 2,     // each level comes in waves...
+    extraWaveFromLevel: 5, // ...and from this level on, one more wave
+    waveSizeFactor: 0.75, // waves are a bit smaller than a whole level used to be
     toughnessPerLevel: 0.15, // +15% health and damage each level
     refillAmmoOnLevelUp: false, // supply crates bring ammo now
   },

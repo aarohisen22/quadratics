@@ -60,13 +60,22 @@ export class Combat {
   startLevel(n, players, hud) {
     this.level = n;
     const L = this.levelsCfg;
-    const count = L.startSamurai + L.extraPerLevel * (n - 1);
-    const tough = 1 + L.toughnessPerLevel * (n - 1);
-    for (let i = 0; i < count; i++) {
-      const spot = this.spawnSpot(players);
-      this.samurai.push(new Samurai(this.scene, this.world, this.samuraiCfg, spot.x, spot.z, tough));
-    }
+    this.waveTotal = L.wavesPerLevel + (n >= L.extraWaveFromLevel ? 1 : 0);
+    this.wave = 0;
+    this.toughness = 1 + L.toughnessPerLevel * (n - 1);
+    this.waveSize = Math.max(3, Math.round((L.startSamurai + L.extraPerLevel * (n - 1)) * L.waveSizeFactor));
+    this.spawnWave(players);
     hud.banner(`Level ${n}`, 2);
+    this.onLevelStart?.(n, hud);
+  }
+
+  spawnWave(players) {
+    this.wave++;
+    this.waveTimer = 0;
+    for (let i = 0; i < this.waveSize; i++) {
+      const spot = this.spawnSpot(players);
+      this.samurai.push(new Samurai(this.scene, this.world, this.samuraiCfg, spot.x, spot.z, this.toughness));
+    }
   }
 
   // Somewhere 14-26 m from the ninjas, not inside a tree or rock.
@@ -135,8 +144,17 @@ export class Combat {
     for (const s of this.samurai) s.update(dt, players, this.samurai, this.smokes);
     this.samurai = this.samurai.filter(s => !s.gone);
 
+    // Next wave: when this one is almost beaten, or after 35 seconds.
+    if (!this.vs && this.level > 0 && this.wave < this.waveTotal && players.some(p => p.alive)) {
+      this.waveTimer += dt;
+      if (this.samuraiLeft <= 1 || this.waveTimer > 35) {
+        this.spawnWave(players);
+        hud.toast(`Wave ${this.wave} of ${this.waveTotal}: more samurai coming!`);
+      }
+    }
+
     // Level cleared? Short pause, then the next one.
-    if (!this.vs && this.level > 0 && this.samuraiLeft === 0 && players.some(p => p.alive)) {
+    if (!this.vs && this.level > 0 && this.wave >= this.waveTotal && this.samuraiLeft === 0 && players.some(p => p.alive)) {
       if (this.betweenLevels === 0) {
         this.betweenLevels = 3;
         hud.banner('Level cleared!', 2.5);
@@ -257,11 +275,14 @@ export class Combat {
     const f = p.forward;
     const half = (K.arcDegrees / 2) * Math.PI / 180;
     let hits = 0;
-    for (const s of this.targets(p)) {
+    // Only the closest few in front of the blade get hit, not a whole crowd.
+    const inReach = this.targets(p).filter(s => {
       const dx = s.pos.x - p.pos.x, dz = s.pos.z - p.pos.z, d = Math.hypot(dx, dz);
-      if (d > K.reach + s.radius) continue;
-      const angle = Math.acos(Math.max(-1, Math.min(1, (dx * f.x + dz * f.z) / (d || 1))));
-      if (angle > half) continue;
+      if (d > K.reach + s.radius) return false;
+      return Math.acos(Math.max(-1, Math.min(1, (dx * f.x + dz * f.z) / (d || 1)))) <= half;
+    }).sort((a, b) => a.pos.distanceTo(p.pos) - b.pos.distanceTo(p.pos)).slice(0, K.maxHitsPerSwing);
+    for (const s of inReach) {
+      const dx = s.pos.x - p.pos.x, dz = s.pos.z - p.pos.z, d = Math.hypot(dx, dz);
       s.hit(K.damage, dx / (d || 1), dz / (d || 1), true, p);
       this.effects.burst(new THREE.Vector3(s.pos.x, s.pos.y + 1.2, s.pos.z), 'steel', 14, { x: dx / d, z: dz / d });
       hits++;
