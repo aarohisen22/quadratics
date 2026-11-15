@@ -42,7 +42,13 @@ Then open http://localhost:8080 (this server turns off browser caching so refres
   - [x] Specials: shotgun (8 shells, 7 pellets), katana (25 slashes, 130° arc), smoke bombs (3; samurai can't see you in the smoke). Y / Q / , to switch weapons
   - [x] Broken trees: one near you creaks + shows a red zone, then falls (40 damage, samurai take 80) and leaves a log. Shoot a broken tree 14 times to knock it over on purpose
   - Tested by stepping the game in the browser (game.paused = true; game.step(1/60)). Not tested with real controllers
-- [ ] Phase 5: VS mode  ← next
+- [x] Phase 5: VS mode (waiting on the kids' playtest)
+  - [x] Menu has 3 modes: 1 Player / 2 Player Co-op / 2 Player VS
+  - [x] Brothers start ~20 m apart; every weapon (Uzi, shotgun, katana, shurikens) hits the other brother; no friendly fire in co-op
+  - [x] Knock-down = point for the other brother (trees count too); respawn after 3 s away from the opponent; first to 5 wins; winner screen in his color
+  - [x] Crates every 30 s and falling trees still on; no samurai
+  - [x] Fix: aim help now aims from the gun tip / throwing hand, so shurikens no longer just miss
+- [ ] Phase 6: 1-player first-person mode  ← next
 - [ ] Phase 3: Co-op mode
 - [ ] Phase 4: Drops and hazards
 - [ ] Phase 5: VS mode

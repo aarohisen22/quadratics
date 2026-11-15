@@ -1,6 +1,7 @@
 // A ninja brother: his body, his weapons, how he moves, and his animations.
 import * as THREE from 'three';
 import { buildNinja, buildUzi, buildShotgun, buildKatana, buildSmokeBomb } from './models.js';
+import { sfx } from './sound.js';
 
 export { part } from './models.js';
 
@@ -55,6 +56,8 @@ export class Ninja {
     this.throwT = -1;        // throwing arm progress 0..1
     this.fallen = 0;
     this.reviveProgress = 0;
+    this.lastAttacker = null;
+    this.respawnIn = null;
     this.root.rotation.x = 0;
     this.hold('uzi');
   }
@@ -99,6 +102,18 @@ export class Ninja {
     if (!this.alive) return;
     this.health = Math.max(0, this.health - amount);
     if (this.health === 0) this.alive = false;
+  }
+
+  // Hit by the other brother's weapon (VS mode). Returns true if it knocked him down.
+  hit(amount, dirX, dirZ, heavy = false, attacker = null) {
+    if (!this.alive) return false;
+    this.lastAttacker = attacker;
+    this.hurt(amount);
+    this.justHurt = true;
+    this.vel.x += dirX * (heavy ? 7 : 2);
+    this.vel.z += dirZ * (heavy ? 7 : 2);
+    sfx.hurt();
+    return !this.alive;
   }
 
   // ctrl comes from Input.read(); aimPoint is where the mouse points on the ground.

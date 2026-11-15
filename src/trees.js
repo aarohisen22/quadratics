@@ -128,6 +128,7 @@ export class FallingTrees {
     };
     for (const p of players) {
       if (p.alive && under(p.pos.x, p.pos.z, p.radius)) {
+        p.lastAttacker = null;   // nobody's fault (in VS the other brother gets the point)
         p.hurt(this.cfg.treeDamage);
         p.justHurt = true;
         sfx.hurt();

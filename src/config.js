@@ -79,6 +79,12 @@ export const CONFIG = {
     windupSeconds: 0.45,  // how long he raises his sword before striking (time to dodge!)
   },
 
+  versus: {
+    killsToWin: 5,        // first brother to this many knock-downs wins
+    respawnSeconds: 3,
+    spawnApart: 20,       // how far apart the brothers start (meters)
+  },
+
   coop: {
     reviveSeconds: 2.5,   // stand next to your downed brother this long to revive him
     reviveDistance: 2,    // how close you need to be (meters)

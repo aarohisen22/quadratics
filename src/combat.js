@@ -40,6 +40,8 @@ export class Combat {
     this.coopCfg = config.coop;
     this.specials = config.specials;
     this.smokes = [];   // active smoke clouds { x, z, r, t }
+    this.vs = false;    // VS mode: the brothers' weapons hit each other
+    this.players = [];
     this.bombs = [];    // smoke bombs in the air
     this.samurai = [];
     this.shurikens = [];
@@ -97,7 +99,17 @@ export class Combat {
 
   // ---------- each frame ----------
 
+  // Everything a shooter's weapons can hit: samurai, plus the other brother in VS mode.
+  targets(shooter) {
+    const list = this.samurai.filter(s => s.alive);
+    if (this.vs) for (const p of this.players) if (p !== shooter && p.alive) list.push(p);
+    return list;
+  }
+
+  inSmoke(x, z) { return this.smokes.some(sm => Math.hypot(sm.x - x, sm.z - z) < sm.r); }
+
   update(dt, players, ctrls, hud) {
+    this.players = players;
     players.forEach((p, i) => {
       if (!p.alive) return;
       p.fireCooldown -= dt;
@@ -124,7 +136,7 @@ export class Combat {
     this.samurai = this.samurai.filter(s => !s.gone);
 
     // Level cleared? Short pause, then the next one.
-    if (this.level > 0 && this.samuraiLeft === 0 && players.some(p => p.alive)) {
+    if (!this.vs && this.level > 0 && this.samuraiLeft === 0 && players.some(p => p.alive)) {
       if (this.betweenLevels === 0) {
         this.betweenLevels = 3;
         hud.banner('Level cleared!', 2.5);
@@ -142,18 +154,23 @@ export class Combat {
     }
   }
 
-  // Aim help: bend the shot toward a samurai close to where you're aiming.
-  aimDirection(p, range = this.weapons.uziRange) {
+  // Aim help: bend the shot toward a target close to where you're aiming (not one hidden in smoke).
+  // `from` is where the bullet or shuriken starts (the gun tip or hand), so it flies straight at the target.
+  aimDirection(p, range = this.weapons.uziRange, from = p.pos) {
     const f = p.forward;
     const help = this.weapons.aimHelpDegrees * Math.PI / 180;
     let best = null, bestAngle = help;
-    for (const s of this.samurai) {
-      if (!s.alive) continue;
+    for (const s of this.targets(p)) {
+      if (this.inSmoke(s.pos.x, s.pos.z)) continue;
       const dx = s.pos.x - p.pos.x, dz = s.pos.z - p.pos.z;
       const d = Math.hypot(dx, dz);
       if (d > range || d < 0.01) continue;
       const angle = Math.acos(Math.max(-1, Math.min(1, (dx * f.x + dz * f.z) / d)));
-      if (angle < bestAngle) { bestAngle = angle; best = { x: dx / d, z: dz / d }; }
+      if (angle < bestAngle) {
+        bestAngle = angle;
+        const fx = s.pos.x - from.x, fz = s.pos.z - from.z, fd = Math.hypot(fx, fz) || 1;
+        best = { x: fx / fd, z: fz / fd };
+      }
     }
     return best || f;
   }
@@ -173,17 +190,17 @@ export class Combat {
     this.effects.muzzle(index, from);
     const f = p.forward;
     this.effects.casing(p.ejectPosition(this.tmp2), { x: -f.z, z: f.x });  // casings fly out to the right
-    let dir = this.aimDirection(p);
+    let dir = this.aimDirection(p, this.weapons.uziRange, from);
     const spread = (Math.random() - 0.5) * 0.06;
     dir = { x: dir.x * Math.cos(spread) - dir.z * Math.sin(spread), z: dir.x * Math.sin(spread) + dir.z * Math.cos(spread) };
 
-    const hit = this.castRay(from.x, from.y, from.z, dir.x, dir.z, this.weapons.uziRange);
+    const hit = this.castRay(from.x, from.y, from.z, dir.x, dir.z, this.weapons.uziRange, p);
     const end = this.tmp2.set(from.x + dir.x * hit.dist, from.y, from.z + dir.z * hit.dist);
     this.effects.tracer(from, end);
 
-    if (hit.samurai) {
-      end.y = hit.samurai.pos.y + 1.2;
-      hit.samurai.hit(this.weapons.uziDamage, dir.x, dir.z);
+    if (hit.target) {
+      end.y = hit.target.pos.y + 1.2;
+      hit.target.hit(this.weapons.uziDamage, dir.x, dir.z, false, p);
       this.effects.burst(end, 'spark', 7, { x: -dir.x, z: -dir.z });
       sfx.hitEnemy();
     } else if (hit.obstacle) {
@@ -211,17 +228,17 @@ export class Combat {
     this.effects.muzzle(index, from, 1.6);
     const f = p.forward;
     setTimeout(() => this.effects.casing(p.ejectPosition(this.tmp2), { x: -f.z, z: f.x }), 400);
-    const base = this.aimDirection(p, S.range);
+    const base = this.aimDirection(p, S.range, from);
     const spread = S.spreadDegrees * Math.PI / 180;
     for (let k = 0; k < S.pellets; k++) {
       const a = (k / (S.pellets - 1) - 0.5) * spread + (Math.random() - 0.5) * 0.05;
       const dir = { x: base.x * Math.cos(a) - base.z * Math.sin(a), z: base.x * Math.sin(a) + base.z * Math.cos(a) };
-      const hit = this.castRay(from.x, from.y, from.z, dir.x, dir.z, S.range);
+      const hit = this.castRay(from.x, from.y, from.z, dir.x, dir.z, S.range, p);
       const end = new THREE.Vector3(from.x + dir.x * hit.dist, from.y, from.z + dir.z * hit.dist);
       this.effects.tracer(from, end);
-      if (hit.samurai) {
-        end.y = hit.samurai.pos.y + 1.2;
-        hit.samurai.hit(S.damagePerPellet, dir.x * 2, dir.z * 2);
+      if (hit.target) {
+        end.y = hit.target.pos.y + 1.2;
+        hit.target.hit(S.damagePerPellet, dir.x * 2, dir.z * 2, false, p);
         this.effects.burst(end, 'spark', 5, { x: -dir.x, z: -dir.z });
       } else if (hit.obstacle) {
         this.effects.burst(end, 'chip', 4, { x: -dir.x, z: -dir.z });
@@ -240,13 +257,12 @@ export class Combat {
     const f = p.forward;
     const half = (K.arcDegrees / 2) * Math.PI / 180;
     let hits = 0;
-    for (const s of this.samurai) {
-      if (!s.alive) continue;
+    for (const s of this.targets(p)) {
       const dx = s.pos.x - p.pos.x, dz = s.pos.z - p.pos.z, d = Math.hypot(dx, dz);
       if (d > K.reach + s.radius) continue;
       const angle = Math.acos(Math.max(-1, Math.min(1, (dx * f.x + dz * f.z) / (d || 1))));
       if (angle > half) continue;
-      s.hit(K.damage, dx / (d || 1), dz / (d || 1), true);
+      s.hit(K.damage, dx / (d || 1), dz / (d || 1), true, p);
       this.effects.burst(new THREE.Vector3(s.pos.x, s.pos.y + 1.2, s.pos.z), 'steel', 14, { x: dx / d, z: dz / d });
       hits++;
     }
@@ -293,33 +309,32 @@ export class Combat {
     this.bombs = this.bombs.filter(b => !b.done);
   }
 
-  // Finds the first samurai or tree/rock along a shot.
-  castRay(ox, oy, oz, dx, dz, range) {
-    let dist = range, samurai = null, obstacle = null;
-    for (const s of this.samurai) {
-      if (!s.alive) continue;
+  // Finds the first target (samurai / other brother) or tree/rock along a shot.
+  castRay(ox, oy, oz, dx, dz, range, shooter = null) {
+    let dist = range, target = null, obstacle = null;
+    for (const s of this.targets(shooter)) {
       const t = rayCircle(ox, oz, dx, dz, s.pos.x, s.pos.z, s.radius + 0.1);
-      if (t !== null && t < dist) { dist = t; samurai = s; }
+      if (t !== null && t < dist) { dist = t; target = s; }
     }
     for (const o of this.world.obstacles) {
       if (oy > o.base + o.h) continue; // shot passes over low logs and rocks
       const t = rayCircle(ox, oz, dx, dz, o.x, o.z, o.r - 0.2);
-      if (t !== null && t < dist) { dist = t; samurai = null; obstacle = o; }
+      if (t !== null && t < dist) { dist = t; target = null; obstacle = o; }
     }
-    return { dist, samurai, obstacle };
+    return { dist, target, obstacle };
   }
 
   throwShuriken(p) {
     if (p.shurikens <= 0) { sfx.empty(); return; }
     p.shurikens--;
     sfx.shuriken();
-    const dir = this.aimDirection(p);
     const mesh = new THREE.Mesh(this.shurikenGeo, this.shurikenMat);
     mesh.castShadow = true;
     p.throwT = 0;
     p.throwPosition(mesh.position);
+    const dir = this.aimDirection(p, this.weapons.uziRange, mesh.position);
     this.scene.add(mesh);
-    this.shurikens.push({ mesh, dx: dir.x, dz: dir.z, life: 1.4 });
+    this.shurikens.push({ mesh, dx: dir.x, dz: dir.z, life: 1.4, owner: p });
   }
 
   updateShurikens(dt) {
@@ -327,9 +342,9 @@ export class Combat {
     for (const s of this.shurikens) {
       const step = speed * dt;
       const m = s.mesh.position;
-      const hit = this.castRay(m.x, m.y, m.z, s.dx, s.dz, step);
-      if (hit.samurai) {
-        hit.samurai.hit(this.weapons.shurikenDamage, s.dx, s.dz, true);
+      const hit = this.castRay(m.x, m.y, m.z, s.dx, s.dz, step, s.owner);
+      if (hit.target) {
+        hit.target.hit(this.weapons.shurikenDamage, s.dx, s.dz, true, s.owner);
         this.effects.burst(m, 'steel', 12, { x: -s.dx, z: -s.dz });
         sfx.shurikenHit();
         s.life = 0;

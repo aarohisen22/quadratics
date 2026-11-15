@@ -22,7 +22,12 @@ export class Team {
     });
   }
 
-  update(dt, players, time) {
+  update(dt, players, time, allowRevive = true) {
+    if (players.length < 2 || !allowRevive) {
+      this.rings.forEach(r => { r.base.visible = r.fill.visible = false; });
+      if (players.length === 2) this.keepTogether(players);
+      return;
+    }
     if (players.length < 2) {
       this.rings.forEach(r => { r.base.visible = r.fill.visible = false; });
       return;
@@ -61,7 +66,12 @@ export class Team {
       ring.fill.position.copy(ring.base.position).y += 0.01;
     });
 
-    // Keep the brothers from getting too far apart: pull both toward the middle.
+    this.keepTogether(players);
+  }
+
+  // Keep the brothers from getting too far apart: pull both toward the middle.
+  keepTogether(players) {
+    const cfg = this.cfg;
     const [a, b] = players;
     const dx = b.pos.x - a.pos.x, dz = b.pos.z - a.pos.z;
     const d = Math.hypot(dx, dz);

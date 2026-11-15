@@ -28,7 +28,8 @@ export class Hud {
     this.cards.forEach((c, i) => { c.el.style.display = i < n ? '' : 'none'; });
   }
 
-  update(dt, players, level, samuraiLeft) {
+  // status: the text in the corner (level and samurai, or the VS score); '' hides it.
+  update(dt, players, status) {
     players.forEach((p, i) => {
       const c = this.cards[i];
       const hp = Math.ceil(p.health);
@@ -47,7 +48,9 @@ export class Hud {
       const down = !p.alive && players.length > 1;
       c.el.classList.toggle('down', down);
       if (down) {
-        c.status.textContent = p.reviveProgress > 0
+        c.status.textContent = p.respawnIn !== null && p.respawnIn !== undefined
+          ? `Back in ${Math.max(1, Math.ceil(p.respawnIn))}…`
+          : p.reviveProgress > 0
           ? `Reviving… ${Math.floor(p.reviveProgress * 100)}%`
           : 'DOWN! Brother, stand next to him to revive';
       }
@@ -55,8 +58,8 @@ export class Hud {
     });
     this.hurtAlpha = Math.max(0, this.hurtAlpha - dt * 2.5);
     $('hurt').style.opacity = this.hurtAlpha;
-    $('level').textContent = `Level ${level} · Samurai left: ${samuraiLeft}`;
-    $('level').style.visibility = level > 0 ? 'visible' : 'hidden';
+    $('level').textContent = status;
+    $('level').style.visibility = status ? 'visible' : 'hidden';
 
     if (this.bannerTimer > 0) {
       this.bannerTimer -= dt;
@@ -77,7 +80,17 @@ export class Hud {
     this.bannerTimer = seconds;
   }
 
+  // End screen for VS: who won, in their headband color.
+  showEnd(title, text, color) {
+    $('defeat-title').textContent = title;
+    $('defeat-title').style.color = '#' + color.toString(16).padStart(6, '0');
+    $('defeat-text').textContent = text;
+    $('defeat').classList.remove('hidden');
+  }
+
   showDefeat(level, playerCount) {
+    $('defeat-title').textContent = 'Defeated';
+    $('defeat-title').style.color = '';
     $('defeat-text').textContent = playerCount > 1
       ? `Both brothers are down. You reached level ${level}.`
       : `You reached level ${level}.`;
