@@ -76,7 +76,14 @@ export const CONFIG = {
     damage: 12,           // per katana hit
     speed: 2.8,           // ninjas walk at 5, so samurai are a bit slower
     attackRange: 1.8,
-    windupSeconds: 0.45,  // how long he raises his sword before striking (time to dodge!)
+    windupSeconds: 0.45,  // (old single attack; now each attack below has its own warning time)
+    // Each time he attacks he picks one of these. damage = times the samurai's damage (12 at level 1).
+    // windup = warning time before the hit, arc = how wide it hits (1 = only dead ahead, -0.2 = very wide).
+    attacks: {
+      jab:   { chance: 0.35, windup: 0.28, damage: 0.6, range: 2.3, arc: 0.85, recover: 0.35 }, // fast poke: step aside
+      slash: { chance: 0.40, windup: 0.45, damage: 1.0, range: 2.0, arc: -0.2, recover: 0.55 }, // wide sweep from the side: back off
+      chop:  { chance: 0.25, windup: 0.80, damage: 1.8, range: 1.9, arc: 0.35, recover: 0.85 }, // big overhead: long warning, hurts most
+    },
   },
 
   versus: {

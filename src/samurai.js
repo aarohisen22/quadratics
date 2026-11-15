@@ -113,13 +113,14 @@ function buildSamurai() {
   const katana = buildKatana(0.85);
   katana.position.set(0, -0.56, 0.02);
   katana.rotation.x = Math.PI / 2;
+  katana.children[0].material = mats.steel;   // his own blade material, so it can glow before a big chop
   shoulder.add(katana);
   body.add(shoulder);
   const leftArm = new THREE.Group(); leftArm.position.set(-0.3, 1.48, 0);
   leftArm.add(part(new THREE.CapsuleGeometry(0.07, 0.45, 4, 8), mats.cloth, 0, -0.28, 0));
   body.add(leftArm);
 
-  return { root, body, legs, sword: shoulder, leftArm, mats: Object.values(mats) };
+  return { root, body, legs, sword: shoulder, blade: katana, leftArm, steel: mats.steel, mats: Object.values(mats) };
 }
 
 // The vine a samurai slides down on: a thin green rope hanging from the canopy, with a few leaves.
@@ -267,24 +268,38 @@ export class Samurai {
       this.timer -= dt;
       if (this.state === 'chase') {
         if (best > this.cfg.attackRange) { moveX = dx / best; moveZ = dz / best; }
-        else { this.state = 'windup'; this.timer = this.cfg.windupSeconds; }
+        else {
+          // Pick an attack: quick jab, side slash (from the left or right) or big overhead chop.
+          const A = this.cfg.attacks;
+          let r = Math.random(), name = 'chop';
+          for (const k of Object.keys(A)) { if (r < A[k].chance) { name = k; break; } r -= A[k].chance; }
+          this.attack = name;
+          this.slashSide = Math.random() < 0.5 ? 1 : -1;
+          this.state = 'windup'; this.timer = A[name].windup;
+        }
       } else if (this.state === 'windup' && this.timer <= 0) {
+        const a = this.cfg.attacks[this.attack];
         this.state = 'strike'; this.timer = 0.18;
         sfx.swing();
-        // Damage anyone in front of him and in reach.
+        if (this.attack === 'chop') sfx.thud();
+        if (this.attack === 'jab') {   // lunges forward with the poke
+          this.knock.x += Math.sin(this.facing) * 5;
+          this.knock.y += Math.cos(this.facing) * 5;
+        }
+        // Damage anyone in reach and inside this attack's arc.
         for (const p of players) {
           if (!p.alive) continue;
           const px = p.pos.x - this.pos.x, pz = p.pos.z - this.pos.z;
           const d = Math.hypot(px, pz);
           const facingDot = (px * Math.sin(this.facing) + pz * Math.cos(this.facing)) / (d || 1);
-          if (d < this.cfg.attackRange + 0.5 && facingDot > 0.3) {
-            p.hurt(this.damage);
+          if (d < a.range + 0.3 && facingDot > a.arc) {
+            p.hurt(this.damage * a.damage);
             p.justHurt = true;
             sfx.hurt();
           }
         }
       } else if (this.state === 'strike' && this.timer <= 0) {
-        this.state = 'recover'; this.timer = 0.55;
+        this.state = 'recover'; this.timer = this.cfg.attacks[this.attack].recover;
       } else if (this.state === 'recover' && this.timer <= 0) {
         this.state = 'chase';
       }
@@ -332,11 +347,32 @@ export class Samurai {
     this.leftArm.rotation.x = -swing * 0.6;
     this.body.position.y = Math.abs(Math.cos(this.walkPhase)) * 0.05 * k;
 
-    // Sword arm: ready, raised high, slashing down, then recovering.
-    const poses = { chase: -0.9, windup: -2.9, strike: -0.4, recover: -0.7 };
-    const want = poses[this.state] ?? -0.9;
-    const speed = this.state === 'strike' ? 40 : 10;
-    this.sword.rotation.x += (want - this.sword.rotation.x) * (1 - Math.exp(-speed * dt));
+    // Sword arm and body twist for each attack: [shoulder x, shoulder z, body twist, body lean].
+    const s = this.slashSide || 1;
+    const POSES = {
+      jab:   { windup: [-1.25, 0.15, -0.55, -0.05], strike: [-1.62, 0.0, 0.25, 0.2] },        // pull back, then thrust
+      slash: { windup: [-1.5, 0.25 * s, -1.4 * s, 0],         // twists right round with the sword out to one side...
+               strike: [-1.5, 0.25 * s, 1.1 * s, 0.1] },       // ...then sweeps it flat across in front
+      chop:  { windup: [-3.05, 0.1, 0, -0.1], strike: [-0.35, 0.05, 0, 0.25] },                // way up high, then down hard
+    };
+    let pose = [-0.9, 0, 0, 0];                       // ready stance
+    const atk = POSES[this.attack];
+    if (atk && this.state === 'windup') pose = atk.windup;
+    else if (atk && this.state === 'strike') pose = atk.strike;
+    else if (this.state === 'recover') pose = [-0.7, 0.1, 0, 0];
+    const speed = this.state === 'strike' ? 30 : this.state === 'windup' ? 9 : 8;
+    const b = 1 - Math.exp(-speed * dt);
+    this.sword.rotation.x += (pose[0] - this.sword.rotation.x) * b;
+    this.sword.rotation.z += (pose[1] - this.sword.rotation.z) * b;
+    this.body.rotation.y += (pose[2] - this.body.rotation.y) * b;
+    this.body.rotation.x += (pose[3] - this.body.rotation.x) * b;
+    // For the side slash the blade sticks straight out from his arm, so it sweeps wide and flat.
+    const flat = this.attack === 'slash' && (this.state === 'windup' || this.state === 'strike');
+    const bladeWant = flat ? Math.PI * 0.95 : Math.PI / 2;
+    this.blade.rotation.x += (bladeWant - this.blade.rotation.x) * b;
+    // The big chop's blade glows red while he winds up: get out of the way!
+    const glowing = this.state === 'windup' && this.attack === 'chop';
+    if (glowing) this.steel.emissive.setRGB(1.0, 0.12, 0.05).multiplyScalar(0.6 + Math.sin(performance.now() / 60) * 0.4);
 
     this.root.position.copy(this.pos);
     this.root.rotation.y = this.facing;
