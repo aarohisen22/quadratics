@@ -1,0 +1,29 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Jungle Ninja Brothers</title>
+  <link rel="stylesheet" href="style.css">
+  <script type="importmap">
+  {
+    "imports": {
+      "three": "https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.js",
+      "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/"
+    }
+  }
+  </script>
+</head>
+<body>
+  <div id="start">
+    <h1>Jungle Ninja Brothers</h1>
+    <p class="cta">Click to enter the jungle</p>
+    <p class="small">Controller: left stick move · right stick aim · A jump · LB run<br>
+      Keyboard: WASD move · mouse aim · Space jump · Shift run</p>
+  </div>
+  <div id="hud">
+    <div id="pads"></div>
+  </div>
+  <script type="module" src="src/main.js"></script>
+</body>
+</html>
