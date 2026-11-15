@@ -60,7 +60,7 @@ Then open http://localhost:8080 (this server turns off browser caching so refres
   - [x] Hands + weapon on screen (fps.js) for Uzi, shotgun (pump moves), katana (slash), smoke bombs, left-hand shuriken flick; walk bob and recoil
   - [x] Crosshair with red hit marker; less aim help (4°) than overhead
   - Tested by stepping the game; pointer lock (mouse grab) can't be tested automatically — try it by hand
-- [ ] Feedback round 2 (kids' "Part 2" note)  ← in progress
+- [x] Feedback round 2 (kids' "Part 2" note) (waiting on the kids' playtest)
   - [x] 1. Fallen trees stay down on try-again; breakable trees now have a yellow-green crown that falls with the trunk (before, from above they were just a bare pole, so a falling one looked like a new tree appearing)
   - [x] 2. Oni / demon masks on the samurai (red face, angry brows, glowing eyes, fangs, horns; helmet raised so the face shows; `buildOniMask` in samurai.js is reusable for the boss)
   - [x] 3. Water foam around legs when wading: foam patches drift downstream and fade, splashes when moving (foam.js; ninjas and samurai)
@@ -70,17 +70,17 @@ Then open http://localhost:8080 (this server turns off browser caching so refres
   - [x] 6. Samurai slide down vines instead of popping in: one after another (~0.5 s apart), 1.4 s slide gripping with both hands, thump + dust on landing, vine pulls back up; can't be hit or attack until landed; hidden from the map while still up in the trees
   - [x] 7. Samurai mix attacks (config.js `samurai.attacks`): quick jab (0.28 s warning, 7 dmg at level 1, narrow, lunges; step aside), side slash (0.45 s, 12 dmg, wide flat sweep from either side; back off), overhead chop (0.8 s with red glowing blade, 22 dmg). Shurikens still interrupt any windup
   - [x] 8. Enemy archers (green armor, quiver; keep 7-15 m away, 0.9 s draw with red aim line on the ground, arrow 16 m/s you can sidestep, sticks in trees) and nunchuck fighters (blue armor, faster, spin-up then 3-hit combo). Archers from level 3, nunchucks from level 4, 20% each +3%/level up to 35% (config.js `samurai.mix`); a toast warns the first time each appears
-  - [ ] 9. Giant Oni warlord mini boss after levels 5, 10, 15…
-- [ ] Phase 7: Menus, polish, publish  ← after feedback round 2
+  - [x] 9. Giant Oni warlord mini boss after levels 5, 10, 15… (boss.js, config.js `boss`): comes down a thick vine with a roar, 2.3x size, studded club; wide club swing (20 dmg) and ground slam with red ring (32 dmg, knock-back, camera shake); calls 2 samurai at half health; shurikens don't interrupt him; health bar at the top + big marker on the minimap; 800 health, +50% each appearance
+- [ ] Phase 7: Menus, polish, publish  ← next
 
 ## Notes and decisions made while building
 - Three.js r170 loads from the jsDelivr CDN through an import map, so there's nothing to install.
 - Phase 1 builds the ninja and jungle from code-made shapes. Swapping in free asset-pack models needs a download, which waits for the user's OK.
 - Treetops dissolve near the ninjas so the overhead camera can see them (`cutaway` in world.js).
-- Files: src/config.js (settings to tune), world.js (jungle), weather.js (light, rain), sound.js, effects.js, combat.js (weapons + levels), samurai.js, hud.js, ninja.js, input.js, camera.js, main.js.
+- Files: src/config.js (settings to tune), world.js (jungle), weather.js (light, rain), sound.js, effects.js, combat.js (weapons + levels + arrows + boss fight), samurai.js (sword/archer/nunchuck kinds, vines, attacks), boss.js (Oni Warlord), foam.js (water foam), minimap.js, hud.js, ninja.js, input.js, camera.js, main.js.
 
-## Where we left off (paused 2026-11-15, before Phase 7)
-Everything through Phase 6 is committed. To resume, open this folder and say "continue the game from PROGRESS.md".
+## Where we left off (2026-11-15, after feedback round 2, before Phase 7)
+Everything through Phase 6 and feedback round 2 is committed. To resume, open this folder and say "continue the game from PROGRESS.md".
 
 **Phase 7 to-do (menus, polish, publish):**
 - Pause menu in every mode (Esc / Start button): resume, restart, back to menu
@@ -91,5 +91,7 @@ Everything through Phase 6 is committed. To resume, open this folder and say "co
 **Still never tested by a person:** real game controllers, sounds by ear, mouse grab (pointer lock) in first person.
 
 **Ideas raised but not done:** professional animated character models from free packs (needs downloads, ask first); shots that follow up/down aim in first person; single-player quests/missions; online multiplayer.
+
+**Testing tip: jump to the boss:** in the console, `game.paused = true; game.combat.reset(); game.combat.level = 5; game.combat.wave = game.combat.waveTotal = 3;` then `game.step(1/60)` a few hundred times. If the browser pane is hidden, screenshots can be stale; render with `game.renderer.render(game.scene, game.camera)` and copy `game.renderer.domElement.toDataURL()` into an <img> on the page.
 
 **Testing tip for the next session:** in the browser console, `game.paused = true` stops the loop and `game.step(1/60)` advances one frame; `game.players`, `game.combat`, `game.sky`, `game.world` are exposed.

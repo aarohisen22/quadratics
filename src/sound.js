@@ -234,6 +234,11 @@ export const sfx = {
   },
   arrowThunk() { burst({ type: 'lowpass', freq: 700, q: 2, gain: 0.45, decay: 0.08 }); },
   nunchuckWhirl() { burst({ type: 'bandpass', freq: 700, freqEnd: 1400, q: 5, gain: 0.18, decay: 0.25 }); },
+  roar() {   // the Oni Warlord's war cry
+    tone(120, 55, 0.35, 1.0, 'sawtooth', { verb: 0.5 });
+    tone(90, 45, 0.3, 1.1, 'square', { verb: 0.5, delay: 0.05 });
+    burst({ type: 'lowpass', freq: 400, freqEnd: 150, q: 1, gain: 0.35, decay: 0.8, verb: 0.4 });
+  },
   vineSlide() { burst({ type: 'bandpass', freq: 900, q: 0.8, gain: 0.16, decay: 0.7 }); },   // rope zipping through gloves
   thud() { burst({ type: 'lowpass', freq: 160, q: 1, gain: 0.5, decay: 0.12 }); },
 };

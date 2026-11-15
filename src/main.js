@@ -58,6 +58,7 @@ allPlayers.forEach((p, i) => { p.index = i; });
 const versus = new Versus(world, CONFIG.versus);
 const sky = new Sky({ scene, renderer, sun, hemi, rain, world });
 combat.onLevelStart = (n, hud) => sky.forLevel(n, hud);
+combat.onShake = v => { rig.shake = Math.max(rig.shake, v); };
 combat.onHit = shooter => { if (shooter.view) hud.hitMarker(); };
 
 // States: 'menu', 'playing', 'dying' (falling over), 'defeated', 'won' (VS winner)
@@ -275,7 +276,8 @@ function step(dt) {
     : combat.level > 0 ? `Level ${combat.level} · Wave ${combat.wave}/${combat.waveTotal} · Samurai left: ${combat.samuraiLeft}` : '';
   hud.update(dt, players, status);
   minimap.show(state !== 'menu');
-  minimap.update(dt, camera, { players, samurai: combat.samurai, crates: drops.crates });
+  minimap.update(dt, camera, { players, samurai: combat.samurai, crates: drops.crates, boss: combat.boss });
+  hud.bossBar(state === 'menu' ? null : combat.boss);
   updatePadInfo(dt);
   renderer.render(scene, camera);
   if (fps) fpsView.render(renderer);   // hands and weapon drawn on top

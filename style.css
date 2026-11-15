@@ -90,3 +90,12 @@ canvas { display: block; }
 #minimap { position: fixed; left: 16px; bottom: 16px; width: 168px; height: 168px; border-radius: 50%;
   pointer-events: none; box-shadow: 0 2px 10px rgba(0,0,0,.5); }
 @media (max-width: 820px) { #minimap { width: 120px; height: 120px; left: 10px; bottom: 10px; } }
+
+/* ---------- Oni Warlord health bar ---------- */
+#bossbar { position: fixed; top: 16px; left: 50%; transform: translateX(-50%); width: min(460px, 60vw);
+  pointer-events: none; text-align: center; }
+#bossbar .bname { font-size: 15px; font-weight: 800; letter-spacing: .14em; text-transform: uppercase;
+  color: #ff5a3a; text-shadow: 0 1px 3px #000, 0 0 10px rgba(255,40,20,.6); margin-bottom: 5px; }
+#bossbar .bbar { height: 14px; border-radius: 7px; background: rgba(10,10,10,.65); border: 2px solid #d4a440; overflow: hidden; }
+#bossbar .bfill { height: 100%; width: 100%; background: linear-gradient(#ff4a2a, #a3170f); transition: width .15s; }
+@media (max-width: 820px) { #bossbar { top: 110px; width: 80vw; } }

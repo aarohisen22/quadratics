@@ -21,6 +21,20 @@ export class Hud {
     });
     this.hurtAlpha = 0;
     this.bannerTimer = 0;
+
+    // The Oni Warlord's health bar across the top.
+    this.bossEl = document.createElement('div');
+    this.bossEl.id = 'bossbar';
+    this.bossEl.innerHTML = '<div class="bname">Oni Warlord</div><div class="bbar"><div class="bfill"></div></div>';
+    this.bossEl.style.display = 'none';
+    document.body.append(this.bossEl);
+    this.bossFill = this.bossEl.querySelector('.bfill');
+  }
+
+  bossBar(boss) {
+    const show = !!boss && boss.state !== 'descend';
+    this.bossEl.style.display = show ? '' : 'none';
+    if (show) this.bossFill.style.width = Math.max(0, boss.health / boss.maxHealth * 100) + '%';
   }
 
   // Show one or two player cards.

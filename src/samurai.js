@@ -462,8 +462,8 @@ export class Samurai {
     for (const o of others) {
       if (o === this || !o.alive || o.state === 'descend') continue;
       const dx = this.pos.x - o.pos.x, dz = this.pos.z - o.pos.z;
-      const d = Math.hypot(dx, dz);
-      if (d > 0 && d < 1.1) { moveX += (dx / d) * (1.1 - d) * 2; moveZ += (dz / d) * (1.1 - d) * 2; }
+      const d = Math.hypot(dx, dz), min = this.radius + (o.radius ?? 0.45) + 0.2;
+      if (d > 0 && d < min) { moveX += (dx / d) * (min - d) * 2; moveZ += (dz / d) * (min - d) * 2; }
     }
 
     const wade = this.world.waterDepthAt(this.pos.x, this.pos.z) > 0.25 ? 0.55 : 1;

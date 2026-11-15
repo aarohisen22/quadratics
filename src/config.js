@@ -112,6 +112,19 @@ export const CONFIG = {
     reviveOnNewLevel: 0.5, // a downed brother comes back with 50% health when a level starts
   },
 
+  // The Oni Warlord mini boss: comes after every 5th level (5, 10, 15...).
+  boss: {
+    every: 5,
+    health: 800, healthPerAppearance: 0.5,   // +50% health each time he comes back
+    damage: 20, damagePerAppearance: 0.25,
+    speed: 2.3, attackRange: 3.0,
+    summon: 2,                                // samurai he calls in when he's down to half health
+    attacks: {
+      slash: { chance: 0.6, windup: 0.7, damage: 1.0, range: 3.4, arc: -0.1, recover: 0.8 },               // wide club swing
+      chop:  { chance: 0.4, windup: 1.2, damage: 1.6, range: 3.5, arc: -1, recover: 1.2, slam: true, radius: 4 }, // ground slam (red ring)
+    },
+  },
+
   levels: {
     startSamurai: 5,      // samurai in each wave on level 1
     extraPerLevel: 2,     // more samurai per wave each level

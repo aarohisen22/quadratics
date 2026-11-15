@@ -1,6 +1,7 @@
 // Fighting: Uzi bullets, thrown shurikens, and levels of samurai.
 import * as THREE from 'three';
 import { Samurai, buildArrow } from './samurai.js';
+import { Boss } from './boss.js';
 import { makeShurikenGeometry } from './models.js';
 import { sfx } from './sound.js';
 
@@ -22,6 +23,8 @@ export class Combat {
     this.effects = effects;
     this.weapons = config.weapons;
     this.samuraiCfg = config.samurai;
+    this.bossCfg = config.boss;
+    this.bossFor = 0;   // the level whose boss fight has started
     this.levelsCfg = config.levels;
     this.coopCfg = config.coop;
     this.specials = config.specials;
@@ -72,6 +75,32 @@ export class Combat {
       this.samurai.push(s);
     }
   }
+
+  // After every 5th level: the Oni Warlord comes down his vine.
+  startBoss(players, hud) {
+    const B = this.bossCfg;
+    this.bossFor = this.level;
+    const spot = this.spawnSpot(players);
+    const boss = new Boss(this.scene, this.world, B, spot.x, spot.z, this.level / B.every);
+    boss.effects = this.effects;
+    boss.onShake = v => this.onShake?.(v);
+    boss.onSummon = b => {   // at half health he calls for help
+      for (let i = 0; i < B.summon; i++) {
+        const a = Math.random() * Math.PI * 2;
+        const x = b.pos.x + Math.cos(a) * 4, z = b.pos.z + Math.sin(a) * 4;
+        const s = new Samurai(this.scene, this.world, this.samuraiCfg, x, z, this.toughness, 0.3 + i * 0.4, this.pickKind());
+        s.effects = this.effects;
+        s.shoot = (from, dir, damage) => this.fireArrow(from, dir, damage);
+        this.samurai.push(s);
+      }
+      hud.toast('The Warlord calls for help! Samurai are coming down the vines!', 4);
+    };
+    this.samurai.push(boss);
+    hud.banner('The Oni Warlord!', 3);
+    hud.toast('Big club swing: back off. Red ring on the ground: get out of it!', 5);
+  }
+
+  get boss() { return this.samurai.find(s => s.isBoss && s.alive) || null; }
 
   // Sword samurai, archer or nunchuck fighter: more of the special kinds in later levels.
   pickKind() {
@@ -155,6 +184,7 @@ export class Combat {
     this.smokes = [];
     this.effects.clearSmoke();
     this.betweenLevels = 0;
+    this.bossFor = 0;
   }
 
   // ---------- each frame ----------
@@ -206,7 +236,7 @@ export class Combat {
     if (!this.vs && this.level > 0 && this.wave >= this.waveTotal && this.samuraiLeft === 0 && players.some(p => p.alive)) {
       if (this.betweenLevels === 0) {
         this.betweenLevels = 3;
-        hud.banner('Level cleared!', 2.5);
+        hud.banner(this.bossFor === this.level ? 'The Oni Warlord is defeated!' : 'Level cleared!', 2.5);
         sfx.levelUp();
       }
       this.betweenLevels -= dt;
@@ -216,7 +246,9 @@ export class Combat {
           for (const p of players) { p.ammo = this.weapons.uziAmmo; p.shurikens = this.weapons.shurikens; }
         }
         for (const p of players) if (!p.alive) p.revive(this.coopCfg.reviveOnNewLevel);
-        this.startLevel(this.level + 1, players, hud);
+        const B = this.bossCfg;
+        if (B && this.level % B.every === 0 && this.bossFor !== this.level) this.startBoss(players, hud);
+        else this.startLevel(this.level + 1, players, hud);
       }
     }
   }
