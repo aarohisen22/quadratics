@@ -64,7 +64,7 @@ Then open http://localhost:8080 (this server turns off browser caching so refres
   - [x] 1. Fallen trees stay down on try-again; breakable trees now have a yellow-green crown that falls with the trunk (before, from above they were just a bare pole, so a falling one looked like a new tree appearing)
   - [x] 2. Oni / demon masks on the samurai (red face, angry brows, glowing eyes, fangs, horns; helmet raised so the face shows; `buildOniMask` in samurai.js is reusable for the boss)
   - [x] 3. Water foam around legs when wading: foam patches drift downstream and fade, splashes when moving (foam.js; ninjas and samurai)
-  - [ ] 4. Minimap bottom-left in overhead modes (brothers, samurai, crates, boss)
+  - [x] 4. Minimap bottom-left in overhead modes: stream, landmarks, brothers (arrows), samurai, crates, boss (minimap.js; turns with the camera). Controller hint moved to bottom-center
   - [ ] 5. Weapons carried on belt and back + switch animation (overhead and first person)
   - [ ] 6. Samurai slide down vines instead of popping in
   - [ ] 7. Samurai mix attacks: quick jab / side slash / overhead chop, different damage

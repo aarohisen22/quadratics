@@ -16,7 +16,7 @@ canvas { display: block; }
 #start.hidden { display: none; }
 @keyframes pulse { 50% { opacity: .45; } }
 
-#hud { position: fixed; left: 16px; bottom: 14px; font-size: 13px; opacity: .8;
+#hud { position: fixed; left: 50%; transform: translateX(-50%); bottom: 14px; white-space: nowrap; font-size: 13px; opacity: .8;
   text-shadow: 0 1px 3px #000; pointer-events: none; }
 
 /* ---------- Phase 2 HUD ---------- */
@@ -85,3 +85,8 @@ canvas { display: block; }
 #paused.hidden { display: none; }
 #paused h2 { font-size: clamp(36px, 8vw, 64px); margin: 0 0 10px; }
 #modes .mode { flex: 1 1 180px; max-width: 260px; }
+
+/* ---------- Minimap (feedback round 2) ---------- */
+#minimap { position: fixed; left: 16px; bottom: 16px; width: 168px; height: 168px; border-radius: 50%;
+  pointer-events: none; box-shadow: 0 2px 10px rgba(0,0,0,.5); }
+@media (max-width: 820px) { #minimap { width: 120px; height: 120px; left: 10px; bottom: 10px; } }

@@ -8,6 +8,7 @@ import { Ninja } from './ninja.js';
 import { CameraRig } from './camera.js';
 import { Effects } from './effects.js';
 import { Foam } from './foam.js';
+import { Minimap } from './minimap.js';
 import { Combat } from './combat.js';
 import { Hud } from './hud.js';
 import { startSound } from './sound.js';
@@ -47,6 +48,8 @@ const allPlayers = [
 ];
 let players = allPlayers.slice(0, 1);
 const hud = new Hud(allPlayers);
+const minimap = new Minimap(world);
+minimap.show(false);
 const team = new Team(scene, allPlayers, CONFIG.coop);
 const drops = new Drops(scene, world, effects, CONFIG);
 const trees = new FallingTrees(scene, world, effects, rig, CONFIG.hazards);
@@ -271,6 +274,8 @@ function step(dt) {
   const status = mode === 'vs' && state !== 'menu' ? versus.text
     : combat.level > 0 ? `Level ${combat.level} · Wave ${combat.wave}/${combat.waveTotal} · Samurai left: ${combat.samuraiLeft}` : '';
   hud.update(dt, players, status);
+  minimap.show(state !== 'menu' && !fps);
+  minimap.update(dt, camera, { players, samurai: combat.samurai, crates: drops.crates });
   updatePadInfo(dt);
   renderer.render(scene, camera);
   if (fps) fpsView.render(renderer);   // hands and weapon drawn on top
@@ -285,4 +290,4 @@ addEventListener('resize', () => {
 });
 
 // Handy for testing in the browser console.
-window.game = { scene, world, get players() { return players; }, allPlayers, combat, team, drops, trees, foam, versus, sky, fpsView, camera, input, CONFIG, get state() { return state; }, step, renderer, rig, get paused() { return paused; }, set paused(v) { paused = v; } };
+window.game = { scene, world, get players() { return players; }, allPlayers, combat, team, drops, trees, foam, minimap, versus, sky, fpsView, camera, input, CONFIG, get state() { return state; }, step, renderer, rig, get paused() { return paused; }, set paused(v) { paused = v; } };
