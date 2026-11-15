@@ -114,7 +114,7 @@ export class Boss extends Samurai {
     if (!a.slam) return super.strikeHit(players, a);
     const c = this.slamCenter();
     for (const p of players) {
-      if (!p.alive) continue;
+      if (!p.alive || p.perch || p.climb) continue;
       const dx = p.pos.x - c.x, dz = p.pos.z - c.z, d = Math.hypot(dx, dz);
       if (d < a.radius) {
         p.hurt(this.damage * a.damage);

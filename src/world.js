@@ -45,7 +45,7 @@ export const cutaway = {
   uCutRadius: { value: 5.5 },
 };
 
-function addCutaway(material) {
+export function addCutaway(material) {
   material.onBeforeCompile = (shader) => {
     shader.uniforms.uCutTargets = cutaway.uCutTargets;
     shader.uniforms.uCutRadius = cutaway.uCutRadius;
@@ -157,6 +157,7 @@ export class World {
     this.obstacles = [];          // { x, z, r, h } circles you bump into
     this.brokenTrees = [];        // trees that may fall (Phase 4)
     this.canopySpots = [];        // undersides of the big trees' leaves, where vines can hang from
+    this.bigTrees = [];           // the giant trees (some get treehouses)
     this.rnd = makeRandom(cfg.seed);
     this.templeSpot = { x: 30, z: -28 };
     this.templeTop = this.baseHeight(30, -28) + 3.5;
@@ -168,6 +169,9 @@ export class World {
 
   // A stream winds across the jungle from west to east. This is its middle line.
   streamZ(x) { return 16 + 11 * Math.sin(x * 0.05 + 0.4) + 4 * Math.sin(x * 0.13 + 1.3); }
+
+  // Is this spot inside a hideout (temple ruins, collapsed hut)?
+  inHideout(x, z) { return (this.hideouts || []).some(h => Math.hypot(h.x - x, h.z - z) < h.r); }
 
   // Distance from the middle of the stream.
   streamDist(x, z) {
@@ -307,6 +311,7 @@ export class World {
       dummy.scale.set(rad * 2.6, 1.6 + r(), rad * 2.6); dummy.updateMatrix();
       roots.add(dummy.matrix, color.setHSL(0.08, 0.28, 0.16));
       this.obstacles.push({ x: s.x, z: s.z, r: rad + 0.25, base: y, h: 99 });
+      this.bigTrees.push({ x: s.x, z: s.z, y, h, rad });
       const blobs = 4 + Math.floor(r() * 4);
       for (let b = 0; b < blobs; b++) {
         const a = r() * 6.28, d = r() * 2.6;

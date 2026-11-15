@@ -289,6 +289,7 @@ export function buildLandmarks(world, scene) {
     { build: () => buildHut(rnd), x: -40, z: 18, yaw: 1.2 },
   ];
   world.landmarks = [];
+  world.hideouts = [];   // places to hide: samurai lose track of you in here (unless they're right next to you)
   for (const s of spots) {
     const { group, obstacles, radius } = s.build();
     const y = s.flatTop ? world.templeTop : world.heightAt(s.x, s.z);
@@ -302,5 +303,15 @@ export function buildLandmarks(world, scene) {
       world.obstacles.push({ x: wx, z: wz, r: o.r, base: world.heightAt(wx, wz), h: o.h });
     }
     world.landmarks.push({ x: s.x, z: s.z, radius });
+    if (s.build !== buildPlane) {
+      const r = s.flatTop ? 6.5 : 4.5;   // the whole temple top, or around a collapsed hut
+      world.hideouts.push({ x: s.x, z: s.z, r });
+      // A faint green ring on the ground so you know where the hideout is.
+      const ring = new THREE.Mesh(new THREE.RingGeometry(r - 0.12, r, 64).rotateX(-Math.PI / 2),
+        new THREE.MeshBasicMaterial({ color: 0x7dff9a, transparent: true, opacity: 0.22, depthWrite: false }));
+      ring.position.set(s.x, y + 0.08, s.z);
+      ring.renderOrder = 2;
+      scene.add(ring);
+    }
   }
 }

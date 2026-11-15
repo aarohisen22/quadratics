@@ -61,6 +61,9 @@ export class Hud {
       c.shur.classList.toggle('out', p.shurikens === 0);
       const down = !p.alive && players.length > 1;
       c.el.classList.toggle('down', down);
+      const hidden = p.alive && (p.hidden || p.perch);
+      c.el.classList.toggle('hiding', !!hidden);
+      if (hidden && !down) c.status.textContent = p.perch ? 'UP A TREE (walk off the edge to get down)' : 'HIDDEN';
       if (down) {
         c.status.textContent = p.respawnIn !== null && p.respawnIn !== undefined
           ? `Back in ${Math.max(1, Math.ceil(p.respawnIn))}…`

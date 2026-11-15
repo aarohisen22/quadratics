@@ -115,9 +115,11 @@ export class Combat {
   fireArrow(from, dir, damage) {
     const mesh = buildArrow();
     mesh.position.copy(from);
+    mesh.rotation.order = 'YXZ';
     mesh.rotation.y = Math.atan2(dir.x, dir.z);
+    mesh.rotation.x = -Math.atan(dir.slope || 0);   // tilted up toward someone in a tree
     this.scene.add(mesh);
-    this.arrows.push({ mesh, dx: dir.x, dz: dir.z, damage, life: 2, stuck: 0 });
+    this.arrows.push({ mesh, dx: dir.x, dz: dir.z, slope: dir.slope || 0, damage, life: 2, stuck: 0 });
   }
 
   updateArrows(dt, players) {
@@ -130,7 +132,9 @@ export class Combat {
         if (a.stuck <= 0) a.life = 0;
       } else {
         const step = speed * dt;
-        const hit = this.castRay(m.x, m.y, m.z, a.dx, a.dz, step, null, ninjas);
+        // Only ninjas the arrow is level with (feet to head) can be hit.
+        const level = ninjas.filter(p => m.y > p.pos.y - 0.1 && m.y < p.pos.y + 2.1);
+        const hit = this.castRay(m.x, m.y, m.z, a.dx, a.dz, step, null, level);
         if (hit.target) {
           hit.target.hurt(a.damage);
           hit.target.justHurt = true;
@@ -145,7 +149,7 @@ export class Combat {
           a.stuck = 4;
         } else {
           m.x += a.dx * step; m.z += a.dz * step;
-          m.y -= dt * 0.6;   // drops a tiny bit as it flies
+          m.y += a.slope * step - dt * 0.6;   // flies up toward its target, dropping a tiny bit
           a.life -= dt;
           if (m.y < this.world.heightAt(m.x, m.z) + 0.05) { a.stuck = 4; a.mesh.rotation.x = 0.4; sfx.arrowThunk(); }
         }

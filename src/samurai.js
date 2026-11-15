@@ -372,6 +372,7 @@ export class Samurai {
     for (const p of players) {
       if (!p.alive || blind || inSmoke(p.pos.x, p.pos.z)) continue;
       const d = Math.hypot(p.pos.x - this.pos.x, p.pos.z - this.pos.z);
+      if (d > 3.5 && this.world.inHideout(p.pos.x, p.pos.z)) continue;   // hiding in the ruins: can't see him
       if (d < best) { best = d; target = p; }
     }
 
@@ -398,7 +399,10 @@ export class Samurai {
         // Let go: the arrow flies where he's aiming right now, so move and it misses.
         const fx = Math.sin(this.facing), fz = Math.cos(this.facing);
         const from = new THREE.Vector3(this.pos.x + fx * 0.6, this.pos.y + 1.65, this.pos.z + fz * 0.6);
-        this.shoot?.(from, { x: fx, z: fz }, this.damage * A.damage, this);
+        // Aim up (or down) at his chest, so arrows reach someone up a tree too.
+        const dist = Math.max(1, Math.hypot(target.pos.x - from.x, target.pos.z - from.z));
+        const slope = (target.pos.y + 1.2 - from.y) / dist;
+        this.shoot?.(from, { x: fx, z: fz, slope }, this.damage * A.damage, this);
         sfx.bowShot();
         this.state = 'strike'; this.timer = 0.2;
         this.reload = A.reloadSeconds * (0.8 + Math.random() * 0.4);
@@ -417,7 +421,9 @@ export class Samurai {
 
       this.timer -= dt;
       if (this.state === 'chase') {
-        if (best > this.cfg.attackRange) { moveX = dx / best; moveZ = dz / best; }
+        if (target.perch || target.climb) {   // he's up a tree: wait underneath, a little way out
+          if (best > 3) { moveX = dx / best; moveZ = dz / best; }
+        } else if (best > this.cfg.attackRange) { moveX = dx / best; moveZ = dz / best; }
         else {
           // Pick an attack: quick jab, side slash (from the left or right) or big overhead chop.
           const A = this.cfg.attacks;
@@ -478,7 +484,7 @@ export class Samurai {
     this.pos.z += (moveZ * this.speed * wade + this.knock.y) * dt;
     this.knock.multiplyScalar(Math.exp(-8 * dt));
     for (const p of players) {
-      if (!p.alive) continue;
+      if (!p.alive || p.perch || p.climb) continue;
       const dx = this.pos.x - p.pos.x, dz = this.pos.z - p.pos.z, d = Math.hypot(dx, dz), min = this.radius + p.radius;
       if (d > 0 && d < min) { this.pos.x = p.pos.x + dx / d * min; this.pos.z = p.pos.z + dz / d * min; }
     }
@@ -544,7 +550,7 @@ export class Samurai {
   // Damage anyone in reach and inside this attack's arc.
   strikeHit(players, a) {
     for (const p of players) {
-      if (!p.alive) continue;
+      if (!p.alive || p.perch || p.climb) continue;   // up a tree: out of reach
       const px = p.pos.x - this.pos.x, pz = p.pos.z - this.pos.z;
       const d = Math.hypot(px, pz);
       const facingDot = (px * Math.sin(this.facing) + pz * Math.cos(this.facing)) / (d || 1);

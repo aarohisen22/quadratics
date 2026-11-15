@@ -112,3 +112,6 @@ canvas { display: block; }
 .pbtn:hover { background: rgba(255,255,255,.15); }
 .pbtn.selected { border-color: #ffcf6a; background: rgba(255,207,106,.18); }
 #paused .small { font-size: 14px; opacity: .75; }
+
+/* Hiding in the ruins / up a tree */
+.pcard.hiding .status { display: block; color: #7dff9a; font-weight: 800; letter-spacing: .08em; }

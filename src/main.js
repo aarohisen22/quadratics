@@ -9,6 +9,7 @@ import { CameraRig } from './camera.js';
 import { Effects } from './effects.js';
 import { Foam } from './foam.js';
 import { Minimap } from './minimap.js';
+import { buildTreehouses } from './treehouses.js';
 import { Combat } from './combat.js';
 import { Hud } from './hud.js';
 import { startSound } from './sound.js';
@@ -39,6 +40,7 @@ const rig = new CameraRig(camera, CONFIG.camera);
 const effects = new Effects(scene);
 effects.world = world;
 const foam = new Foam(scene, world, effects);
+buildTreehouses(world, scene);
 const combat = new Combat(scene, world, effects, CONFIG);
 
 // Both brothers are built up front; 1-player mode only uses the first.

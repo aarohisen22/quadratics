@@ -111,6 +111,9 @@ export class Ninja {
     this.current = 'uzi';
     this.alive = true;
     this.fireCooldown = 0;
+    this.perch = null;       // the treehouse he's standing on
+    this.climb = null;       // climbing a rope ladder: { house, t }
+    this.hidden = false;     // in a hideout (ruins, hut)
     this.spin = 0;           // gatling barrel spin 0..1
     this.recoil = 0;
     this.swing = -1;         // katana slash progress 0..1 (-1 = not swinging)
@@ -119,6 +122,8 @@ export class Ninja {
     this.reviveProgress = 0;
     this.lastAttacker = null;
     this.respawnIn = null;
+    this.perch = null;
+    this.climb = null;
     this.root.rotation.x = 0;
     this.hold('uzi');
   }
@@ -234,6 +239,26 @@ export class Ninja {
       return;
     }
 
+    // Climbing a rope ladder up to a treehouse.
+    if (this.climb) {
+      const h = this.climb.house, L = h.ladder;
+      this.climb.t += dt / 1.0;
+      const k = Math.min(1, this.climb.t);
+      this.pos.set(L.x, L.y + (h.y - L.y) * k, L.z);
+      this.vel.set(0, 0, 0);
+      this.facing = Math.atan2(-h.out.x, -h.out.z);   // facing the ladder
+      if (k >= 1) {   // step onto the platform
+        this.climb = null;
+        this.perch = h;
+        this.pos.set(h.x + h.out.x * (h.r - 0.7), h.y, h.z + h.out.z * (h.r - 0.7));
+        this.vy = 0; this.onGround = true;
+      }
+      this.climbAnim = k;
+      this.animate(dt);
+      return;
+    }
+    this.climbAnim = -1;
+
     // Moving: the camera looks north, so stick up = -z.
     const wading = this.world.waterDepthAt(this.pos.x, this.pos.z) > 0.25;   // the stream slows you down
     const heavy = this.current === 'gatling' ? this.weapons.gatlingWalk : 1;   // the gatling is heavy
@@ -247,14 +272,22 @@ export class Ninja {
     this.pos.z += this.vel.z * dt;
     this.world.resolveCollision(this.pos, this.radius, this.pos.y);
 
+    // Up a tree: the platform is the ground, until he walks off the edge.
+    if (this.perch && Math.hypot(this.pos.x - this.perch.x, this.pos.z - this.perch.z) > this.perch.r) this.perch = null;
+    // Jump at the bottom of a rope ladder = climb up it.
+    const ladder = !this.perch && this.onGround && ctrl.jumpPressed &&
+      (this.world.treehouses || []).find(h => Math.hypot(this.pos.x - h.ladder.x, this.pos.z - h.ladder.z) < 1.1);
+    if (ladder) { this.climb = { house: ladder, t: 0 }; this.animate(dt); return; }
+
     // Jumping and gravity.
-    const ground = this.world.heightAt(this.pos.x, this.pos.z);
+    const ground = this.perch ? this.perch.y : this.world.heightAt(this.pos.x, this.pos.z);
     if (ctrl.jumpPressed && this.onGround) { this.vy = c.jumpSpeed; this.onGround = false; }
     this.vy -= c.gravity * dt;
     this.pos.y += this.vy * dt;
     if (this.pos.y <= ground) { this.pos.y = ground; this.vy = 0; this.onGround = true; }
     else if (this.onGround && this.pos.y - ground < 0.35) { this.pos.y = ground; this.vy = 0; } // walk down slopes
     else this.onGround = false;
+    this.hidden = !this.perch && this.world.inHideout(this.pos.x, this.pos.z);
 
     // Facing: aim stick, then mouse, then the way he's walking.
     let target = null;
@@ -336,6 +369,13 @@ export class Ninja {
       lExtra.sx = 0.1 - s * 0.35 * k;      // free arm swings when walking
     }
     setArm(this.armL, pose.l, lExtra);
+    if (this.climbAnim >= 0) {   // hand over hand up the ladder
+      const c = Math.sin(this.climbAnim * Math.PI * 6);
+      this.armR.shoulder.rotation.set(-2.7 + c * 0.35, 0, 0.1);
+      this.armL.shoulder.rotation.set(-2.7 - c * 0.35, 0, -0.1);
+      this.legs[0].hip.rotation.x = -0.6 - c * 0.4;
+      this.legs[1].hip.rotation.x = -0.6 + c * 0.4;
+    }
 
     this.showHeld();
     const d = this.displayed;

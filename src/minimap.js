@@ -63,6 +63,18 @@ export class Minimap {
       c.beginPath(); c.arc(px, py, Math.max(1.5, rad * scale), 0, Math.PI * 2); c.fill();
     }
 
+    // Hideouts (green rings) and treehouses (brown squares with a ladder dot).
+    c.strokeStyle = 'rgba(125,255,154,0.7)'; c.lineWidth = 1.5;
+    for (const h of this.world.hideouts || []) {
+      const [px, py] = map(h.x, h.z);
+      c.beginPath(); c.arc(px, py, h.r * scale, 0, Math.PI * 2); c.stroke();
+    }
+    for (const h of this.world.treehouses || []) {
+      const [px, py] = map(h.x, h.z);
+      c.fillStyle = '#8a5a2b'; c.strokeStyle = '#e8d2a8'; c.lineWidth = 1;
+      c.fillRect(px - 4, py - 4, 8, 8); c.strokeRect(px - 4, py - 4, 8, 8);
+    }
+
     // Supply crates: yellow squares (green for health).
     c.fillStyle = '#ffd23a'; c.strokeStyle = '#000'; c.lineWidth = 1;
     for (const k of actors.crates || []) {
