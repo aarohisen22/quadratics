@@ -225,8 +225,15 @@ export class Combat {
       const c = ctrls[i];
       if (c.switchPressed && p.special && !p.switching) p.switchTo(p.current === 'uzi' ? p.special.type : 'uzi');
       if (c.fire && p.current !== 'uzi' && !p.special) p.switchTo('uzi');   // special just ran out
+      // Gatling: the barrels spin up while you hold fire, and slow down when you let go.
+      const G = this.specials.gatling;
+      if (p.current === 'gatling' && c.fire && !p.switching && p.special) {
+        if (p.spin === 0) sfx.gatlingSpin();
+        p.spin = Math.min(1, p.spin + dt / G.spinUpSeconds);
+      } else p.spin = Math.max(0, p.spin - dt / 0.8);
       if (c.fire && p.fireCooldown <= 0 && !p.switching) {
-        if (p.current === 'uzi') this.fireUzi(p, i);
+        if (p.current === 'gatling') { if (p.spin >= 1) this.fireGatling(p, i); }
+        else if (p.current === 'uzi') this.fireUzi(p, i);
         else if (p.current === 'shotgun') this.fireShotgun(p, i);
         else if (p.current === 'katana') this.slashKatana(p);
         else if (p.current === 'smoke') this.throwSmoke(p);
@@ -303,22 +310,35 @@ export class Combat {
     p.fireCooldown = 1 / this.weapons.uziShotsPerSecond;
     p.recoil = 1;
     sfx.uzi();
+    this.bullet(p, index, this.weapons.uziDamage, this.weapons.uziRange, 0.06);
+  }
 
+  fireGatling(p, index) {
+    const G = this.specials.gatling;
+    p.fireCooldown = 1 / G.shotsPerSecond;
+    p.recoil = 0.7;
+    sfx.gatling();
+    this.bullet(p, index, G.damage, G.range, G.spreadDegrees * Math.PI / 180);
+    this.useSpecial(p);
+  }
+
+  // One bullet from the gun's muzzle: flash, casing, tracer, and whatever it hits.
+  bullet(p, index, damage, range, spreadRad) {
     const from = p.muzzlePosition(this.tmp);
     this.effects.muzzle(index, from);
     const f = p.forward;
     this.effects.casing(p.ejectPosition(this.tmp2), { x: -f.z, z: f.x });  // casings fly out to the right
-    let dir = this.aimDirection(p, this.weapons.uziRange, from);
-    const spread = (Math.random() - 0.5) * 0.06;
+    let dir = this.aimDirection(p, range, from);
+    const spread = (Math.random() - 0.5) * spreadRad;
     dir = { x: dir.x * Math.cos(spread) - dir.z * Math.sin(spread), z: dir.x * Math.sin(spread) + dir.z * Math.cos(spread) };
 
-    const hit = this.castRay(from.x, from.y, from.z, dir.x, dir.z, this.weapons.uziRange, p);
+    const hit = this.castRay(from.x, from.y, from.z, dir.x, dir.z, range, p);
     const end = this.tmp2.set(from.x + dir.x * hit.dist, from.y, from.z + dir.z * hit.dist);
     this.effects.tracer(from, end);
 
     if (hit.target) {
       end.y = hit.target.pos.y + 1.2;
-      hit.target.hit(this.weapons.uziDamage, dir.x, dir.z, false, p);
+      hit.target.hit(damage, dir.x, dir.z, false, p);
       this.onHit?.(p);
       this.effects.burst(end, 'spark', 7, { x: -dir.x, z: -dir.z });
       sfx.hitEnemy();

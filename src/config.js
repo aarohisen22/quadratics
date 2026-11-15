@@ -38,6 +38,7 @@ export const CONFIG = {
 
   weapons: {
     uziAmmo: 100,         // bullets you start with
+    gatlingWalk: 0.7,     // you walk at 70% speed carrying the heavy gatling gun
     uziDamage: 10,        // per bullet
     uziShotsPerSecond: 11,
     uziRange: 28,         // meters
@@ -64,6 +65,10 @@ export const CONFIG = {
     shotgun: { shells: 8, pellets: 7, damagePerPellet: 12, spreadDegrees: 24, range: 14, shotsPerSecond: 1.5 },
     katana:  { swings: 15, damage: 30, reach: 2.4, arcDegrees: 100, swingsPerSecond: 1.8, maxHitsPerSwing: 2 },
     smoke:   { bombs: 3, radius: 5, seconds: 5, throwDistance: 7 }, // samurai can't see you in the smoke
+    // Barrels spin up for spinUpSeconds while you hold fire, then it shoots very fast (walk speed: weapons.gatlingWalk).
+    gatling: { rounds: 150, spinUpSeconds: 0.5, shotsPerSecond: 22, damage: 9, range: 30, spreadDegrees: 5 },
+    // How often each special comes in a special crate (the gatling is rarer).
+    weights: { shotgun: 1, katana: 1, smoke: 1, gatling: 0.5 },
   },
 
   hazards: {

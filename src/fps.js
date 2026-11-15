@@ -1,7 +1,7 @@
 // First-person view: the camera sits at the ninja's eyes, and you see your gloved hands
 // holding the weapon in the bottom-right corner (drawn on top so it never clips into trees).
 import * as THREE from 'three';
-import { buildUzi, buildShotgun, buildKatana, buildSmokeBomb, makeShurikenGeometry } from './models.js';
+import { buildUzi, buildShotgun, buildKatana, buildSmokeBomb, buildGatling, makeShurikenGeometry } from './models.js';
 
 const glove = new THREE.MeshStandardMaterial({ color: 0x15161a, roughness: 0.7 });
 const sleeve = new THREE.MeshStandardMaterial({ color: 0x3a3f4a, roughness: 0.95 });
@@ -62,7 +62,9 @@ export class FpsView {
     this.items = {
       uzi: heldGun(buildUzi(), new THREE.Vector3(0, -0.04, 0.15)),
       shotgun: heldGun(buildShotgun(), new THREE.Vector3(0, 0.03, 0.33)),
+      gatling: heldGun(buildGatling(), new THREE.Vector3(0, 0.13, 0.0)),   // left hand on the carry handle
     };
+    this.items.gatling.position.set(0.02, -0.05, 0);
     const katana = new THREE.Group();
     katana.add(buildKatana());
     katana.add(arm(new THREE.Vector3(0, -0.1, 0), new THREE.Vector3(-0.1, -0.35, 0.4)));
@@ -181,6 +183,7 @@ export class FpsView {
       }
     }
     if (p.current === 'smoke' && p.throwT >= 0) h.position.z -= Math.sin(p.throwT * Math.PI) * 0.3;
+    if (shown === 'gatling') this.items.gatling.userData.model.userData.barrels.rotation.z += p.spin * dt * 45;
     if (p.current === 'shotgun') this.items.shotgun.userData.model.userData.pump.position.z = 0.33 - Math.max(0, p.recoil - 0.3) * 0.12;
 
     // Shuriken: the left hand lets go of the gun, dips down to the belt pouch, then flicks the star.

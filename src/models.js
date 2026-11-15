@@ -117,6 +117,33 @@ export function buildSheath(length = 0.78) {
   return g;
 }
 
+// ---------- gatling gun (points +z, six barrels that spin around the middle) ----------
+export function buildGatling() {
+  const g = new THREE.Group();
+  const M = MAT;
+  g.add(part(rbox(0.11, 0.12, 0.26, 0.015), M.gunmetal, 0, 0.06, -0.02));            // housing
+  g.add(part(rbox(0.035, 0.12, 0.05, 0.01), M.polymer, 0, -0.04, -0.1));             // rear grip
+  g.children.at(-1).rotation.x = 0.25;
+  const handle = part(new THREE.TorusGeometry(0.06, 0.008, 6, 14, Math.PI), M.blackened, 0, 0.12, 0.0);
+  handle.rotation.y = Math.PI / 2;
+  g.add(handle);                                                                      // carry handle on top
+  const barrels = new THREE.Group();
+  barrels.position.set(0, 0.06, 0.12);
+  g.add(barrels);
+  for (let i = 0; i < 6; i++) {
+    const a = (i / 6) * Math.PI * 2;
+    barrels.add(part(cyl(0.012, 0.56, 8), M.blackened, Math.cos(a) * 0.033, Math.sin(a) * 0.033, 0.28));
+  }
+  for (const z of [0.06, 0.3, 0.55]) barrels.add(part(cyl(0.05, 0.018, 12), M.gunmetal, 0, 0, z));   // barrel clamps
+  const box = part(rbox(0.07, 0.11, 0.13, 0.01), M.wood, -0.1, -0.02, -0.02);        // ammo box on the left
+  g.add(box);
+  for (let i = 0; i < 4; i++) g.add(part(rbox(0.012, 0.03, 0.012, 0.002), M.brass, -0.06 + i * 0.012, 0.05 - i * 0.008, -0.02)); // belt
+  const muzzle = new THREE.Object3D(); muzzle.position.set(0, 0.06, 0.7); g.add(muzzle);
+  const eject = new THREE.Object3D(); eject.position.set(0.06, 0.05, 0.0); g.add(eject);
+  g.userData = { muzzle, eject, barrels };
+  return g;
+}
+
 // A four-pointed throwing star with a hole in the middle, lying flat.
 export function makeShurikenGeometry() {
   const shape = new THREE.Shape();

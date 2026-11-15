@@ -54,7 +54,7 @@ export class Hud {
       c.uzi.textContent = `Uzi ${p.ammo}`;
       c.uzi.classList.toggle('out', p.ammo === 0);
       c.uzi.classList.toggle('active', p.current === 'uzi' && !!p.special);
-      const names = { shotgun: 'Shotgun', katana: 'Katana', smoke: 'Smoke' };
+      const names = { shotgun: 'Shotgun', katana: 'Katana', smoke: 'Smoke', gatling: 'Gatling' };
       c.spec.textContent = p.special ? `${names[p.special.type]} ${p.special.count}` : '';
       c.spec.classList.toggle('active', !!p.special && p.current === p.special.type);
       c.shur.textContent = `Shurikens ${p.shurikens}`;

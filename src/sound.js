@@ -239,6 +239,14 @@ export const sfx = {
     tone(90, 45, 0.3, 1.1, 'square', { verb: 0.5, delay: 0.05 });
     burst({ type: 'lowpass', freq: 400, freqEnd: 150, q: 1, gain: 0.35, decay: 0.8, verb: 0.4 });
   },
+  gatling() {   // lighter, faster crack than the Uzi
+    const p = rand(0.95, 1.05);
+    burst({ type: 'highpass', freq: 2800, q: 0.5, gain: 0.55, decay: 0.014, verb: 0.3 });
+    burst({ type: 'bandpass', freq: 1150 * p, q: 0.9, gain: 0.6, decay: 0.05, verb: 0.5 });
+    tone(140 * p, 50, 0.6, 0.06, 'sine', { verb: 0.3 });
+    if (Math.random() < 0.4) casing(rand(0.35, 0.6));
+  },
+  gatlingSpin() { tone(180, 900, 0.12, 0.55, 'sawtooth', { attack: 0.05 }); },   // barrels whirring up
   vineSlide() { burst({ type: 'bandpass', freq: 900, q: 0.8, gain: 0.16, decay: 0.7 }); },   // rope zipping through gloves
   thud() { burst({ type: 'lowpass', freq: 160, q: 1, gain: 0.5, decay: 0.12 }); },
 };

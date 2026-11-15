@@ -3,7 +3,7 @@ import * as THREE from 'three';
 import { buildCrate } from './models.js';
 import { sfx } from './sound.js';
 
-const SPECIAL_NAMES = { shotgun: 'SHOTGUN', katana: 'KATANA', smoke: 'SMOKE BOMBS' };
+const SPECIAL_NAMES = { shotgun: 'SHOTGUN', katana: 'KATANA', smoke: 'SMOKE BOMBS', gatling: 'GATLING' };
 
 export class Drops {
   constructor(scene, world, effects, config) {
@@ -41,11 +41,20 @@ export class Drops {
     return { x: cx + 4, z: cz };
   }
 
+  // A special weapon, picked by the weights in config (the gatling is rarer).
+  pickSpecial() {
+    const W = this.specials.weights;
+    const total = Object.values(W).reduce((a, b) => a + b, 0);
+    let r = Math.random() * total;
+    for (const [k, w] of Object.entries(W)) { if (r < w) return k; r -= w; }
+    return 'shotgun';
+  }
+
   spawn(players) {
     const r = Math.random();
     const health = r < this.cfg.healthChance;
     const special = !health && r < this.cfg.healthChance + this.cfg.specialChance;
-    const type = health ? 'health' : special ? ['shotgun', 'katana', 'smoke'][Math.floor(Math.random() * 3)] : 'ammo';
+    const type = health ? 'health' : special ? this.pickSpecial() : 'ammo';
     const { x, z } = this.spot(players);
     const ground = this.world.heightAt(x, z);
     const group = buildCrate(health ? 'health' : special ? 'special' : 'ammo', health ? 'HEALTH' : special ? SPECIAL_NAMES[type] : 'AMMO');
@@ -118,7 +127,7 @@ export class Drops {
       hud.toast(`${name}: +${this.cfg.ammoBullets} bullets, +${this.cfg.ammoShurikens} shurikens`);
     } else {
       const s = this.specials[c.type];
-      const count = c.type === 'shotgun' ? s.shells : c.type === 'katana' ? s.swings : s.bombs;
+      const count = c.type === 'shotgun' ? s.shells : c.type === 'katana' ? s.swings : c.type === 'gatling' ? s.rounds : s.bombs;
       p.special = { type: c.type, count };
       p.switchTo(c.type);
       if (c.type === 'katana') sfx.katanaDraw(); else sfx.pickupWeapon();

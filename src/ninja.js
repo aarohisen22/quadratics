@@ -1,6 +1,6 @@
 // A ninja brother: his body, his weapons, how he moves, and his animations.
 import * as THREE from 'three';
-import { buildNinja, buildUzi, buildShotgun, buildKatana, buildSmokeBomb, part, makeShurikenGeometry } from './models.js';
+import { buildNinja, buildUzi, buildShotgun, buildKatana, buildSmokeBomb, buildGatling, part, makeShurikenGeometry } from './models.js';
 import { sfx } from './sound.js';
 
 export { part } from './models.js';
@@ -14,6 +14,7 @@ const POSES = {
   shotgun: { r: [-0.55, 0.12, -1.15], l: [-1.15, -0.4, -0.35], hold: [1.7, 0, 0] },
   katana:  { r: [-0.35, 0.15, -0.9],  l: [0.1, -0.12, -0.2],   hold: [1.9, 0, 0] },
   smoke:   { r: [-0.3, 0.1, -1.0],    l: [0.1, -0.12, -0.2],   hold: [1.6, 0, 0] },
+  gatling: { r: [-0.3, 0.2, -1.35],   l: [-0.75, -0.5, -1.2],  hold: [1.65, 0, 0] },   // held low at the hip
 };
 
 // Where each weapon is carried, and how the right arm reaches for it there
@@ -23,6 +24,7 @@ const REACH = {
   shotgun: { sx: 0.55, sy: 0, sz: 0.25, ex: -0.7 },    // stock at the right hip, slung across the back
   katana:  { sx: -2.9, sy: 0, sz: 0.15, ex: -2.0 },    // handle over the right shoulder
   smoke:   { sx: -0.45, sy: 0.5, sz: -0.5, ex: -1.3 }, // bombs on the left of the belt
+  gatling: { sx: 0.55, sy: 0, sz: 0.25, ex: -0.7 },    // slung on the back like the shotgun
 };
 const SWITCH_TIME = 0.5;   // seconds to put one weapon away and draw the next
 // Parts of a switch: put away the old one, reach for the new one, bring it up.
@@ -51,6 +53,10 @@ function buildCarried(body, armL) {
   shotgun.rotation.x = -Math.PI / 2;   // barrel up
   shotgun.position.y = -0.1;
   sling.add(shotgun);
+  const gatling = buildGatling();
+  gatling.rotation.x = -Math.PI / 2;
+  gatling.position.set(0, -0.05, -0.04);
+  sling.add(gatling);
 
   const bombs = [[-0.21, 0.07], [-0.15, 0.13], [-0.075, 0.165]].map(([x, z]) => {
     const b = buildSmokeBomb();
@@ -66,7 +72,7 @@ function buildCarried(body, armL) {
   star.rotation.x = Math.PI / 2;
   star.visible = false;
   armL.hand.add(star);
-  return { uzi, shotgun, bombs, star };
+  return { uzi, shotgun, gatling, bombs, star };
 }
 
 export class Ninja {
@@ -88,7 +94,7 @@ export class Ninja {
     this.root.scale.setScalar(SCALE);
 
     // All the weapons he can hold; only the current one is shown.
-    this.models = { uzi: buildUzi(), shotgun: buildShotgun(), katana: buildKatana(), smoke: buildSmokeBomb() };
+    this.models = { uzi: buildUzi(), shotgun: buildShotgun(), katana: buildKatana(), smoke: buildSmokeBomb(), gatling: buildGatling() };
     for (const m of Object.values(this.models)) { m.visible = false; this.armR.hand.add(m); }
     this.carried = buildCarried(this.body, this.armL);
     scene.add(this.root);
@@ -105,6 +111,7 @@ export class Ninja {
     this.current = 'uzi';
     this.alive = true;
     this.fireCooldown = 0;
+    this.spin = 0;           // gatling barrel spin 0..1
     this.recoil = 0;
     this.swing = -1;         // katana slash progress 0..1 (-1 = not swinging)
     this.throwT = -1;        // throwing arm progress 0..1
@@ -144,6 +151,7 @@ export class Ninja {
     const c = this.carried, sp = this.special;
     c.uzi.visible = d !== 'uzi';
     c.shotgun.visible = !!sp && sp.type === 'shotgun' && d !== 'shotgun';
+    c.gatling.visible = !!sp && sp.type === 'gatling' && d !== 'gatling';
     const bombs = sp && sp.type === 'smoke' ? Math.min(3, sp.count - (d === 'smoke' ? 1 : 0)) : 0;
     c.bombs.forEach((b, i) => { b.visible = i < bombs; });
     // The sheath stays on his back; only the handle goes when the katana is out.
@@ -228,7 +236,8 @@ export class Ninja {
 
     // Moving: the camera looks north, so stick up = -z.
     const wading = this.world.waterDepthAt(this.pos.x, this.pos.z) > 0.25;   // the stream slows you down
-    const speed = (ctrl.run ? c.runSpeed : c.walkSpeed) * ctrl.move.mag * (wading ? 0.55 : 1);
+    const heavy = this.current === 'gatling' ? this.weapons.gatlingWalk : 1;   // the gatling is heavy
+    const speed = (ctrl.run ? c.runSpeed : c.walkSpeed) * ctrl.move.mag * (wading ? 0.55 : 1) * heavy;
     const mx = ctrl.move.mag ? ctrl.move.x / ctrl.move.mag : 0;
     const mz = ctrl.move.mag ? ctrl.move.y / ctrl.move.mag : 0;
     const blend = 1 - Math.exp(-12 * dt);
@@ -335,6 +344,7 @@ export class Ninja {
       held.rotation.set(hp[0], hp[1], hp[2]);
       if (d === 'katana' && this.swing >= 0) held.rotation.x = 1.6;   // blade forward during the slash
       if (d === 'shotgun') held.userData.pump.position.z = 0.33 - Math.max(0, this.recoil - 0.3) * 0.12;
+      if (d === 'gatling') held.userData.barrels.rotation.z += this.spin * dt * 45;   // barrels whirl
     }
 
     // Headband tails flap in the wind.
