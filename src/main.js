@@ -7,6 +7,7 @@ import { Input } from './input.js';
 import { Ninja } from './ninja.js';
 import { CameraRig } from './camera.js';
 import { Effects } from './effects.js';
+import { Foam } from './foam.js';
 import { Combat } from './combat.js';
 import { Hud } from './hud.js';
 import { startSound } from './sound.js';
@@ -36,6 +37,7 @@ const input = new Input(renderer.domElement);
 const rig = new CameraRig(camera, CONFIG.camera);
 const effects = new Effects(scene);
 effects.world = world;
+const foam = new Foam(scene, world, effects);
 const combat = new Combat(scene, world, effects, CONFIG);
 
 // Both brothers are built up front; 1-player mode only uses the first.
@@ -87,6 +89,7 @@ function setFirstPerson(on) {
 function newGame() {
   combat.reset();
   drops.reset();
+  foam.clear();
   trees.calm();   // fallen trees stay down; they only stand back up from the main menu
   hud.hideDefeat();
   combat.vs = mode === 'vs';
@@ -264,6 +267,7 @@ function step(dt) {
   world.update(dt);
   rain.update(dt, rig.focus);
   effects.update(dt);
+  foam.update(dt, [...players, ...combat.samurai]);
   const status = mode === 'vs' && state !== 'menu' ? versus.text
     : combat.level > 0 ? `Level ${combat.level} · Wave ${combat.wave}/${combat.waveTotal} · Samurai left: ${combat.samuraiLeft}` : '';
   hud.update(dt, players, status);
@@ -281,4 +285,4 @@ addEventListener('resize', () => {
 });
 
 // Handy for testing in the browser console.
-window.game = { scene, world, get players() { return players; }, allPlayers, combat, team, drops, trees, versus, sky, fpsView, camera, input, CONFIG, get state() { return state; }, step, renderer, rig, get paused() { return paused; }, set paused(v) { paused = v; } };
+window.game = { scene, world, get players() { return players; }, allPlayers, combat, team, drops, trees, foam, versus, sky, fpsView, camera, input, CONFIG, get state() { return state; }, step, renderer, rig, get paused() { return paused; }, set paused(v) { paused = v; } };

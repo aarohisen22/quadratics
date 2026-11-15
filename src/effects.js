@@ -136,7 +136,7 @@ export class Effects {
 
   // kind: 'spark' (metal/armor), 'chip' (wood/bark), 'dirt'
   burst(pos, kind, count = 8, dir = null) {
-    const colors = { spark: [1, 0.7, 0.3], chip: [0.45, 0.32, 0.2], dirt: [0.35, 0.3, 0.22], steel: [0.85, 0.9, 1] };
+    const colors = { spark: [1, 0.7, 0.3], chip: [0.45, 0.32, 0.2], dirt: [0.35, 0.3, 0.22], steel: [0.85, 0.9, 1], water: [0.75, 0.85, 0.85] };
     const c = colors[kind] || colors.spark;
     for (let n = 0; n < count; n++) {
       const i = this.nextP; this.nextP = (i + 1) % this.max;
