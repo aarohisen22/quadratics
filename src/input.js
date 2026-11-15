@@ -47,7 +47,23 @@ export class Input {
       if (e.button === 2) this.mouse.right = false;
     });
     dom.addEventListener('contextmenu', e => e.preventDefault());
+    // First-person mouse look (only while the mouse is locked to the game).
+    this.look = { x: 0, y: 0 };
+    addEventListener('mousemove', e => {
+      if (document.pointerLockElement === dom) { this.look.x += e.movementX; this.look.y += e.movementY; }
+    });
+    this.dom = dom;
   }
+
+  // Mouse movement since last asked (first-person look).
+  takeLook() {
+    const l = { ...this.look };
+    this.look.x = this.look.y = 0;
+    return l;
+  }
+
+  lockMouse() { this.dom.requestPointerLock?.(); }
+  get mouseLocked() { return document.pointerLockElement === this.dom; }
 
   pads() {
     return [...(navigator.getGamepads ? navigator.getGamepads() : [])].filter(Boolean);
@@ -70,6 +86,7 @@ export class Input {
       c.move = stick(pad.axes[0] || 0, pad.axes[1] || 0);
       const a = stick(pad.axes[2] || 0, pad.axes[3] || 0);
       if (a.mag > 0.3) c.aim = { x: a.x, y: a.y };
+      c.look = a;   // first person: the right stick turns your view
       c.run = !!(pad.buttons[4]?.pressed || pad.buttons[10]?.pressed);
       c.jump = !!pad.buttons[0]?.pressed;
       c.fire = (pad.buttons[7]?.value || 0) > 0.3;

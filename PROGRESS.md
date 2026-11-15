@@ -54,7 +54,13 @@ Then open http://localhost:8080 (this server turns off browser caching so refres
   - [x] Levels come in waves (2 per level, 3 from level 5; next wave when 1 samurai left or after 35 s)
   - [x] Weather changes by level (sky.js): rain (1-2) → clearing with sunbeams + birds (3-4) → golden afternoon (5-6) → thunderstorm with lightning (7-8) → dusk with fireflies (9-10), then repeats. VS picks random weather
   - [x] Landscape: stream winding through a valley (wading slows you; stepping stones), temple ruins on a hill, crashed cargo plane, 3 collapsed stilt huts (landmarks.js) — all solid cover
-- [ ] Phase 6: 1-player first-person mode  ← next
+- [x] Phase 6: 1-player first-person mode (waiting on the kids' playtest)
+  - [x] 4th menu option "1 Player First-Person": same levels/waves/weather/crates/trees, seen through the ninja's eyes
+  - [x] Mouse look (click to lock the mouse, Esc pauses, click to continue) or right stick; WASD/left stick move relative to view
+  - [x] Hands + weapon on screen (fps.js) for Uzi, shotgun (pump moves), katana (slash), smoke bombs, left-hand shuriken flick; walk bob and recoil
+  - [x] Crosshair with red hit marker; less aim help (4°) than overhead
+  - Tested by stepping the game; pointer lock (mouse grab) can't be tested automatically — try it by hand
+- [ ] Phase 7: Menus, polish, publish  ← next
 - [ ] Phase 3: Co-op mode
 - [ ] Phase 4: Drops and hazards
 - [ ] Phase 5: VS mode

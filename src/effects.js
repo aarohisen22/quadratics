@@ -129,7 +129,7 @@ export class Effects {
     this.flashTime[index] = 0.05;
     const sp = this.flashSprites[index];
     sp.position.copy(pos);
-    sp.scale.setScalar((0.45 + Math.random() * 0.35) * size);
+    sp.scale.setScalar((0.45 + Math.random() * 0.35) * size * (this.flashScale ?? 1));
     sp.material.rotation = Math.random() * Math.PI;
     sp.visible = true;
   }

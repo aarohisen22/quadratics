@@ -67,6 +67,15 @@ export class Hud {
     }
   }
 
+  // Red circle flash on the crosshair when your shot lands.
+  hitMarker() {
+    $('crosshair').classList.add('hit');
+    clearTimeout(this.hitTimer);
+    this.hitTimer = setTimeout(() => $('crosshair').classList.remove('hit'), 90);
+  }
+
+  showCrosshair(on) { $('crosshair').classList.toggle('hidden', !on); }
+
   toast(text, seconds = 3) {
     $('toast').textContent = text;
     $('toast').classList.add('show');

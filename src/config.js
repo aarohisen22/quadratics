@@ -103,6 +103,13 @@ export const CONFIG = {
     refillAmmoOnLevelUp: false, // supply crates bring ammo now
   },
 
+  fps: {
+    mouseSensitivity: 0.0022, // how fast the mouse turns your view
+    stickLookSpeed: 2.8,  // how fast the right stick turns your view
+    fieldOfView: 72,
+    aimHelpDegrees: 4,    // less aim help than overhead: you aim with the crosshair
+  },
+
   camera: {
     height: 10.5,         // how high above the ninjas (lower = bigger ninjas)
     distance: 7.5,        // how far behind

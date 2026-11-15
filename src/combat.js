@@ -176,7 +176,7 @@ export class Combat {
   // `from` is where the bullet or shuriken starts (the gun tip or hand), so it flies straight at the target.
   aimDirection(p, range = this.weapons.uziRange, from = p.pos) {
     const f = p.forward;
-    const help = this.weapons.aimHelpDegrees * Math.PI / 180;
+    const help = (this.aimHelpOverride ?? this.weapons.aimHelpDegrees) * Math.PI / 180;
     let best = null, bestAngle = help;
     for (const s of this.targets(p)) {
       if (this.inSmoke(s.pos.x, s.pos.z)) continue;
@@ -219,6 +219,7 @@ export class Combat {
     if (hit.target) {
       end.y = hit.target.pos.y + 1.2;
       hit.target.hit(this.weapons.uziDamage, dir.x, dir.z, false, p);
+      this.onHit?.(p);
       this.effects.burst(end, 'spark', 7, { x: -dir.x, z: -dir.z });
       sfx.hitEnemy();
     } else if (hit.obstacle) {
@@ -257,6 +258,7 @@ export class Combat {
       if (hit.target) {
         end.y = hit.target.pos.y + 1.2;
         hit.target.hit(S.damagePerPellet, dir.x * 2, dir.z * 2, false, p);
+        this.onHit?.(p);
         this.effects.burst(end, 'spark', 5, { x: -dir.x, z: -dir.z });
       } else if (hit.obstacle) {
         this.effects.burst(end, 'chip', 4, { x: -dir.x, z: -dir.z });
@@ -287,7 +289,7 @@ export class Combat {
       this.effects.burst(new THREE.Vector3(s.pos.x, s.pos.y + 1.2, s.pos.z), 'steel', 14, { x: dx / d, z: dz / d });
       hits++;
     }
-    if (hits) setTimeout(() => sfx.katanaHit(), 60);
+    if (hits) { setTimeout(() => sfx.katanaHit(), 60); this.onHit?.(p); }
     this.useSpecial(p);
   }
 
@@ -366,6 +368,7 @@ export class Combat {
       const hit = this.castRay(m.x, m.y, m.z, s.dx, s.dz, step, s.owner);
       if (hit.target) {
         hit.target.hit(this.weapons.shurikenDamage, s.dx, s.dz, true, s.owner);
+        this.onHit?.(s.owner);
         this.effects.burst(m, 'steel', 12, { x: -s.dx, z: -s.dz });
         sfx.shurikenHit();
         s.life = 0;

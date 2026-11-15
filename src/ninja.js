@@ -82,18 +82,21 @@ export class Ninja {
 
   // The real tip of the gun barrel (or the hand, for the katana and smoke bombs).
   muzzlePosition(out) {
+    if (this.view) return this.view.muzzle(out);   // first person: the gun you see on screen
     this.root.updateMatrixWorld(true);
     const m = this.models[this.current];
     return (m.userData.muzzle || this.armR.hand).getWorldPosition(out);
   }
 
   ejectPosition(out) {
+    if (this.view) return this.view.eject(out);
     const m = this.models[this.current];
     return (m.userData.eject || this.armR.hand).getWorldPosition(out);
   }
 
   // Where thrown things (shurikens) leave from: the left hand.
   throwPosition(out) {
+    if (this.view) return this.view.throwFrom(out);
     this.root.updateMatrixWorld(true);
     return this.armL.hand.getWorldPosition(out);
   }

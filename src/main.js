@@ -15,6 +15,7 @@ import { Drops } from './drops.js';
 import { FallingTrees } from './trees.js';
 import { Versus } from './versus.js';
 import { Sky } from './sky.js';
+import { FpsView } from './fps.js';
 
 const renderer = new THREE.WebGLRenderer({ antialias: !LOW_GRAPHICS, powerPreference: 'high-performance' });
 renderer.setPixelRatio(LOW_GRAPHICS ? 1 : Math.min(devicePixelRatio, 1.75));
@@ -52,13 +53,16 @@ allPlayers.forEach((p, i) => { p.index = i; });
 const versus = new Versus(world, CONFIG.versus);
 const sky = new Sky({ scene, renderer, sun, hemi, rain, world });
 combat.onLevelStart = (n, hud) => sky.forLevel(n, hud);
+combat.onHit = shooter => { if (shooter.view) hud.hitMarker(); };
 
 // States: 'menu', 'playing', 'dying' (falling over), 'defeated', 'won' (VS winner)
 let state = 'menu';
 let dyingTimer = 0;
 let playerCount = 1;
 let mode = 'solo';   // 'solo', 'coop' or 'vs'
-const MODES = ['solo', 'coop', 'vs'];
+const MODES = ['solo', 'coop', 'vs', 'fps'];
+const fpsView = new FpsView(CONFIG.fps);
+fpsView.scene.environment = scene.environment;   // metal needs something to reflect
 
 function setPlayerCount(n) {
   playerCount = n;
@@ -67,6 +71,18 @@ function setPlayerCount(n) {
   hud.setCount(n);
 }
 setPlayerCount(1);
+
+// First person on or off: camera, hidden body, crosshair, less aim help.
+function setFirstPerson(on) {
+  if (on) fpsView.activate(players[0]); else fpsView.deactivate();
+  camera.fov = on ? CONFIG.fps.fieldOfView : 50;
+  camera.near = on ? 0.05 : 0.1;
+  camera.updateProjectionMatrix();
+  combat.aimHelpOverride = on ? CONFIG.fps.aimHelpDegrees : null;
+  hud.showCrosshair(on);
+  effects.flashScale = on ? 0.22 : 1;   // the flash is right in front of your eyes in first person
+  if (!on) rig.first = true;
+}
 
 function newGame() {
   combat.reset();
@@ -84,6 +100,7 @@ function newGame() {
     sky.set('rain', true);
     combat.startLevel(1, players, hud);
   }
+  setFirstPerson(mode === 'fps');
   state = 'playing';
 }
 
@@ -95,7 +112,7 @@ function selectMode(i) {
   selected = i;
   mode = MODES[i];
   modeButtons.forEach((b, j) => b.classList.toggle('selected', j === i));
-  setPlayerCount(mode === 'solo' ? 1 : 2);
+  setPlayerCount(mode === 'solo' || mode === 'fps' ? 1 : 2);
 }
 function beginGame() {
   start.classList.add('hidden');
@@ -110,18 +127,38 @@ function openMenu() {
   combat.vs = false;
   hud.hideDefeat();
   players.forEach((p, i) => p.reset(players.length > 1 ? (i ? 1.5 : -1.5) : 0, 0));
+  setFirstPerson(false);
+  if (document.pointerLockElement) document.exitPointerLock();
   start.classList.remove('hidden');
   state = 'menu';
 }
 modeButtons.forEach((b, i) => {
   b.addEventListener('mouseenter', () => selectMode(i));
-  b.addEventListener('click', () => { selectMode(i); beginGame(); });
+  b.addEventListener('click', () => { selectMode(i); if (mode === 'fps') input.lockMouse(); beginGame(); });
+});
+
+// First person: clicking the game locks the mouse for looking around. Letting go (Esc) pauses.
+const pausedEl = document.getElementById('paused');
+renderer.domElement.addEventListener('click', () => { if (mode === 'fps' && state !== 'menu' && !input.mouseLocked) input.lockMouse(); });
+document.addEventListener('pointerlockchange', () => {
+  if (mode === 'fps' && state === 'playing' && !input.mouseLocked && input.pads().length === 0) {
+    paused = true;
+    pausedEl.classList.remove('hidden');
+  }
+});
+pausedEl.addEventListener('click', () => {
+  pausedEl.classList.add('hidden');
+  input.lockMouse();
+  input.takeLook();
+  paused = false;
+  clock.getDelta();
 });
 
 // Tells the players who controls which brother.
 const whoEl = document.getElementById('who');
 function describeControls() {
   const pads = input.pads().length;
+  if (mode === 'fps') return pads ? 'Left stick move · right stick look · RT fire' : 'Mouse to look around (click to grab the mouse, Esc to pause) · WASD move · click to fire';
   if (playerCount === 1) return pads ? 'Use the controller or keyboard + mouse' : 'Keyboard + mouse (plug in a controller and press a button to use it)';
   if (pads >= 2) return 'Red brother: controller 1 · Blue brother: controller 2';
   if (pads === 1) return 'Red brother: keyboard + mouse · Blue brother: the controller';
@@ -167,7 +204,19 @@ function step(dt) {
   const ctrls = players.map((p, i) => input.read(i, playerCount));
   if (state !== 'playing') ctrls.forEach(c => { c.fire = false; c.throwPressed = false; c.jumpPressed = false; });
   if (state === 'menu') ctrls.forEach(c => { c.move = { x: 0, y: 0, mag: 0 }; });
+  const fps = mode === 'fps' && state !== 'menu';
+  if (fps) {
+    // Look with the mouse or right stick; move relative to where you're looking.
+    const look = input.takeLook(), c = ctrls[0];
+    const stick = c.look || { x: 0, y: 0 };
+    fpsView.turn(look.x * CONFIG.fps.mouseSensitivity + stick.x * CONFIG.fps.stickLookSpeed * dt,
+                 look.y * CONFIG.fps.mouseSensitivity + stick.y * CONFIG.fps.stickLookSpeed * 0.7 * dt);
+    c.move = fpsView.worldMove(c.move);
+    c.aim = null;
+    c.aimMouse = false;
+  }
   players.forEach((p, i) => p.update(dt, ctrls[i], ctrls[i].aimMouse ? mouseAimPoint(p) : null));
+  if (fps) players[0].facing = fpsView.yaw;
 
   if (state === 'menu') {
     if (menu.left) selectMode(Math.max(0, selected - 1));
@@ -196,9 +245,14 @@ function step(dt) {
     else if (menu.back) openMenu();
   }
 
-  rig.update(dt, players.map(p => p.pos));
+  if (fps) {
+    fpsView.update(dt, camera, sky, effects.flashes[0].intensity);
+    rig.focus.copy(players[0].pos);
+  } else {
+    rig.update(dt, players.map(p => p.pos));
+  }
   allPlayers.forEach((p, i) => {
-    if (i < playerCount) cutaway.uCutTargets.value[i].copy(p.pos);
+    if (i < playerCount && !fps) cutaway.uCutTargets.value[i].copy(p.pos);
     else cutaway.uCutTargets.value[i].set(0, -9999, 0);
   });
 
@@ -215,14 +269,16 @@ function step(dt) {
   hud.update(dt, players, status);
   updatePadInfo(dt);
   renderer.render(scene, camera);
+  if (fps) fpsView.render(renderer);   // hands and weapon drawn on top
 }
 requestAnimationFrame(frame);
 
 addEventListener('resize', () => {
   camera.aspect = innerWidth / innerHeight;
+  fpsView.resize();
   camera.updateProjectionMatrix();
   renderer.setSize(innerWidth, innerHeight);
 });
 
 // Handy for testing in the browser console.
-window.game = { scene, world, get players() { return players; }, allPlayers, combat, team, drops, trees, versus, sky, camera, input, CONFIG, get state() { return state; }, step, renderer, rig, get paused() { return paused; }, set paused(v) { paused = v; } };
+window.game = { scene, world, get players() { return players; }, allPlayers, combat, team, drops, trees, versus, sky, fpsView, camera, input, CONFIG, get state() { return state; }, step, renderer, rig, get paused() { return paused; }, set paused(v) { paused = v; } };
