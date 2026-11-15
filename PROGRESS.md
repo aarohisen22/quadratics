@@ -71,7 +71,15 @@ Then open http://localhost:8080 (this server turns off browser caching so refres
   - [x] 7. Samurai mix attacks (config.js `samurai.attacks`): quick jab (0.28 s warning, 7 dmg at level 1, narrow, lunges; step aside), side slash (0.45 s, 12 dmg, wide flat sweep from either side; back off), overhead chop (0.8 s with red glowing blade, 22 dmg). Shurikens still interrupt any windup
   - [x] 8. Enemy archers (green armor, quiver; keep 7-15 m away, 0.9 s draw with red aim line on the ground, arrow 16 m/s you can sidestep, sticks in trees) and nunchuck fighters (blue armor, faster, spin-up then 3-hit combo). Archers from level 3, nunchucks from level 4, 20% each +3%/level up to 35% (config.js `samurai.mix`); a toast warns the first time each appears
   - [x] 9. Giant Oni warlord mini boss after levels 5, 10, 15… (boss.js, config.js `boss`): comes down a thick vine with a roar, 2.3x size, studded club; wide club swing (20 dmg) and ground slam with red ring (32 dmg, knock-back, camera shake); calls 2 samurai at half health; shurikens don't interrupt him; health bar at the top + big marker on the minimap; 800 health, +50% each appearance
-- [ ] Phase 7: Menus, polish, publish  ← next
+- [ ] Feedback round 3 (parent's list)  ← in progress
+  - [ ] Uzi ammo 60 → 100; health crates (about 1 in 4 crates, +40 health)
+  - [ ] Pause button + Esc/Start pause menu (Resume / Restart / Menu)
+  - [ ] Samurai vines only hang from real tree branches (not from the open sky)
+  - [ ] Enemies jump over logs and steer around boulders instead of getting stuck
+  - [ ] Gatling gun: crate special (rarer), 150 rounds, 0.5 s spin-up then very fast fire, walk slower
+  - [ ] Hiding: inside temple ruins / collapsed huts samurai lose track of you (unless right next to you); a few climbable trees with platforms (samurai can't reach, archers can shoot)
+  - [ ] Twin-blade ronin boss (fast, two katanas, dashes with a red streak warning); bosses: ronin after 3, Warlord after 5, ronin 8, Warlord 10, … tougher each time
+- [ ] Phase 7: Menus, polish, publish  ← after round 3
 
 ## Notes and decisions made while building
 - Three.js r170 loads from the jsDelivr CDN through an import map, so there's nothing to install.
