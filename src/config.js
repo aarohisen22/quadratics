@@ -37,7 +37,7 @@ export const CONFIG = {
   },
 
   weapons: {
-    uziAmmo: 60,          // bullets you start with
+    uziAmmo: 100,         // bullets you start with
     uziDamage: 10,        // per bullet
     uziShotsPerSecond: 11,
     uziRange: 28,         // meters
@@ -50,10 +50,12 @@ export const CONFIG = {
   drops: {
     everySeconds: 30,     // a supply crate falls from the sky this often
     firstDropSeconds: 10, // the first one comes sooner
+    healthChance: 0.22,   // chance a crate is a health crate (white with a red cross)
+    healthAmount: 40,     // health a health crate gives back
     specialChance: 0.35,  // chance a crate holds a special weapon instead of ammo
-    ammoBullets: 60,      // Uzi bullets in an ammo crate
+    ammoBullets: 80,      // Uzi bullets in an ammo crate
     ammoShurikens: 2,     // shurikens in an ammo crate
-    maxUziAmmo: 180,      // most bullets you can carry
+    maxUziAmmo: 250,      // most bullets you can carry
     maxShurikens: 8,
     maxCratesOnMap: 4,
   },

@@ -63,11 +63,12 @@ export class Minimap {
       c.beginPath(); c.arc(px, py, Math.max(1.5, rad * scale), 0, Math.PI * 2); c.fill();
     }
 
-    // Supply crates: yellow squares.
+    // Supply crates: yellow squares (green for health).
     c.fillStyle = '#ffd23a'; c.strokeStyle = '#000'; c.lineWidth = 1;
     for (const k of actors.crates || []) {
       if (k.taken) continue;
       const [px, py] = map(k.x, k.z);
+      c.fillStyle = k.type === 'health' ? '#5aff7a' : '#ffd23a';   // health crates are green
       c.fillRect(px - 3.5, py - 3.5, 7, 7); c.strokeRect(px - 3.5, py - 3.5, 7, 7);
     }
 

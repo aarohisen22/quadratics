@@ -290,7 +290,7 @@ function crateTexture(kind, label) {
   const c = document.createElement('canvas');
   c.width = c.height = 256;
   const g = c.getContext('2d');
-  const base = kind === 'ammo' ? '#4f5a2e' : '#6b2a1c';
+  const base = kind === 'ammo' ? '#4f5a2e' : kind === 'health' ? '#d9d5c9' : '#6b2a1c';
   g.fillStyle = base; g.fillRect(0, 0, 256, 256);
   for (let i = 0; i < 6; i++) {            // planks and grain
     g.fillStyle = `rgba(0,0,0,${0.12 + (i % 2) * 0.08})`;
@@ -300,12 +300,16 @@ function crateTexture(kind, label) {
       g.fillRect(Math.random() * 256, i * 43 + Math.random() * 40, 40 + Math.random() * 80, 1);
     }
   }
-  g.fillStyle = kind === 'ammo' ? '#e5c43a' : '#e8b44a';
+  g.fillStyle = kind === 'ammo' ? '#e5c43a' : kind === 'health' ? '#c62828' : '#e8b44a';
   g.fillRect(0, 104, 256, 48);
-  g.fillStyle = '#151515';
+  g.fillStyle = kind === 'health' ? '#ffffff' : '#151515';
   g.font = 'bold 38px system-ui, sans-serif';
   g.textAlign = 'center'; g.textBaseline = 'middle';
   g.fillText(label, 128, 129);
+  if (kind === 'health') {   // red crosses above and below the label
+    g.fillStyle = '#c62828';
+    for (const y of [52, 206]) { g.fillRect(116, y - 26, 24, 52); g.fillRect(102, y - 12, 52, 24); }
+  }
   const tex = new THREE.CanvasTexture(c);
   tex.colorSpace = THREE.SRGBColorSpace;
   crateTextures[label] = tex;

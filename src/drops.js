@@ -42,18 +42,20 @@ export class Drops {
   }
 
   spawn(players) {
-    const special = Math.random() < this.cfg.specialChance;
-    const type = special ? ['shotgun', 'katana', 'smoke'][Math.floor(Math.random() * 3)] : 'ammo';
+    const r = Math.random();
+    const health = r < this.cfg.healthChance;
+    const special = !health && r < this.cfg.healthChance + this.cfg.specialChance;
+    const type = health ? 'health' : special ? ['shotgun', 'katana', 'smoke'][Math.floor(Math.random() * 3)] : 'ammo';
     const { x, z } = this.spot(players);
     const ground = this.world.heightAt(x, z);
-    const group = buildCrate(special ? 'special' : 'ammo', special ? SPECIAL_NAMES[type] : 'AMMO');
+    const group = buildCrate(health ? 'health' : special ? 'special' : 'ammo', health ? 'HEALTH' : special ? SPECIAL_NAMES[type] : 'AMMO');
     group.position.set(x, ground + 22, z);
     group.rotation.y = Math.random() * Math.PI;
     // A tall beam of light so you can spot the crate through the trees.
     const beam = new THREE.Mesh(
       new THREE.CylinderGeometry(0.25, 0.5, 30, 12, 1, true),
       new THREE.MeshBasicMaterial({
-        color: special ? 0xff6a3a : 0xffd84a, transparent: true, opacity: 0.22,
+        color: health ? 0x5aff7a : special ? 0xff6a3a : 0xffd84a, transparent: true, opacity: 0.22,
         depthWrite: false, blending: THREE.AdditiveBlending, side: THREE.DoubleSide, fog: false,
       }),
     );
@@ -104,7 +106,12 @@ export class Drops {
     c.taken = true;
     this.scene.remove(c.group, c.beam);
     const name = `Brother ${p.index + 1}`;
-    if (c.type === 'ammo') {
+    if (c.type === 'health') {
+      const before = p.health;
+      p.health = Math.min(p.cfg.health, p.health + this.cfg.healthAmount);
+      sfx.pickupAmmo();
+      hud.toast(`${name}: +${Math.round(p.health - before)} health`);
+    } else if (c.type === 'ammo') {
       p.ammo = Math.min(this.cfg.maxUziAmmo, p.ammo + this.cfg.ammoBullets);
       p.shurikens = Math.min(this.cfg.maxShurikens, p.shurikens + this.cfg.ammoShurikens);
       sfx.pickupAmmo();
