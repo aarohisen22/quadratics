@@ -61,7 +61,7 @@ export const CONFIG = {
   specials: {
     shotgun: { shells: 8, pellets: 7, damagePerPellet: 12, spreadDegrees: 24, range: 14, shotsPerSecond: 1.5 },
     katana:  { swings: 15, damage: 30, reach: 2.4, arcDegrees: 100, swingsPerSecond: 1.8, maxHitsPerSwing: 2 },
-    smoke:   { bombs: 3, radius: 5, seconds: 7, throwDistance: 7 }, // samurai can't see you in the smoke
+    smoke:   { bombs: 3, radius: 5, seconds: 5, throwDistance: 7 }, // samurai can't see you in the smoke
   },
 
   hazards: {

@@ -117,10 +117,53 @@ export function buildSheath(length = 0.78) {
   return g;
 }
 
+// A four-pointed throwing star with a hole in the middle, lying flat.
+export function makeShurikenGeometry() {
+  const shape = new THREE.Shape();
+  for (let i = 0; i < 8; i++) {
+    const a = (i / 8) * Math.PI * 2;
+    const r = i % 2 === 0 ? 0.22 : 0.07;
+    const x = Math.cos(a) * r, y = Math.sin(a) * r;
+    if (i === 0) shape.moveTo(x, y); else shape.lineTo(x, y);
+  }
+  shape.closePath();
+  const hole = new THREE.Path();
+  hole.absarc(0, 0, 0.03, 0, Math.PI * 2, true);
+  shape.holes.push(hole);
+  return new THREE.ExtrudeGeometry(shape, { depth: 0.015, bevelEnabled: false }).rotateX(-Math.PI / 2);
+}
+
+const bombMats = {};
 export function buildSmokeBomb() {
+  if (!bombMats.shell) {
+    bombMats.shell = new THREE.MeshStandardMaterial({ color: 0x5a6470, roughness: 0.45, metalness: 0.35 });
+    bombMats.band = new THREE.MeshStandardMaterial({ color: 0xb3261e, roughness: 0.7 });
+    bombMats.paper = new THREE.MeshStandardMaterial({ color: 0xd9c9a3, roughness: 0.9 });
+    bombMats.fuse = new THREE.MeshStandardMaterial({ color: 0x4a3a28, roughness: 0.9 });
+    bombMats.ember = new THREE.MeshStandardMaterial({ color: 0xff7a1a, emissive: 0xff4a00, emissiveIntensity: 2 });
+  }
+  const M = bombMats;
   const g = new THREE.Group();
-  g.add(part(new THREE.SphereGeometry(0.05, 14, 10), new THREE.MeshStandardMaterial({ color: 0x2b2b2b, roughness: 0.6 }), 0, 0.02, 0.03));
-  g.add(part(new THREE.CylinderGeometry(0.004, 0.004, 0.04, 5), new THREE.MeshStandardMaterial({ color: 0xd8c8a0 }), 0, 0.085, 0.03));
+  const c = new THREE.Group(); c.position.set(0, 0.02, 0.03); g.add(c);
+  const shell = part(new THREE.SphereGeometry(0.05, 16, 12), M.shell);
+  shell.scale.set(1, 0.92, 1);
+  c.add(shell);
+  const band = part(new THREE.TorusGeometry(0.05, 0.008, 6, 20), M.band);   // red paper band around the middle
+  band.rotation.x = Math.PI / 2;
+  c.add(band);
+  for (const s of [-1, 1]) {                                                 // two little rivets on the band
+    c.add(part(new THREE.SphereGeometry(0.006, 6, 4), M.paper, s * 0.05, 0, 0));
+  }
+  c.add(part(new THREE.CylinderGeometry(0.012, 0.022, 0.02, 8), M.paper, 0, 0.052, 0));   // twisted paper cap
+  const twist = part(new THREE.ConeGeometry(0.014, 0.03, 6), M.paper, 0, 0.074, 0);
+  twist.rotation.y = 0.6;
+  c.add(twist);
+  const fuse = part(new THREE.CylinderGeometry(0.0035, 0.0035, 0.04, 5), M.fuse, 0.008, 0.1, 0);
+  fuse.rotation.z = -0.35;
+  c.add(fuse);
+  const ember = part(new THREE.SphereGeometry(0.007, 6, 4), M.ember, 0.016, 0.12, 0);
+  ember.castShadow = false;
+  c.add(ember);
   return g;
 }
 

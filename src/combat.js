@@ -1,6 +1,7 @@
 // Fighting: Uzi bullets, thrown shurikens, and levels of samurai.
 import * as THREE from 'three';
 import { Samurai } from './samurai.js';
+import { makeShurikenGeometry } from './models.js';
 import { sfx } from './sound.js';
 
 // Where does a ray (in 2D, seen from above) first touch a circle? Returns distance or null.
@@ -12,21 +13,6 @@ function rayCircle(ox, oz, dx, dz, cx, cz, r) {
   const disc = b * b - c;
   if (disc < 0) return null;
   return Math.max(0, -b - Math.sqrt(disc));
-}
-
-function makeShurikenGeometry() {
-  const shape = new THREE.Shape();
-  for (let i = 0; i < 8; i++) {
-    const a = (i / 8) * Math.PI * 2;
-    const r = i % 2 === 0 ? 0.22 : 0.07;
-    const x = Math.cos(a) * r, y = Math.sin(a) * r;
-    if (i === 0) shape.moveTo(x, y); else shape.lineTo(x, y);
-  }
-  shape.closePath();
-  const hole = new THREE.Path();
-  hole.absarc(0, 0, 0.03, 0, Math.PI * 2, true);
-  shape.holes.push(hole);
-  return new THREE.ExtrudeGeometry(shape, { depth: 0.015, bevelEnabled: false }).rotateX(-Math.PI / 2);
 }
 
 export class Combat {

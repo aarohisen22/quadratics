@@ -274,7 +274,7 @@ function step(dt) {
   const status = mode === 'vs' && state !== 'menu' ? versus.text
     : combat.level > 0 ? `Level ${combat.level} · Wave ${combat.wave}/${combat.waveTotal} · Samurai left: ${combat.samuraiLeft}` : '';
   hud.update(dt, players, status);
-  minimap.show(state !== 'menu' && !fps);
+  minimap.show(state !== 'menu');
   minimap.update(dt, camera, { players, samurai: combat.samurai, crates: drops.crates });
   updatePadInfo(dt);
   renderer.render(scene, camera);

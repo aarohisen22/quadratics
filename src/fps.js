@@ -1,7 +1,7 @@
 // First-person view: the camera sits at the ninja's eyes, and you see your gloved hands
 // holding the weapon in the bottom-right corner (drawn on top so it never clips into trees).
 import * as THREE from 'three';
-import { buildUzi, buildShotgun, buildKatana, buildSmokeBomb } from './models.js';
+import { buildUzi, buildShotgun, buildKatana, buildSmokeBomb, makeShurikenGeometry } from './models.js';
 
 const glove = new THREE.MeshStandardMaterial({ color: 0x15161a, roughness: 0.7 });
 const sleeve = new THREE.MeshStandardMaterial({ color: 0x3a3f4a, roughness: 0.95 });
@@ -33,9 +33,10 @@ function heldGun(model, leftAt) {
   const g = new THREE.Group();
   g.add(model);
   g.add(arm(new THREE.Vector3(0, -0.03, -0.01), new THREE.Vector3(-0.12, -0.2, -0.45)));   // right hand on the grip
-  g.add(arm(leftAt, new THREE.Vector3(0.35, -0.25, -0.45)));                                // left hand supporting
+  const left = arm(leftAt, new THREE.Vector3(0.35, -0.25, -0.45));                         // left hand supporting
+  g.add(left);
   g.rotation.y = Math.PI;
-  g.userData = { muzzle: model.userData.muzzle, eject: model.userData.eject, model };
+  g.userData = { muzzle: model.userData.muzzle, eject: model.userData.eject, model, left };
   return g;
 }
 
@@ -79,8 +80,10 @@ export class FpsView {
 
     // Left hand that flicks a shuriken.
     this.throwHand = arm(new THREE.Vector3(0, 0, 0), new THREE.Vector3(0.2, -0.3, 0.4));
-    const star = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.06, 0.01, 8), new THREE.MeshStandardMaterial({ color: 0xc0c8d0, metalness: 0.9, roughness: 0.25 }));
-    star.position.set(0, 0.05, -0.03);
+    const star = new THREE.Mesh(makeShurikenGeometry(), new THREE.MeshStandardMaterial({ color: 0xc0c8d0, metalness: 0.9, roughness: 0.25 }));
+    star.scale.setScalar(0.4);
+    star.rotation.set(Math.PI / 2 - 0.6, 0, 0.4);   // tilted toward you so you see its points
+    star.position.set(0, 0.06, -0.03);
     this.throwHand.add(star);
     this.throwHand.visible = false;
     this.camera.add(this.throwHand);
@@ -180,11 +183,22 @@ export class FpsView {
     if (p.current === 'smoke' && p.throwT >= 0) h.position.z -= Math.sin(p.throwT * Math.PI) * 0.3;
     if (p.current === 'shotgun') this.items.shotgun.userData.model.userData.pump.position.z = 0.33 - Math.max(0, p.recoil - 0.3) * 0.12;
 
+    // Shuriken: the left hand lets go of the gun, dips down to the belt pouch, then flicks the star.
     const throwing = p.throwT >= 0 && p.current !== 'smoke';
+    for (const it of Object.values(this.items)) if (it.userData.left) it.userData.left.visible = !throwing;
     this.throwHand.visible = p.alive && throwing;
     if (throwing) {
       const t = p.throwT;
-      this.throwHand.position.set(-0.25 + t * 0.15, -0.25 + Math.sin(t * Math.PI) * 0.12, -0.45 - t * 0.25);
+      h.rotation.z -= Math.sin(t * Math.PI) * 0.15;   // gun tilts a little, held in one hand
+      if (t < 0.35) {                                 // down to the belt and back up with a star
+        const a = Math.sin((t / 0.35) * Math.PI);
+        this.throwHand.position.set(-0.2, -0.3 - a * 0.25, -0.45);
+        this.throwHand.children.at(-1).visible = t > 0.17;
+      } else {                                        // flick it forward
+        const a = (t - 0.35) / 0.65;
+        this.throwHand.position.set(-0.2 + a * 0.12, -0.28 + Math.sin(a * Math.PI) * 0.1, -0.45 - a * 0.3);
+        this.throwHand.children.at(-1).visible = a < 0.3;
+      }
     }
     this.camera.updateMatrixWorld(true);
   }

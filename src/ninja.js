@@ -1,6 +1,6 @@
 // A ninja brother: his body, his weapons, how he moves, and his animations.
 import * as THREE from 'three';
-import { buildNinja, buildUzi, buildShotgun, buildKatana, buildSmokeBomb, part } from './models.js';
+import { buildNinja, buildUzi, buildShotgun, buildKatana, buildSmokeBomb, part, makeShurikenGeometry } from './models.js';
 import { sfx } from './sound.js';
 
 export { part } from './models.js';
@@ -60,8 +60,9 @@ function buildCarried(body, armL) {
     return b;
   });
 
-  const star = part(new THREE.CylinderGeometry(0.05, 0.05, 0.008, 8),
+  const star = part(makeShurikenGeometry(),
     new THREE.MeshStandardMaterial({ color: 0xc0c8d0, metalness: 0.9, roughness: 0.25 }), 0, -0.06, 0.03);
+  star.scale.setScalar(0.3);
   star.rotation.x = Math.PI / 2;
   star.visible = false;
   armL.hand.add(star);

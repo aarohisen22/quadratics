@@ -91,7 +91,7 @@ export class Effects {
       const a = Math.random() * Math.PI * 2, d = Math.random() * radius * 0.8;
       sp.position.set(x + Math.cos(a) * d, y + 0.5 + Math.random() * 2.2, z + Math.sin(a) * d);
       sp.material.rotation = Math.random() * 6;
-      sp.userData = { age: 0, life: seconds + Math.random() * 1.5, size: 3 + Math.random() * 3, spin: (Math.random() - 0.5) * 0.4 };
+      sp.userData = { age: 0, life: seconds * (0.85 + Math.random() * 0.15), size: 3 + Math.random() * 3, spin: (Math.random() - 0.5) * 0.4 };
       this.scene.add(sp);
       this.smokeParts.push(sp);
     }
@@ -183,8 +183,10 @@ export class Effects {
         const grow = Math.min(1, u.age / 0.8);
         sp.scale.setScalar(u.size * (0.4 + grow * 0.6 + u.age * 0.04));
         sp.material.rotation += u.spin * dt;
-        sp.position.y += dt * 0.15;
-        sp.material.opacity = Math.min(grow, Math.max(0, (u.life - u.age) / 1.5)) * 0.85;
+        // Thick for the first part, then thins out and drifts up over the last 40% of its life.
+        const left = (u.life - u.age) / (u.life * 0.4);
+        sp.position.y += dt * (left < 1 ? 0.6 : 0.15);
+        sp.material.opacity = Math.min(grow, Math.max(0, left) ** 1.5) * 0.85;
         if (u.age >= u.life) { this.scene.remove(sp); sp.material.dispose(); u.dead = true; }
       }
       this.smokeParts = this.smokeParts.filter(sp => !sp.userData.dead);

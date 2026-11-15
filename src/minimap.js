@@ -1,6 +1,7 @@
-// Round map in the bottom-left corner (overhead modes only): the whole jungle with the stream,
+// Round map in the bottom-left corner (every mode): the whole jungle with the stream,
 // big landmarks and rocks, and dots for the brothers, samurai, supply crates and the boss.
 // It turns with the camera, so "up" on the map is always "up" on the screen.
+// In first person it turns with your view, so "up" on the map is the way you are looking.
 import * as THREE from 'three';
 
 const SIZE = 168;   // CSS pixels
