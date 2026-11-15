@@ -22,7 +22,14 @@ Then open http://localhost:8080 (add `?low` for low graphics).
   - [x] Rain, morning light, fog, rain sound
   - [x] Ninja moves (keyboard tested; controller code written but NOT tested with a real controller yet), overhead camera
   - [x] Browser test (60 fps, no errors) + save point
-- [ ] Phase 2: Fighting  ← next
+- [x] Phase 2: Fighting (waiting on the kids' playtest)
+  - [x] Uzi (60 bullets, tracers, muzzle flash, sparks, aim help), shurikens (5, interrupt samurai attacks)
+  - [x] Samurai: chase, raise katana (dodge window), strike, recover; fall and fade when defeated
+  - [x] Health bar with number, ammo counts, hurt flash, level banner, defeat screen + try again
+  - [x] Levels: +2 samurai and +15% health/damage each level; ammo refills on level clear (until Phase 4 drops)
+  - [x] Sound effects made in code (sound.js), no audio files
+  - Tested: game logic checked step by step in the browser. Tracers and sparks were NOT viewed live (browser pane was hidden)
+- [ ] Phase 3: Co-op mode  ← next
 - [ ] Phase 3: Co-op mode
 - [ ] Phase 4: Drops and hazards
 - [ ] Phase 5: VS mode
@@ -33,4 +40,4 @@ Then open http://localhost:8080 (add `?low` for low graphics).
 - Three.js r170 loads from the jsDelivr CDN through an import map, so there's nothing to install.
 - Phase 1 builds the ninja and jungle from code-made shapes. Swapping in free asset-pack models needs a download, which waits for the user's OK.
 - Treetops dissolve near the ninjas so the overhead camera can see them (`cutaway` in world.js).
-- Files: src/config.js (settings to tune), world.js (jungle), weather.js (light, rain, sound), ninja.js, input.js, camera.js, main.js.
+- Files: src/config.js (settings to tune), world.js (jungle), weather.js (light, rain), sound.js, effects.js, combat.js (weapons + levels), samurai.js, hud.js, ninja.js, input.js, camera.js, main.js.

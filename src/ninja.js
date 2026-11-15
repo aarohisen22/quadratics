@@ -2,7 +2,7 @@
 // The body is made from simple shapes for now; a detailed model can replace it later.
 import * as THREE from 'three';
 
-function part(geo, mat, x = 0, y = 0, z = 0) {
+export function part(geo, mat, x = 0, y = 0, z = 0) {
   const m = new THREE.Mesh(geo, mat);
   m.position.set(x, y, z);
   m.castShadow = true;
@@ -73,9 +73,11 @@ function buildBody(bandColor) {
 }
 
 export class Ninja {
-  constructor(scene, world, cfg, { bandColor = 0xc0272d, x = 0, z = 0 } = {}) {
+  constructor(scene, world, cfg, weapons, { bandColor = 0xc0272d, x = 0, z = 0 } = {}) {
     this.world = world;
     this.cfg = cfg;
+    this.weapons = weapons;
+    this.bandColor = bandColor;
     this.radius = 0.4;
     this.pos = new THREE.Vector3(x, world.heightAt(x, z), z);
     this.vel = new THREE.Vector3();
@@ -87,11 +89,46 @@ export class Ninja {
     const parts = buildBody(bandColor);
     Object.assign(this, parts);
     scene.add(this.root);
+    this.reset(x, z);
+  }
+
+  reset(x, z) {
+    this.pos.set(x, this.world.heightAt(x, z), z);
+    this.vel.set(0, 0, 0);
+    this.health = this.cfg.health;
+    this.ammo = this.weapons.uziAmmo;
+    this.shurikens = this.weapons.shurikens;
+    this.alive = true;
+    this.fireCooldown = 0;
+    this.recoil = 0;
+    this.fallen = 0;
+    this.root.rotation.x = 0;
+  }
+
+  get forward() { return { x: Math.sin(this.facing), z: Math.cos(this.facing) }; }
+
+  // Where bullets come out (close enough to the gun tip).
+  muzzlePosition(out) {
+    const f = this.forward;
+    return out.set(this.pos.x + f.x * 0.75 + f.z * 0.12, this.pos.y + 1.3, this.pos.z + f.z * 0.75 - f.x * 0.12);
+  }
+
+  hurt(amount) {
+    if (!this.alive) return;
+    this.health = Math.max(0, this.health - amount);
+    if (this.health === 0) this.alive = false;
   }
 
   // ctrl comes from Input.read(); aimPoint is where the mouse points on the ground.
   update(dt, ctrl, aimPoint) {
     const c = this.cfg;
+    this.recoil = Math.max(0, this.recoil - dt * 8);
+    if (!this.alive) {  // fall over
+      this.fallen = Math.min(1, this.fallen + dt * 3);
+      this.root.rotation.x = -this.fallen * Math.PI / 2;
+      this.root.position.copy(this.pos);
+      return;
+    }
 
     // Moving: the camera looks north, so stick up = -z.
     const speed = (ctrl.run ? c.runSpeed : c.walkSpeed) * ctrl.move.mag;
@@ -142,7 +179,7 @@ export class Ninja {
       this.legs[1].rotation.x = -0.3;
     }
     this.arms[0].rotation.x = -1.15 + swing * 0.15;
-    this.arms[1].rotation.x = -1.35 + swing * 0.08;
+    this.arms[1].rotation.x = -1.35 + swing * 0.08 - this.recoil * 0.25;
 
     this.root.position.copy(this.pos);
     this.root.rotation.y = this.facing;

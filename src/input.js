@@ -1,7 +1,8 @@
 // Reads game controllers (and keyboard + mouse for player 1).
 //
 // Standard controller layout (Xbox names):
-//   left stick = move, right stick = aim, A = jump, LB = run
+//   left stick = move, right stick = aim, A = jump, LB = run,
+//   RT = fire Uzi, RB = throw shuriken
 const DEADZONE = 0.2;
 
 function stick(x, y) {
@@ -16,6 +17,8 @@ export class Input {
     this.keys = new Set();
     this.mouse = { x: 0, y: 0, active: false };
     this.prevJump = [false, false];
+    this.prevThrow = [false, false];
+    this.prevConfirm = false;
     addEventListener('keydown', e => { this.keys.add(e.code); });
     addEventListener('keyup', e => { this.keys.delete(e.code); });
     addEventListener('blur', () => this.keys.clear());
@@ -24,6 +27,17 @@ export class Input {
       this.mouse.y = -(e.clientY / innerHeight) * 2 + 1;
       this.mouse.active = true;
     });
+    this.mouse.left = false;
+    this.mouse.right = false;
+    dom.addEventListener('mousedown', e => {
+      if (e.button === 0) this.mouse.left = true;
+      if (e.button === 2) this.mouse.right = true;
+    });
+    addEventListener('mouseup', e => {
+      if (e.button === 0) this.mouse.left = false;
+      if (e.button === 2) this.mouse.right = false;
+    });
+    dom.addEventListener('contextmenu', e => e.preventDefault());
   }
 
   pads() {
@@ -34,7 +48,7 @@ export class Input {
   // move.x = right, move.y = down the screen (toward the camera).
   read(index) {
     const pad = this.pads()[index];
-    const c = { move: { x: 0, y: 0, mag: 0 }, aim: null, aimMouse: false, run: false, jump: false, jumpPressed: false, source: 'none' };
+    const c = { move: { x: 0, y: 0, mag: 0 }, aim: null, aimMouse: false, run: false, jump: false, jumpPressed: false, fire: false, throw: false, throwPressed: false, source: 'none' };
 
     if (pad) {
       c.source = 'pad';
@@ -43,6 +57,8 @@ export class Input {
       if (a.mag > 0.3) c.aim = { x: a.x, y: a.y };
       c.run = !!(pad.buttons[4]?.pressed || pad.buttons[10]?.pressed);
       c.jump = !!pad.buttons[0]?.pressed;
+      c.fire = (pad.buttons[7]?.value || 0) > 0.3;
+      c.throw = !!pad.buttons[5]?.pressed;
     }
 
     // Keyboard and mouse always work for player 1.
@@ -57,11 +73,23 @@ export class Input {
       }
       if (k.has('ShiftLeft') || k.has('ShiftRight')) c.run = true;
       if (k.has('Space')) c.jump = true;
+      if (this.mouse.left) c.fire = true;
+      if (this.mouse.right || k.has('KeyE')) c.throw = true;
       if (!c.aim && this.mouse.active) c.aimMouse = true;
     }
 
     c.jumpPressed = c.jump && !this.prevJump[index];
     this.prevJump[index] = c.jump;
+    c.throwPressed = c.throw && !this.prevThrow[index];
+    this.prevThrow[index] = c.throw;
     return c;
+  }
+
+  // "Try again" button: A on any controller, or Enter.
+  confirmPressed() {
+    const down = this.keys.has('Enter') || this.pads().some(p => p.buttons[0]?.pressed);
+    const pressed = down && !this.prevConfirm;
+    this.prevConfirm = down;
+    return pressed;
   }
 }

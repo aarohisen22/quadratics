@@ -108,39 +108,4 @@ export class Rain {
     }
     this.splashes.geometry.attributes.position.needsUpdate = true;
   }
-
-  // Rain sound is made from noise, so there are no audio files to download.
-  // Browsers only allow sound after a click, so this runs from the start screen.
-  startSound() {
-    if (this.audio) return;
-    const ctx = new AudioContext();
-    this.audio = ctx;
-    const len = ctx.sampleRate * 3;
-    const buf = ctx.createBuffer(2, len, ctx.sampleRate);
-    for (let ch = 0; ch < 2; ch++) {
-      const data = buf.getChannelData(ch);
-      let brown = 0;
-      for (let i = 0; i < len; i++) {
-        const white = Math.random() * 2 - 1;
-        brown = (brown + 0.02 * white) / 1.02;
-        data[i] = white * 0.6 + brown * 3;
-      }
-    }
-    const master = ctx.createGain();
-    master.gain.value = this.cfg.rainVolume;
-    master.connect(ctx.destination);
-
-    const layer = (type, freq, q, gain) => {
-      const src = ctx.createBufferSource();
-      src.buffer = buf; src.loop = true;
-      const f = ctx.createBiquadFilter();
-      f.type = type; f.frequency.value = freq; f.Q.value = q;
-      const g = ctx.createGain(); g.gain.value = gain;
-      src.connect(f).connect(g).connect(master);
-      src.start(0, Math.random() * 2);
-    };
-    layer('lowpass', 500, 0.5, 0.55);   // deep roar of heavy rain
-    layer('bandpass', 1800, 0.6, 0.35); // hiss on the leaves
-    layer('highpass', 6000, 0.3, 0.08); // fine patter
-  }
 }

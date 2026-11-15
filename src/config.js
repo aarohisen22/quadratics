@@ -33,6 +33,33 @@ export const CONFIG = {
     runSpeed: 9,
     jumpSpeed: 7,
     gravity: 22,
+    health: 100,
+  },
+
+  weapons: {
+    uziAmmo: 60,          // bullets you start with
+    uziDamage: 10,        // per bullet
+    uziShotsPerSecond: 11,
+    uziRange: 28,         // meters
+    shurikens: 5,         // shurikens in your pockets
+    shurikenDamage: 35,
+    shurikenSpeed: 24,
+    aimHelpDegrees: 12,   // bullets bend toward a samurai this close to your aim (0 = off)
+  },
+
+  samurai: {
+    health: 40,
+    damage: 12,           // per katana hit
+    speed: 3.4,
+    attackRange: 1.8,
+    windupSeconds: 0.45,  // how long he raises his sword before striking (time to dodge!)
+  },
+
+  levels: {
+    startSamurai: 5,      // samurai on level 1
+    extraPerLevel: 2,     // more samurai each level
+    toughnessPerLevel: 0.15, // +15% health and damage each level
+    refillAmmoOnLevelUp: true, // until weapon drops arrive in Phase 4
   },
 
   camera: {
