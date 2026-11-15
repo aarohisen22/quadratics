@@ -2,14 +2,14 @@
 //
 // Standard controller layout (Xbox names):
 //   left stick = move, right stick = aim, A = jump, LB = run,
-//   RT = fire Uzi, RB = throw shuriken
+//   RT = fire, RB = throw shuriken, Y = switch weapon
 //
 // Who uses what:
 //   1 player:  controller 1 and/or keyboard + mouse
 //   2 players with 2 controllers: one each (keyboard + mouse also work for brother 1)
 //   2 players with 1 controller:  brother 1 = keyboard + mouse, brother 2 = the controller
 //   2 players, no controllers:    brother 1 = WASD + mouse, brother 2 = arrow keys
-//     (brother 2 keys: arrows move, / fire, . throw shuriken, Right Shift jump)
+//     (brother 2 keys: arrows move, / fire, . throw shuriken, Right Shift jump, , switch weapon)
 const DEADZONE = 0.2;
 
 function stick(x, y) {
@@ -25,6 +25,7 @@ export class Input {
     this.mouse = { x: 0, y: 0, active: false };
     this.prevJump = [false, false];
     this.prevThrow = [false, false];
+    this.prevSwitch = [false, false];
     this.prevConfirm = false;
     this.prevMenu = {};
     addEventListener('keydown', e => { this.keys.add(e.code); });
@@ -62,7 +63,7 @@ export class Input {
     else if (pads.length === 1) { pad = index === 1 ? pads[0] : null; keys = index === 0 ? 'main' : null; }
     else keys = index === 0 ? 'main' : 'arrows';
 
-    const c = { move: { x: 0, y: 0, mag: 0 }, aim: null, aimMouse: false, run: false, jump: false, jumpPressed: false, fire: false, throw: false, throwPressed: false, source: 'none' };
+    const c = { move: { x: 0, y: 0, mag: 0 }, aim: null, aimMouse: false, run: false, jump: false, jumpPressed: false, fire: false, throw: false, throwPressed: false, switch: false, switchPressed: false, source: 'none' };
 
     if (pad) {
       c.source = 'pad';
@@ -73,6 +74,7 @@ export class Input {
       c.jump = !!pad.buttons[0]?.pressed;
       c.fire = (pad.buttons[7]?.value || 0) > 0.3;
       c.throw = !!pad.buttons[5]?.pressed;
+      c.switch = !!pad.buttons[3]?.pressed;
     }
 
     if (keys === 'arrows') {
@@ -84,6 +86,7 @@ export class Input {
       if (k.has('Slash')) c.fire = true;
       if (k.has('Period')) c.throw = true;
       if (k.has('ShiftRight')) c.jump = true;
+      if (k.has('Comma')) c.switch = true;
     }
 
     if (keys === 'main') {
@@ -99,6 +102,7 @@ export class Input {
       if (k.has('Space')) c.jump = true;
       if (this.mouse.left) c.fire = true;
       if (this.mouse.right || k.has('KeyE')) c.throw = true;
+      if (k.has('KeyQ')) c.switch = true;
       if (!c.aim && this.mouse.active) c.aimMouse = true;
     }
 
@@ -106,6 +110,8 @@ export class Input {
     this.prevJump[index] = c.jump;
     c.throwPressed = c.throw && !this.prevThrow[index];
     this.prevThrow[index] = c.throw;
+    c.switchPressed = c.switch && !this.prevSwitch[index];
+    this.prevSwitch[index] = c.switch;
     return c;
   }
 

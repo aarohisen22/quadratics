@@ -11,6 +11,7 @@ import { Combat } from './combat.js';
 import { Hud } from './hud.js';
 import { startSound } from './sound.js';
 import { Team } from './team.js';
+import { Drops } from './drops.js';
 
 const renderer = new THREE.WebGLRenderer({ antialias: !LOW_GRAPHICS, powerPreference: 'high-performance' });
 renderer.setPixelRatio(LOW_GRAPHICS ? 1 : Math.min(devicePixelRatio, 1.75));
@@ -41,6 +42,8 @@ const allPlayers = [
 let players = allPlayers.slice(0, 1);
 const hud = new Hud(allPlayers);
 const team = new Team(scene, allPlayers, CONFIG.coop);
+const drops = new Drops(scene, world, effects, CONFIG);
+allPlayers.forEach((p, i) => { p.index = i; });
 
 // States: 'menu', 'playing', 'dying' (falling over), 'defeated'
 let state = 'menu';
@@ -57,6 +60,7 @@ setPlayerCount(1);
 
 function newGame() {
   combat.reset();
+  drops.reset();
   players.forEach((p, i) => p.reset(players.length > 1 ? (i ? 1.5 : -1.5) : 0, 0));
   hud.hideDefeat();
   combat.startLevel(1, players, hud);
@@ -79,6 +83,7 @@ function beginGame() {
 }
 function openMenu() {
   combat.reset();
+  drops.reset();
   combat.level = 0;
   hud.hideDefeat();
   players.forEach((p, i) => p.reset(players.length > 1 ? (i ? 1.5 : -1.5) : 0, 0));
@@ -147,6 +152,7 @@ function step(dt) {
     if (menu.confirm) beginGame();
   } else if (state === 'playing') {
     combat.update(dt, players, ctrls, hud);
+    drops.update(dt, players, hud);
     team.update(dt, players, time);
     if (players.every(p => !p.alive)) { state = 'dying'; dyingTimer = 1.2; }
   } else if (state === 'dying') {
@@ -185,4 +191,4 @@ addEventListener('resize', () => {
 });
 
 // Handy for testing in the browser console.
-window.game = { scene, world, get players() { return players; }, allPlayers, combat, team, camera, input, CONFIG, get state() { return state; }, step, renderer, rig, get paused() { return paused; }, set paused(v) { paused = v; } };
+window.game = { scene, world, get players() { return players; }, allPlayers, combat, team, drops, camera, input, CONFIG, get state() { return state; }, step, renderer, rig, get paused() { return paused; }, set paused(v) { paused = v; } };

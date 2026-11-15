@@ -47,6 +47,23 @@ export const CONFIG = {
     aimHelpDegrees: 12,   // bullets bend toward a samurai this close to your aim (0 = off)
   },
 
+  drops: {
+    everySeconds: 30,     // a supply crate falls from the sky this often
+    firstDropSeconds: 10, // the first one comes sooner
+    specialChance: 0.35,  // chance a crate holds a special weapon instead of ammo
+    ammoBullets: 60,      // Uzi bullets in an ammo crate
+    ammoShurikens: 2,     // shurikens in an ammo crate
+    maxUziAmmo: 180,      // most bullets you can carry
+    maxShurikens: 8,
+    maxCratesOnMap: 4,
+  },
+
+  specials: {
+    shotgun: { shells: 8, pellets: 7, damagePerPellet: 12, spreadDegrees: 24, range: 14, shotsPerSecond: 1.5 },
+    katana:  { swings: 25, damage: 45, reach: 2.6, arcDegrees: 130, swingsPerSecond: 2.5 },
+    smoke:   { bombs: 3, radius: 5, seconds: 7, throwDistance: 7 }, // samurai can't see you in the smoke
+  },
+
   samurai: {
     health: 40,
     damage: 12,           // per katana hit
@@ -67,7 +84,7 @@ export const CONFIG = {
     startSamurai: 5,      // samurai on level 1
     extraPerLevel: 2,     // more samurai each level
     toughnessPerLevel: 0.15, // +15% health and damage each level
-    refillAmmoOnLevelUp: true, // until weapon drops arrive in Phase 4
+    refillAmmoOnLevelUp: false, // supply crates bring ammo now
   },
 
   camera: {

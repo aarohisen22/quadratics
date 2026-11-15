@@ -38,6 +38,9 @@ export class Combat {
     this.samuraiCfg = config.samurai;
     this.levelsCfg = config.levels;
     this.coopCfg = config.coop;
+    this.specials = config.specials;
+    this.smokes = [];   // active smoke clouds { x, z, r, t }
+    this.bombs = [];    // smoke bombs in the air
     this.samurai = [];
     this.shurikens = [];
     this.level = 0;
@@ -83,8 +86,12 @@ export class Combat {
   reset() {
     for (const s of this.samurai) if (!s.gone) s.remove();
     for (const s of this.shurikens) this.scene.remove(s.mesh);
+    for (const b of this.bombs) this.scene.remove(b.mesh);
     this.samurai = [];
     this.shurikens = [];
+    this.bombs = [];
+    this.smokes = [];
+    this.effects.clearSmoke();
     this.betweenLevels = 0;
   }
 
@@ -94,12 +101,26 @@ export class Combat {
     players.forEach((p, i) => {
       if (!p.alive) return;
       p.fireCooldown -= dt;
-      if (ctrls[i].fire && p.fireCooldown <= 0) this.fireUzi(p, i);
-      if (ctrls[i].throwPressed) this.throwShuriken(p);
+      const c = ctrls[i];
+      if (c.switchPressed && p.special) {
+        p.hold(p.current === 'uzi' ? p.special.type : 'uzi');
+        if (p.current === 'katana') sfx.katanaDraw(); else sfx.switchWeapon();
+      }
+      if (c.fire && p.fireCooldown <= 0) {
+        if (p.current !== 'uzi' && !p.special) p.hold('uzi');   // special just ran out
+        if (p.current === 'uzi') this.fireUzi(p, i);
+        else if (p.current === 'shotgun') this.fireShotgun(p, i);
+        else if (p.current === 'katana') this.slashKatana(p);
+        else if (p.current === 'smoke') this.throwSmoke(p);
+      }
+      if (c.throwPressed) this.throwShuriken(p);
     });
 
     this.updateShurikens(dt);
-    for (const s of this.samurai) s.update(dt, players, this.samurai);
+    this.updateBombs(dt);
+    for (const sm of this.smokes) sm.t -= dt;
+    this.smokes = this.smokes.filter(sm => sm.t > 0);
+    for (const s of this.samurai) s.update(dt, players, this.samurai, this.smokes);
     this.samurai = this.samurai.filter(s => !s.gone);
 
     // Level cleared? Short pause, then the next one.
@@ -122,7 +143,7 @@ export class Combat {
   }
 
   // Aim help: bend the shot toward a samurai close to where you're aiming.
-  aimDirection(p) {
+  aimDirection(p, range = this.weapons.uziRange) {
     const f = p.forward;
     const help = this.weapons.aimHelpDegrees * Math.PI / 180;
     let best = null, bestAngle = help;
@@ -130,7 +151,7 @@ export class Combat {
       if (!s.alive) continue;
       const dx = s.pos.x - p.pos.x, dz = s.pos.z - p.pos.z;
       const d = Math.hypot(dx, dz);
-      if (d > this.weapons.uziRange || d < 0.01) continue;
+      if (d > range || d < 0.01) continue;
       const angle = Math.acos(Math.max(-1, Math.min(1, (dx * f.x + dz * f.z) / d)));
       if (angle < bestAngle) { bestAngle = angle; best = { x: dx / d, z: dz / d }; }
     }
@@ -168,7 +189,108 @@ export class Combat {
     } else if (hit.obstacle) {
       this.effects.burst(end, 'chip', 5, { x: -dir.x, z: -dir.z });
       sfx.ricochet();
+      this.onObstacleHit?.(hit.obstacle, 1);
     }
+  }
+
+  // Uses up one shell / swing / bomb; back to the Uzi when the special runs out.
+  useSpecial(p) {
+    p.special.count--;
+    if (p.special.count <= 0) {
+      p.special = null;
+      setTimeout(() => { if (!p.special) p.hold('uzi'); }, 350);
+    }
+  }
+
+  fireShotgun(p, index) {
+    const S = this.specials.shotgun;
+    p.fireCooldown = 1 / S.shotsPerSecond;
+    p.recoil = 1.6;
+    sfx.shotgun();
+    const from = p.muzzlePosition(this.tmp).clone();
+    this.effects.muzzle(index, from, 1.6);
+    const f = p.forward;
+    setTimeout(() => this.effects.casing(p.ejectPosition(this.tmp2), { x: -f.z, z: f.x }), 400);
+    const base = this.aimDirection(p, S.range);
+    const spread = S.spreadDegrees * Math.PI / 180;
+    for (let k = 0; k < S.pellets; k++) {
+      const a = (k / (S.pellets - 1) - 0.5) * spread + (Math.random() - 0.5) * 0.05;
+      const dir = { x: base.x * Math.cos(a) - base.z * Math.sin(a), z: base.x * Math.sin(a) + base.z * Math.cos(a) };
+      const hit = this.castRay(from.x, from.y, from.z, dir.x, dir.z, S.range);
+      const end = new THREE.Vector3(from.x + dir.x * hit.dist, from.y, from.z + dir.z * hit.dist);
+      this.effects.tracer(from, end);
+      if (hit.samurai) {
+        end.y = hit.samurai.pos.y + 1.2;
+        hit.samurai.hit(S.damagePerPellet, dir.x * 2, dir.z * 2);
+        this.effects.burst(end, 'spark', 5, { x: -dir.x, z: -dir.z });
+      } else if (hit.obstacle) {
+        this.effects.burst(end, 'chip', 4, { x: -dir.x, z: -dir.z });
+      }
+      if (hit.obstacle) this.onObstacleHit?.(hit.obstacle, 2);
+    }
+    sfx.hitEnemy();
+    this.useSpecial(p);
+  }
+
+  slashKatana(p) {
+    const K = this.specials.katana;
+    p.fireCooldown = 1 / K.swingsPerSecond;
+    p.swing = 0;
+    sfx.katanaSlash();
+    const f = p.forward;
+    const half = (K.arcDegrees / 2) * Math.PI / 180;
+    let hits = 0;
+    for (const s of this.samurai) {
+      if (!s.alive) continue;
+      const dx = s.pos.x - p.pos.x, dz = s.pos.z - p.pos.z, d = Math.hypot(dx, dz);
+      if (d > K.reach + s.radius) continue;
+      const angle = Math.acos(Math.max(-1, Math.min(1, (dx * f.x + dz * f.z) / (d || 1))));
+      if (angle > half) continue;
+      s.hit(K.damage, dx / (d || 1), dz / (d || 1), true);
+      this.effects.burst(new THREE.Vector3(s.pos.x, s.pos.y + 1.2, s.pos.z), 'steel', 14, { x: dx / d, z: dz / d });
+      hits++;
+    }
+    if (hits) setTimeout(() => sfx.katanaHit(), 60);
+    this.useSpecial(p);
+  }
+
+  throwSmoke(p) {
+    const S = this.specials.smoke;
+    p.fireCooldown = 0.8;
+    p.throwT = 0;
+    sfx.shuriken();
+    const f = p.forward;
+    const mesh = p.models.smoke.clone();
+    p.muzzlePosition(mesh.position);
+    this.scene.add(mesh);
+    const flight = 0.7;
+    this.bombs.push({
+      mesh, t: 0, flight,
+      vx: f.x * S.throwDistance / flight, vz: f.z * S.throwDistance / flight, vy: 6,
+    });
+    this.useSpecial(p);
+  }
+
+  updateBombs(dt) {
+    const S = this.specials.smoke;
+    for (const b of this.bombs) {
+      b.t += dt;
+      b.vy -= 18 * dt;
+      b.mesh.position.x += b.vx * dt;
+      b.mesh.position.y += b.vy * dt;
+      b.mesh.position.z += b.vz * dt;
+      b.mesh.rotation.x += dt * 10;
+      const ground = this.world.heightAt(b.mesh.position.x, b.mesh.position.z);
+      if (b.mesh.position.y <= ground + 0.05) {
+        b.done = true;
+        this.scene.remove(b.mesh);
+        const { x, z } = b.mesh.position;
+        this.smokes.push({ x, z, r: S.radius, t: S.seconds });
+        this.effects.smokeCloud(x, ground, z, S.radius, S.seconds);
+        sfx.smokeBomb();
+      }
+    }
+    this.bombs = this.bombs.filter(b => !b.done);
   }
 
   // Finds the first samurai or tree/rock along a shot.

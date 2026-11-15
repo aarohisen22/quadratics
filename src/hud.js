@@ -10,12 +10,13 @@ export class Hud {
       card.innerHTML = `
         <div class="name">Brother ${i + 1}</div>
         <div class="bar"><div class="fill"></div><div class="num"></div></div>
-        <div class="ammo"><span class="uzi"></span><span class="shur"></span></div>
+        <div class="ammo"><span class="uzi"></span><span class="spec"></span><span class="shur"></span></div>
         <div class="status"></div>`;
       $('players').append(card);
       return {
         el: card, fill: card.querySelector('.fill'), num: card.querySelector('.num'),
-        uzi: card.querySelector('.uzi'), shur: card.querySelector('.shur'), status: card.querySelector('.status'),
+        uzi: card.querySelector('.uzi'), spec: card.querySelector('.spec'),
+        shur: card.querySelector('.shur'), status: card.querySelector('.status'),
       };
     });
     this.hurtAlpha = 0;
@@ -37,6 +38,10 @@ export class Hud {
       c.num.textContent = `Health ${hp} / ${p.cfg.health}`;
       c.uzi.textContent = `Uzi ${p.ammo}`;
       c.uzi.classList.toggle('out', p.ammo === 0);
+      c.uzi.classList.toggle('active', p.current === 'uzi' && !!p.special);
+      const names = { shotgun: 'Shotgun', katana: 'Katana', smoke: 'Smoke' };
+      c.spec.textContent = p.special ? `${names[p.special.type]} ${p.special.count}` : '';
+      c.spec.classList.toggle('active', !!p.special && p.current === p.special.type);
       c.shur.textContent = `Shurikens ${p.shurikens}`;
       c.shur.classList.toggle('out', p.shurikens === 0);
       const down = !p.alive && players.length > 1;
@@ -57,6 +62,13 @@ export class Hud {
       this.bannerTimer -= dt;
       if (this.bannerTimer <= 0) $('banner').classList.remove('show');
     }
+  }
+
+  toast(text, seconds = 3) {
+    $('toast').textContent = text;
+    $('toast').classList.add('show');
+    clearTimeout(this.toastTimer);
+    this.toastTimer = setTimeout(() => $('toast').classList.remove('show'), seconds * 1000);
   }
 
   banner(text, seconds = 2) {

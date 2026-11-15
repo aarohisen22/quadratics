@@ -112,17 +112,20 @@ export class Samurai {
     return false;
   }
 
-  update(dt, players, others) {
+  update(dt, players, others, smokes = []) {
     this.flash -= dt;
     const glow = this.flash > 0 ? 1 : 0;
     for (const m of this.mats) m.emissive.setScalar(glow * 0.8);
 
     if (this.state === 'dead') return this.updateDead(dt);
 
-    // Find the closest ninja who is still standing.
+    // Find the closest ninja who is still standing and not hidden in smoke.
+    // A samurai inside smoke can't see anyone at all.
+    const inSmoke = (x, z) => smokes.some(sm => Math.hypot(sm.x - x, sm.z - z) < sm.r);
+    const blind = inSmoke(this.pos.x, this.pos.z);
     let target = null, best = Infinity;
     for (const p of players) {
-      if (!p.alive) continue;
+      if (!p.alive || blind || inSmoke(p.pos.x, p.pos.z)) continue;
       const d = Math.hypot(p.pos.x - this.pos.x, p.pos.z - this.pos.z);
       if (d < best) { best = d; target = p; }
     }
@@ -159,6 +162,16 @@ export class Samurai {
       } else if (this.state === 'recover' && this.timer <= 0) {
         this.state = 'chase';
       }
+    }
+
+    if (!target) {   // lost: wander about slowly
+      this.wanderT = (this.wanderT || 0) - dt;
+      if (this.wanderT <= 0) { this.wanderT = 1 + Math.random() * 1.5; this.wanderDir = Math.random() * Math.PI * 2; }
+      moveX = Math.sin(this.wanderDir) * 0.35;
+      moveZ = Math.cos(this.wanderDir) * 0.35;
+      const turn = Math.atan2(Math.sin(this.wanderDir - this.facing), Math.cos(this.wanderDir - this.facing));
+      this.facing += turn * (1 - Math.exp(-4 * dt));
+      if (this.state !== 'chase') { this.timer -= dt; if (this.timer <= 0) this.state = 'chase'; }
     }
 
     // Keep a little space from other samurai and from the ninjas.
