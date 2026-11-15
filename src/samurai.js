@@ -3,6 +3,54 @@ import * as THREE from 'three';
 import { part, buildKatana } from './models.js';
 import { sfx } from './sound.js';
 
+// An Oni (demon) face mask: red face, angry brows, glowing eyes, fangs and horns.
+// Built around the head's center, facing +z. Also used (bigger) by the mini boss.
+export function buildOniMask(mats) {
+  const g = new THREE.Group();
+  // Face plate: the front half of a slightly squashed ball, from the brow down to the chin.
+  const face = part(new THREE.SphereGeometry(0.195, 18, 12, 0, Math.PI, 0.32 * Math.PI, 0.6 * Math.PI), mats.oni);
+  face.scale.set(1, 1.05, 1.08);
+  g.add(face);
+  // Cheek bumps and a broad nose.
+  for (const s of [-1, 1]) {
+    const cheek = part(new THREE.SphereGeometry(0.06, 10, 8), mats.oni, s * 0.09, -0.04, 0.155);
+    cheek.scale.set(1, 0.8, 0.6);
+    g.add(cheek);
+  }
+  const nose = part(new THREE.ConeGeometry(0.04, 0.08, 6), mats.oni, 0, -0.005, 0.21);
+  nose.rotation.x = Math.PI / 2 + 0.5;
+  g.add(nose);
+  // Angry brows slanting down toward the middle, and glowing eyes under them.
+  for (const s of [-1, 1]) {
+    const brow = part(new THREE.BoxGeometry(0.11, 0.035, 0.05), mats.dark, s * 0.065, 0.075, 0.18);
+    brow.rotation.z = s * 0.45;
+    brow.rotation.y = s * -0.25;
+    g.add(brow);
+    const eye = part(new THREE.SphereGeometry(0.024, 10, 6), mats.eye, s * 0.062, 0.035, 0.185);
+    eye.scale.set(1.4, 0.7, 0.6);
+    eye.castShadow = false;
+    g.add(eye);
+  }
+  // Open snarling mouth with fangs.
+  const mouth = part(new THREE.BoxGeometry(0.13, 0.04, 0.04), mats.dark, 0, -0.1, 0.175);
+  g.add(mouth);
+  for (const s of [-1, 1]) {
+    const up = part(new THREE.ConeGeometry(0.014, 0.06, 5), mats.fang, s * 0.05, -0.095, 0.195);
+    g.add(up);                                            // bottom fangs point up
+    const down = part(new THREE.ConeGeometry(0.011, 0.045, 5), mats.fang, s * 0.025, -0.09, 0.197);
+    down.rotation.z = Math.PI;                            // top fangs point down
+    g.add(down);
+  }
+  // Two horns sweeping up and out from the forehead.
+  for (const s of [-1, 1]) {
+    const horn = part(new THREE.ConeGeometry(0.035, 0.3, 7), mats.fang, s * 0.21, 0.26, 0.05);
+    horn.rotation.z = -s * 0.6;
+    horn.rotation.x = -0.2;
+    g.add(horn);
+  }
+  return g;
+}
+
 function buildSamurai() {
   // Each samurai gets its own materials so it can flash and fade on its own.
   const mats = {
@@ -11,7 +59,11 @@ function buildSamurai() {
     gold: new THREE.MeshStandardMaterial({ color: 0xb08a3a, roughness: 0.35, metalness: 0.8 }),
     cloth: new THREE.MeshStandardMaterial({ color: 0x2a2730, roughness: 0.85 }),
     steel: new THREE.MeshStandardMaterial({ color: 0xd0d6dc, roughness: 0.15, metalness: 0.95 }),
+    oni: new THREE.MeshStandardMaterial({ color: 0xa3170f, roughness: 0.3, metalness: 0.15 }),
+    fang: new THREE.MeshStandardMaterial({ color: 0xeee6cf, roughness: 0.4 }),
+    eye: new THREE.MeshStandardMaterial({ color: 0xffd23a, emissive: 0xffb300, emissiveIntensity: 1.2 }),
   };
+  mats.eye.userData.glow = true;   // keeps its own glow when the samurai flashes
   const root = new THREE.Group();
   const body = new THREE.Group();
   root.add(body);
@@ -28,13 +80,15 @@ function buildSamurai() {
 
   // Helmet, face mask and golden crest.
   body.add(part(new THREE.SphereGeometry(0.18, 14, 10), mats.cloth, 0, 1.73, 0));
-  body.add(part(new THREE.BoxGeometry(0.24, 0.13, 0.08), mats.dark, 0, 1.68, 0.14)); // face mask
-  const helmet = part(new THREE.SphereGeometry(0.23, 14, 8, 0, Math.PI * 2, 0, Math.PI / 2), mats.dark, 0, 1.76, 0);
+  const mask = buildOniMask(mats);
+  mask.position.set(0, 1.71, 0.01);
+  body.add(mask);
+  const helmet = part(new THREE.SphereGeometry(0.23, 14, 8, 0, Math.PI * 2, 0, Math.PI / 2), mats.dark, 0, 1.84, -0.02);
   body.add(helmet);
-  const brim = part(new THREE.CylinderGeometry(0.34, 0.38, 0.04, 14), mats.dark, 0, 1.76, -0.03);
-  brim.rotation.x = 0.25;
+  const brim = part(new THREE.CylinderGeometry(0.34, 0.38, 0.04, 14), mats.dark, 0, 1.85, -0.06);
+  brim.rotation.x = -0.18;   // front tipped up so the Oni face shows
   body.add(brim);
-  const crest = part(new THREE.TorusGeometry(0.16, 0.025, 4, 12, Math.PI), mats.gold, 0, 1.92, 0.12);
+  const crest = part(new THREE.TorusGeometry(0.16, 0.025, 4, 12, Math.PI), mats.gold, 0, 2.0, 0.1);
   crest.rotation.z = 0;
   body.add(crest);
 
@@ -115,7 +169,7 @@ export class Samurai {
   update(dt, players, others, smokes = []) {
     this.flash -= dt;
     const glow = this.flash > 0 ? 1 : 0;
-    for (const m of this.mats) m.emissive.setScalar(glow * 0.8);
+    for (const m of this.mats) if (!m.userData.glow) m.emissive.setScalar(glow * 0.8);
 
     if (this.state === 'dead') return this.updateDead(dt);
 
