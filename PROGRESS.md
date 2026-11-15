@@ -72,3 +72,18 @@ Then open http://localhost:8080 (this server turns off browser caching so refres
 - Phase 1 builds the ninja and jungle from code-made shapes. Swapping in free asset-pack models needs a download, which waits for the user's OK.
 - Treetops dissolve near the ninjas so the overhead camera can see them (`cutaway` in world.js).
 - Files: src/config.js (settings to tune), world.js (jungle), weather.js (light, rain), sound.js, effects.js, combat.js (weapons + levels), samurai.js, hud.js, ninja.js, input.js, camera.js, main.js.
+
+## Where we left off (paused 2026-11-15, before Phase 7)
+Everything through Phase 6 is committed. To resume, open this folder and say "continue the game from PROGRESS.md".
+
+**Phase 7 to-do (menus, polish, publish):**
+- Pause menu in every mode (Esc / Start button): resume, restart, back to menu
+- Settings screen: volume, mouse sensitivity, low graphics toggle (currently `?low` in the URL)
+- How-to-play / controls screen; game title + brothers' names from the kids
+- Publish to GitHub Pages for a shareable link (needs the parent's GitHub account; ask before pushing anything)
+
+**Still never tested by a person:** real game controllers, sounds by ear, mouse grab (pointer lock) in first person.
+
+**Ideas raised but not done:** professional animated character models from free packs (needs downloads, ask first); shots that follow up/down aim in first person; single-player quests/missions; online multiplayer.
+
+**Testing tip for the next session:** in the browser console, `game.paused = true` stops the loop and `game.step(1/60)` advances one frame; `game.players`, `game.combat`, `game.sky`, `game.world` are exposed.
