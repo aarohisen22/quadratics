@@ -48,6 +48,12 @@ Then open http://localhost:8080 (this server turns off browser caching so refres
   - [x] Knock-down = point for the other brother (trees count too); respawn after 3 s away from the opponent; first to 5 wins; winner screen in his color
   - [x] Crates every 30 s and falling trees still on; no samurai
   - [x] Fix: aim help now aims from the gun tip / throwing hand, so shurikens no longer just miss
+- [x] Feedback round 1 (from parent/kids):
+  - [x] Katana weaker: 30 damage, 100° arc, hits at most 2 per swing, 15 swings
+  - [x] Samurai slower (2.8 vs ninja walk 5)
+  - [x] Levels come in waves (2 per level, 3 from level 5; next wave when 1 samurai left or after 35 s)
+  - [x] Weather changes by level (sky.js): rain (1-2) → clearing with sunbeams + birds (3-4) → golden afternoon (5-6) → thunderstorm with lightning (7-8) → dusk with fireflies (9-10), then repeats. VS picks random weather
+  - [x] Landscape: stream winding through a valley (wading slows you; stepping stones), temple ruins on a hill, crashed cargo plane, 3 collapsed stilt huts (landmarks.js) — all solid cover
 - [ ] Phase 6: 1-player first-person mode  ← next
 - [ ] Phase 3: Co-op mode
 - [ ] Phase 4: Drops and hazards

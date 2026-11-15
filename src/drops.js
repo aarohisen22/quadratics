@@ -35,6 +35,7 @@ export class Drops {
       const x = cx + Math.cos(a) * d, z = cz + Math.sin(a) * d;
       if (Math.abs(x) > lim || Math.abs(z) > lim) continue;
       if (this.world.obstacles.some(o => Math.hypot(o.x - x, o.z - z) < o.r + 1.2)) continue;
+      if (this.world.streamDist(x, z) < 6) continue;   // not in the water
       return { x, z };
     }
     return { x: cx + 4, z: cz };

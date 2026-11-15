@@ -1,5 +1,6 @@
 // The jungle: ground, trees, plants, rocks, logs and puddles.
 import * as THREE from 'three';
+import { buildLandmarks } from './landmarks.js';
 
 // ---------- small helpers ----------
 
@@ -99,7 +100,7 @@ function makeFrondGeometry(length, width, droop) {
   return g;
 }
 
-function makeLumpyGeometry(radius, detail, amount, rnd) {
+export function makeLumpyGeometry(radius, detail, amount, rnd) {
   const g = new THREE.IcosahedronGeometry(radius, detail);
   const p = g.attributes.position;
   const v = new THREE.Vector3();
@@ -156,16 +157,55 @@ export class World {
     this.obstacles = [];          // { x, z, r, h } circles you bump into
     this.brokenTrees = [];        // trees that may fall (Phase 4)
     this.rnd = makeRandom(cfg.seed);
+    this.templeSpot = { x: 30, z: -28 };
+    this.templeTop = this.baseHeight(30, -28) + 3.5;
+    this.reserved = [];           // areas kept clear for ruins and the plane wreck
     this.build(scene);
   }
 
-  heightAt(x, z) {
+  // ---------- the shape of the land ----------
+
+  // A stream winds across the jungle from west to east. This is its middle line.
+  streamZ(x) { return 16 + 11 * Math.sin(x * 0.05 + 0.4) + 4 * Math.sin(x * 0.13 + 1.3); }
+
+  // Distance from the middle of the stream.
+  streamDist(x, z) {
+    const slope = 0.55 * Math.cos(x * 0.05 + 0.4) + 0.52 * Math.cos(x * 0.13 + 1.3);
+    return Math.abs(z - this.streamZ(x)) / Math.sqrt(1 + slope * slope);
+  }
+
+  // The water surface height at this point along the stream.
+  waterLevel(x) { return this.baseHeight(x, this.streamZ(x)) - 3.5 + 0.6; }
+
+  // How deep the water is here (0 = dry land).
+  waterDepthAt(x, z) {
+    if (this.streamDist(x, z) > 6) return 0;
+    return Math.max(0, this.waterLevel(x) - this.heightAt(x, z));
+  }
+
+  // Bumpy jungle floor before the valley and hill are added.
+  baseHeight(x, z) {
     let h = (noise2(x * 0.035 + 11, z * 0.035 - 4) - 0.5) * 4.5;
     h += (noise2(x * 0.11, z * 0.11) - 0.5) * 1.2;
     h += (noise2(x * 0.5, z * 0.5) - 0.5) * 0.15;
     const edge = Math.max(Math.abs(x), Math.abs(z));
     h += smoothstep(this.half - 16, this.half, edge) * 10;
     h *= 1 - smoothstep(8, 0, Math.hypot(x, z)) * 0.6; // flatter clearing at the start
+    return h;
+  }
+
+  heightAt(x, z) {
+    let h = this.baseHeight(x, z);
+    // The stream valley: a wide gentle dip with a deeper stream bed in the middle.
+    const d = this.streamDist(x, z);
+    if (d < 16) h -= 2.2 * (1 - smoothstep(4, 16, d)) + 1.3 * (1 - smoothstep(2.2, 4.8, d));
+    // A hill with a flat top where the old temple stands.
+    const T = this.templeSpot;
+    const dt = Math.hypot(x - T.x, z - T.z);
+    if (dt < 18) {
+      h += 3.5 * (1 - smoothstep(7, 18, dt));
+      h += (this.templeTop - h) * (1 - smoothstep(6.5, 9, dt));   // level the top
+    }
     return h;
   }
 
@@ -193,6 +233,8 @@ export class World {
       const z = (r() * 2 - 1) * (this.half - 2);
       if (Math.hypot(x, z) < minDistFromCenter) continue;
       if (placed && placed.some(p => (p.x - x) ** 2 + (p.z - z) ** 2 < spacing * spacing)) continue;
+      if (this.streamDist(x, z) < 6) continue;                                   // not in the stream
+      if (this.reserved.some(a => Math.hypot(a.x - x, a.z - z) < a.r)) continue; // not inside a ruin
       return { x, z };
     }
     return null;
@@ -211,12 +253,17 @@ export class World {
     const gp = ground.attributes.position;
     const colors = new Float32Array(gp.count * 3);
     const mud = new THREE.Color(0x3a2c1f), moss = new THREE.Color(0x2c4a1f), litter = new THREE.Color(0x4f3c22);
+    const wetMud = new THREE.Color(0x261f16), pebbles = new THREE.Color(0x4a4639), stone = new THREE.Color(0x6d6b60);
     for (let i = 0; i < gp.count; i++) {
       const x = gp.getX(i), z = gp.getZ(i);
       gp.setY(i, this.heightAt(x, z));
       const m = noise2(x * 0.08 + 50, z * 0.08);
       const l = noise2(x * 0.3, z * 0.3 + 20);
       color.copy(mud).lerp(moss, smoothstep(0.35, 0.65, m)).lerp(litter, smoothstep(0.6, 0.9, l) * 0.6);
+      const sd = this.streamDist(x, z);
+      if (sd < 7) color.lerp(sd < 4.5 ? pebbles : wetMud, (1 - smoothstep(3, 7, sd)) * 0.85);   // wet banks, pebbly bed
+      const td = Math.hypot(x - this.templeSpot.x, z - this.templeSpot.z);
+      if (td < 9) color.lerp(stone, (1 - smoothstep(6, 9, td)) * 0.9);                       // old stone floor
       colors.set([color.r, color.g, color.b], i * 3);
     }
     ground.setAttribute('color', new THREE.BufferAttribute(colors, 3));
@@ -224,6 +271,9 @@ export class World {
     const groundMesh = new THREE.Mesh(ground, new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.62 }));
     groundMesh.receiveShadow = true;
     scene.add(groundMesh);
+
+    this.buildWater(scene);
+    buildLandmarks(this, scene);   // ruins and the plane wreck (they reserve their space first)
 
     // --- shared materials ---
     const barkMat = addCutaway(new THREE.MeshStandardMaterial({ roughness: 0.9 }));
@@ -357,8 +407,10 @@ export class World {
     // --- ferns and big-leaf plants (walk through them) ---
     dummy.rotation.order = 'YZX';
     const ferns = new Batch(makeFrondGeometry(1.4, 0.38, 0.45), plantMat, { shadow: false, shade: 0.42 });
+    const plantOK = (x, z) => this.streamDist(x, z) > 3.8 && !this.reserved.some(a => Math.hypot(a.x - x, a.z - z) < a.r * 0.6);
     for (let i = 0; i < cfg.ferns; i++) {
       const x = (r() * 2 - 1) * (this.half - 2), z = (r() * 2 - 1) * (this.half - 2);
+      if (!plantOK(x, z)) continue;
       const y = this.heightAt(x, z);
       const n = 6 + Math.floor(r() * 4), sc = 0.6 + r() * 0.8;
       const hue = 0.22 + r() * 0.08;
@@ -377,7 +429,7 @@ export class World {
     const bigLeaves = new Batch(bigLeafGeo, plantMat, { shadow: true, shade: 0.45 });
     for (let i = 0; i < cfg.bigLeafPlants; i++) {
       const x = (r() * 2 - 1) * (this.half - 2), z = (r() * 2 - 1) * (this.half - 2);
-      if (Math.hypot(x, z) < 4) continue;
+      if (Math.hypot(x, z) < 4 || !plantOK(x, z)) continue;
       const y = this.heightAt(x, z);
       const n = 3 + Math.floor(r() * 3), sc = 0.6 + r() * 0.7;
       for (let f = 0; f < n; f++) {
@@ -400,7 +452,7 @@ export class World {
     for (let tries = 0; tries < 2000 && made < cfg.puddles; tries++) {
       const x = (r() * 2 - 1) * (this.half - 10), z = (r() * 2 - 1) * (this.half - 10);
       const y = this.heightAt(x, z);
-      if (y > -1.0) continue; // puddles collect in low spots
+      if (y > -1.0 || this.streamDist(x, z) < 9 || !plantOK(x, z)) continue; // puddles collect in low spots
       dummy.position.set(x, y + 0.04, z);
       dummy.rotation.set(0, r() * 6.28, 0);
       dummy.scale.set(1 + r() * 2, 1, 0.7 + r() * 1.4); dummy.updateMatrix();
@@ -414,6 +466,65 @@ export class World {
     this.trunkMesh = trunks.mesh;
 
     this.buildMist(scene);
+  }
+
+  // The stream: a ribbon of water following the valley, with ripples drifting downstream.
+  buildWater(scene) {
+    const c = document.createElement('canvas');
+    c.width = 256; c.height = 64;
+    const g = c.getContext('2d');
+    g.fillStyle = '#ffffff'; g.fillRect(0, 0, 256, 64);
+    g.filter = 'blur(2px)';
+    for (let i = 0; i < 90; i++) {   // soft light streaks of flowing water
+      g.strokeStyle = `rgba(150,175,170,${0.25 + Math.random() * 0.4})`;
+      g.lineWidth = 1 + Math.random() * 2;
+      const x = Math.random() * 256, y = Math.random() * 64, len = 20 + Math.random() * 60;
+      g.beginPath(); g.moveTo(x, y); g.quadraticCurveTo(x + len / 2, y + (Math.random() - 0.5) * 6, x + len, y); g.stroke();
+    }
+    g.filter = 'none';
+    this.waterTex = new THREE.CanvasTexture(c);
+    this.waterTex.wrapS = this.waterTex.wrapT = THREE.RepeatWrapping;
+    this.waterTex.colorSpace = THREE.SRGBColorSpace;
+
+    const pos = [], uv = [], idx = [];
+    const width = 5.6, step = 1;
+    let row = 0;
+    for (let x = -this.half; x <= this.half; x += step, row++) {
+      const z = this.streamZ(x), y = this.waterLevel(x);
+      const slope = 0.55 * Math.cos(x * 0.05 + 0.4) + 0.52 * Math.cos(x * 0.13 + 1.3);
+      const n = Math.sqrt(1 + slope * slope);
+      const nx = -slope / n, nz = 1 / n;   // sideways across the stream
+      pos.push(x - nx * width, y, z - nz * width, x + nx * width, y, z + nz * width);
+      uv.push(row * 0.12, 0, row * 0.12, 1);
+      if (row > 0) { const a = (row - 1) * 2; idx.push(a, a + 1, a + 2, a + 1, a + 3, a + 2); }
+    }
+    const geo = new THREE.BufferGeometry();
+    geo.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+    geo.setAttribute('uv', new THREE.Float32BufferAttribute(uv, 2));
+    geo.setIndex(idx);
+    geo.computeVertexNormals();
+    this.water = new THREE.Mesh(geo, new THREE.MeshStandardMaterial({
+      color: 0x3d5e58, map: this.waterTex, roughness: 0.08, metalness: 0.25,
+      transparent: true, opacity: 0.86, side: THREE.DoubleSide,
+    }));
+    this.water.receiveShadow = true;
+    scene.add(this.water);
+
+    // Stepping stones to cross without getting your feet wet.
+    const stoneMat = new THREE.MeshStandardMaterial({ color: 0x5d5a50, roughness: 0.35, flatShading: true });
+    const stoneGeo = makeLumpyGeometry(1, 1, 0.3, this.rnd);
+    for (const cx of [-34, -6, 22, 44]) {
+      for (let k = -2; k <= 2; k++) {
+        const z = this.streamZ(cx) + k * 1.4 + (this.rnd() - 0.5) * 0.4;
+        const x = cx + (this.rnd() - 0.5) * 0.6;
+        const m = new THREE.Mesh(stoneGeo, stoneMat);
+        m.position.set(x, this.waterLevel(cx) - 0.05, z);
+        m.scale.set(0.55, 0.28, 0.5);
+        m.rotation.y = this.rnd() * 3;
+        m.castShadow = m.receiveShadow = true;
+        scene.add(m);
+      }
+    }
   }
 
   // Soft low clouds of mist drifting between the trees.
@@ -442,6 +553,7 @@ export class World {
   }
 
   update(dt) {
+    if (this.waterTex) this.waterTex.offset.x -= dt * 0.25;   // the stream flows
     for (const s of this.mist) {
       s.position.x += s.userData.speed * dt;
       if (s.position.x > this.half) s.position.x = -this.half;

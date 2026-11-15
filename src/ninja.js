@@ -133,7 +133,8 @@ export class Ninja {
     }
 
     // Moving: the camera looks north, so stick up = -z.
-    const speed = (ctrl.run ? c.runSpeed : c.walkSpeed) * ctrl.move.mag;
+    const wading = this.world.waterDepthAt(this.pos.x, this.pos.z) > 0.25;   // the stream slows you down
+    const speed = (ctrl.run ? c.runSpeed : c.walkSpeed) * ctrl.move.mag * (wading ? 0.55 : 1);
     const mx = ctrl.move.mag ? ctrl.move.x / ctrl.move.mag : 0;
     const mz = ctrl.move.mag ? ctrl.move.y / ctrl.move.mag : 0;
     const blend = 1 - Math.exp(-12 * dt);

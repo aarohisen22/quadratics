@@ -182,8 +182,9 @@ export class Samurai {
       if (d > 0 && d < 1.1) { moveX += (dx / d) * (1.1 - d) * 2; moveZ += (dz / d) * (1.1 - d) * 2; }
     }
 
-    this.pos.x += (moveX * this.speed + this.knock.x) * dt;
-    this.pos.z += (moveZ * this.speed + this.knock.y) * dt;
+    const wade = this.world.waterDepthAt(this.pos.x, this.pos.z) > 0.25 ? 0.55 : 1;
+    this.pos.x += (moveX * this.speed * wade + this.knock.x) * dt;
+    this.pos.z += (moveZ * this.speed * wade + this.knock.y) * dt;
     this.knock.multiplyScalar(Math.exp(-8 * dt));
     for (const p of players) {
       if (!p.alive) continue;
