@@ -227,6 +227,13 @@ export const sfx = {
     for (let i = 0; i < n; i++) tone(base, base * rand(1.2, 1.6), 0.035, 0.07, 'sine', { delay: i * gap, verb: 0.4 });
   },
   levelUp() { [523, 659, 784].forEach((f, i) => tone(f, f, 0.12, 0.25, 'triangle', { delay: i * 0.12 })); },
+  bowDraw() { burst({ type: 'bandpass', freq: 380, freqEnd: 520, q: 3, gain: 0.12, attack: 0.25, decay: 0.4 }); },  // wood creaks as the string comes back
+  bowShot() {   // string twang and the arrow whooshing off
+    tone(210, 120, 0.25, 0.18, 'triangle');
+    burst({ type: 'highpass', freq: 2500, freqEnd: 900, q: 0.7, gain: 0.15, decay: 0.25 });
+  },
+  arrowThunk() { burst({ type: 'lowpass', freq: 700, q: 2, gain: 0.45, decay: 0.08 }); },
+  nunchuckWhirl() { burst({ type: 'bandpass', freq: 700, freqEnd: 1400, q: 5, gain: 0.18, decay: 0.25 }); },
   vineSlide() { burst({ type: 'bandpass', freq: 900, q: 0.8, gain: 0.16, decay: 0.7 }); },   // rope zipping through gloves
   thud() { burst({ type: 'lowpass', freq: 160, q: 1, gain: 0.5, decay: 0.12 }); },
 };

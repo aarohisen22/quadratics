@@ -51,10 +51,92 @@ export function buildOniMask(mats) {
   return g;
 }
 
-function buildSamurai() {
+// ---------- weapons for the other kinds of samurai ----------
+const woodMat = new THREE.MeshStandardMaterial({ color: 0x5a3a1e, roughness: 0.6 });
+const darkWoodMat = new THREE.MeshStandardMaterial({ color: 0x2a1a10, roughness: 0.5 });
+const featherMat = new THREE.MeshStandardMaterial({ color: 0xe8e2d0, roughness: 0.8, side: THREE.DoubleSide });
+const tipMat = new THREE.MeshStandardMaterial({ color: 0x9aa2aa, roughness: 0.3, metalness: 0.9 });
+const chainMat = new THREE.MeshStandardMaterial({ color: 0x8a8f96, roughness: 0.3, metalness: 0.9 });
+
+// An arrow pointing +z, 0.8 m long, centered on its middle. Combat uses this for flying arrows too.
+export function buildArrow() {
+  const g = new THREE.Group();
+  g.add(part(new THREE.CylinderGeometry(0.011, 0.011, 0.8, 5).rotateX(Math.PI / 2), woodMat));
+  const tip = part(new THREE.ConeGeometry(0.025, 0.09, 6).rotateX(Math.PI / 2), tipMat, 0, 0, 0.44);
+  g.add(tip);
+  for (let i = 0; i < 3; i++) {   // three feathers at the back
+    const f = part(new THREE.PlaneGeometry(0.05, 0.12), featherMat, 0, 0, -0.34);
+    f.rotation.set(Math.PI / 2, 0, (i / 3) * Math.PI * 2);
+    f.position.x = Math.cos((i / 3) * Math.PI * 2) * 0.02;
+    f.position.y = Math.sin((i / 3) * Math.PI * 2) * 0.02;
+    g.add(f);
+  }
+  return g;
+}
+
+// Bow for the left hand. The hand grips the middle; limbs go up and down, string toward the archer.
+// Built for an arm pointing at the target: arm-frame -y = forward, +z = up.
+function buildBow() {
+  const g = new THREE.Group();
+  const arc = 1.6, r = 0.5;
+  const limbs = new THREE.TorusGeometry(r, 0.016, 5, 24, arc)
+    .rotateZ(-Math.PI / 2 - arc / 2).translate(0, r, 0).rotateY(Math.PI / 2);
+  g.add(part(limbs, darkWoodMat));
+  g.add(part(new THREE.CylinderGeometry(0.024, 0.024, 0.12, 6).rotateX(Math.PI / 2), woodMat));   // grip wrap
+  const ends = r - r * Math.cos(arc / 2), half = r * Math.sin(arc / 2);
+  const geo = new THREE.BufferGeometry().setFromPoints([
+    new THREE.Vector3(0, ends, half), new THREE.Vector3(0, ends, 0), new THREE.Vector3(0, ends, -half)]);
+  const string = new THREE.Line(geo, new THREE.LineBasicMaterial({ color: 0xe8e0c8 }));
+  g.add(string);
+  const arrow = buildArrow();
+  arrow.rotation.x = Math.PI / 2;   // pointing forward (-y) from the string
+  arrow.visible = false;
+  g.add(arrow);
+  g.userData = { string, ends, arrow };
+  return g;
+}
+
+// Pull the bow string back (0 = resting, 1 = fully drawn) with an arrow on it.
+function drawBow(bow, pull, nocked) {
+  const { string, ends, arrow } = bow.userData;
+  const back = ends + pull * 0.42;
+  string.geometry.attributes.position.setY(1, back);
+  string.geometry.attributes.position.needsUpdate = true;
+  arrow.visible = nocked;
+  arrow.position.set(0, back - 0.4, 0);
+}
+
+function buildQuiver() {
+  const g = new THREE.Group();
+  g.add(part(new THREE.CylinderGeometry(0.07, 0.06, 0.55, 8), woodMat));
+  for (let i = 0; i < 4; i++) {
+    const a = buildArrow();
+    a.rotation.x = -Math.PI / 2;
+    a.position.set((i % 2 - 0.5) * 0.05, 0.22, (i < 2 ? -0.02 : 0.02));
+    g.add(a);
+  }
+  return g;
+}
+
+// Nunchucks for the right hand: one stick held, a short chain, and a second stick that whirls.
+function buildNunchucks() {
+  const g = new THREE.Group();
+  g.add(part(new THREE.CylinderGeometry(0.022, 0.022, 0.3, 8), darkWoodMat, 0, -0.1, 0));
+  const pivot = new THREE.Group();
+  pivot.position.y = -0.26;
+  g.add(pivot);
+  for (let i = 0; i < 3; i++) pivot.add(part(new THREE.TorusGeometry(0.012, 0.004, 4, 8), chainMat, 0, -0.012 - i * 0.02, 0));
+  pivot.add(part(new THREE.CylinderGeometry(0.022, 0.022, 0.3, 8), darkWoodMat, 0, -0.21, 0));
+  g.userData.pivot = pivot;
+  return g;
+}
+
+const ARMOR = { sword: 0x6a1515, archer: 0x2c4a22, nunchuck: 0x2a2f6a };   // easy to tell apart from above
+
+function buildSamurai(kind = 'sword') {
   // Each samurai gets its own materials so it can flash and fade on its own.
   const mats = {
-    armor: new THREE.MeshStandardMaterial({ color: 0x6a1515, roughness: 0.35, metalness: 0.2 }),
+    armor: new THREE.MeshStandardMaterial({ color: ARMOR[kind], roughness: 0.35, metalness: 0.2 }),
     dark: new THREE.MeshStandardMaterial({ color: 0x17161a, roughness: 0.5, metalness: 0.3 }),
     gold: new THREE.MeshStandardMaterial({ color: 0xb08a3a, roughness: 0.35, metalness: 0.8 }),
     cloth: new THREE.MeshStandardMaterial({ color: 0x2a2730, roughness: 0.85 }),
@@ -120,7 +202,24 @@ function buildSamurai() {
   leftArm.add(part(new THREE.CapsuleGeometry(0.07, 0.45, 4, 8), mats.cloth, 0, -0.28, 0));
   body.add(leftArm);
 
-  return { root, body, legs, sword: shoulder, blade: katana, leftArm, steel: mats.steel, mats: Object.values(mats) };
+  let bow = null, nunchucks = null;
+  if (kind === 'archer') {
+    katana.visible = false;
+    bow = buildBow();
+    bow.position.set(0, -0.56, 0);
+    leftArm.add(bow);
+    const quiver = buildQuiver();
+    quiver.position.set(0.14, 1.35, -0.24);
+    quiver.rotation.z = -0.35;
+    body.add(quiver);
+  } else if (kind === 'nunchuck') {
+    katana.visible = false;
+    nunchucks = buildNunchucks();
+    nunchucks.position.set(0, -0.56, 0);
+    shoulder.add(nunchucks);
+  }
+
+  return { root, body, legs, sword: shoulder, blade: katana, leftArm, bow, nunchucks, steel: mats.steel, mats: Object.values(mats) };
 }
 
 // The vine a samurai slides down on: a thin green rope hanging from the canopy, with a few leaves.
@@ -145,15 +244,20 @@ function buildVine() {
 }
 
 export class Samurai {
-  constructor(scene, world, cfg, x, z, toughness = 1, dropDelay = 0) {
+  constructor(scene, world, cfg, x, z, toughness = 1, dropDelay = 0, kind = 'sword') {
     this.scene = scene;
     this.world = world;
     this.cfg = cfg;
     this.radius = 0.45;
-    this.maxHealth = cfg.health * toughness;
+    this.kind = kind;
+    const K = cfg.kinds?.[kind] ?? { health: 1, speed: 1 };
+    this.maxHealth = cfg.health * toughness * K.health;
     this.health = this.maxHealth;
     this.damage = cfg.damage * toughness;
-    this.speed = cfg.speed * (0.9 + Math.random() * 0.2);
+    this.speed = cfg.speed * K.speed * (0.9 + Math.random() * 0.2);
+    this.reload = 0.5 + Math.random();   // archers: time until the next arrow
+    this.strafeSide = Math.random() < 0.5 ? 1 : -1;
+    this.shoot = null;                   // set by combat: fires an arrow
     this.pos = new THREE.Vector3(x, world.heightAt(x, z), z);
     this.knock = new THREE.Vector2();
     this.facing = Math.random() * Math.PI * 2;
@@ -167,7 +271,15 @@ export class Samurai {
     this.flash = 0;
     this.walkPhase = Math.random() * 6;
     this.gone = false;
-    Object.assign(this, buildSamurai());
+    Object.assign(this, buildSamurai(kind));
+    if (kind === 'archer') {   // red line on the ground showing where the arrow will fly
+      this.aimLine = new THREE.Mesh(
+        new THREE.PlaneGeometry(0.3, 1).rotateX(-Math.PI / 2).translate(0, 0, 0.5),
+        new THREE.MeshBasicMaterial({ color: 0xff2a1a, transparent: true, opacity: 0, depthWrite: false }));
+      this.aimLine.renderOrder = 4;
+      this.aimLine.visible = false;
+      scene.add(this.aimLine);
+    }
     this.root.scale.setScalar(1.15);
     this.root.position.copy(this.pos);
     this.root.position.y += VINE_TOP;   // up in the canopy until his turn
@@ -228,6 +340,7 @@ export class Samurai {
     this.knock.y += dirZ * (interrupt ? 6 : 1.5);
     if (interrupt && this.state === 'windup') { this.state = 'recover'; this.timer = 0.5; }
     if (this.health <= 0) {
+      if (this.aimLine) this.aimLine.visible = false;
       this.state = 'dead';
       this.timer = 0;
       this.fallDir = Math.random() < 0.5 ? -1 : 1;
@@ -258,7 +371,39 @@ export class Samurai {
     }
 
     let moveX = 0, moveZ = 0;
-    if (target) {
+    this.reload -= dt;
+    if (target && this.kind === 'archer') {
+      // Archer: stay at shooting distance, draw the bow, shoot, reload.
+      const A = this.cfg.archer;
+      const dx = target.pos.x - this.pos.x, dz = target.pos.z - this.pos.z;
+      const want = Math.atan2(dx, dz);
+      const diff = Math.atan2(Math.sin(want - this.facing), Math.cos(want - this.facing));
+      this.facing += diff * (1 - Math.exp(-(this.state === 'windup' ? 6 : 10) * dt));
+      this.timer -= dt;
+      if (this.state === 'chase') {
+        if (best < A.keepAway) { moveX = -dx / best; moveZ = -dz / best; }        // too close: back off
+        else if (best > A.shootRange) { moveX = dx / best; moveZ = dz / best; }  // too far: come closer
+        else if (this.reload <= 0) {
+          this.state = 'windup'; this.attack = 'bow'; this.timer = A.drawSeconds;
+          sfx.bowDraw();
+        } else {                                                                 // waiting to shoot: sidestep
+          moveX = (-dz / best) * 0.45 * this.strafeSide; moveZ = (dx / best) * 0.45 * this.strafeSide;
+        }
+      } else if (this.state === 'windup' && this.timer <= 0) {
+        // Let go: the arrow flies where he's aiming right now, so move and it misses.
+        const fx = Math.sin(this.facing), fz = Math.cos(this.facing);
+        const from = new THREE.Vector3(this.pos.x + fx * 0.6, this.pos.y + 1.65, this.pos.z + fz * 0.6);
+        this.shoot?.(from, { x: fx, z: fz }, this.damage * A.damage, this);
+        sfx.bowShot();
+        this.state = 'strike'; this.timer = 0.2;
+        this.reload = A.reloadSeconds * (0.8 + Math.random() * 0.4);
+        this.strafeSide = -this.strafeSide;
+      } else if (this.state === 'strike' && this.timer <= 0) {
+        this.state = 'recover'; this.timer = 0.35;
+      } else if (this.state === 'recover' && this.timer <= 0) {
+        this.state = 'chase';
+      }
+    } else if (target) {
       const dx = target.pos.x - this.pos.x, dz = target.pos.z - this.pos.z;
       const want = Math.atan2(dx, dz);
       let diff = Math.atan2(Math.sin(want - this.facing), Math.cos(want - this.facing));
@@ -273,31 +418,29 @@ export class Samurai {
           const A = this.cfg.attacks;
           let r = Math.random(), name = 'chop';
           for (const k of Object.keys(A)) { if (r < A[k].chance) { name = k; break; } r -= A[k].chance; }
+          if (this.kind === 'nunchuck') { name = 'combo'; sfx.nunchuckWhirl(); }
           this.attack = name;
           this.slashSide = Math.random() < 0.5 ? 1 : -1;
           this.state = 'windup'; this.timer = A[name].windup;
         }
       } else if (this.state === 'windup' && this.timer <= 0) {
         const a = this.cfg.attacks[this.attack];
-        this.state = 'strike'; this.timer = 0.18;
+        this.state = 'strike'; this.timer = a.hits ? a.hits * a.interval + 0.05 : 0.18;
+        this.hitsDone = 1; this.nextHit = a.interval || 0;
         sfx.swing();
         if (this.attack === 'chop') sfx.thud();
         if (this.attack === 'jab') {   // lunges forward with the poke
           this.knock.x += Math.sin(this.facing) * 5;
           this.knock.y += Math.cos(this.facing) * 5;
         }
-        // Damage anyone in reach and inside this attack's arc.
-        for (const p of players) {
-          if (!p.alive) continue;
-          const px = p.pos.x - this.pos.x, pz = p.pos.z - this.pos.z;
-          const d = Math.hypot(px, pz);
-          const facingDot = (px * Math.sin(this.facing) + pz * Math.cos(this.facing)) / (d || 1);
-          if (d < a.range + 0.3 && facingDot > a.arc) {
-            p.hurt(this.damage * a.damage);
-            p.justHurt = true;
-            sfx.hurt();
-          }
-        }
+        this.strikeHit(players, a);
+      } else if (this.state === 'strike' && this.hitsDone < (this.cfg.attacks[this.attack].hits || 1)
+                 && (this.nextHit -= dt) <= 0) {
+        // The next hit of a combo.
+        const a = this.cfg.attacks[this.attack];
+        this.hitsDone++; this.nextHit = a.interval;
+        sfx.swing();
+        this.strikeHit(players, a);
       } else if (this.state === 'strike' && this.timer <= 0) {
         this.state = 'recover'; this.timer = this.cfg.attacks[this.attack].recover;
       } else if (this.state === 'recover' && this.timer <= 0) {
@@ -338,6 +481,21 @@ export class Samurai {
     this.animate(dt, Math.hypot(moveX, moveZ) > 0.1);
   }
 
+  // Damage anyone in reach and inside this attack's arc.
+  strikeHit(players, a) {
+    for (const p of players) {
+      if (!p.alive) continue;
+      const px = p.pos.x - this.pos.x, pz = p.pos.z - this.pos.z;
+      const d = Math.hypot(px, pz);
+      const facingDot = (px * Math.sin(this.facing) + pz * Math.cos(this.facing)) / (d || 1);
+      if (d < a.range + 0.3 && facingDot > a.arc) {
+        p.hurt(this.damage * a.damage);
+        p.justHurt = true;
+        sfx.hurt();
+      }
+    }
+  }
+
   animate(dt, walking) {
     const k = walking ? 1 : 0;
     this.walkPhase += dt * 8;
@@ -362,9 +520,11 @@ export class Samurai {
     else if (this.state === 'recover') pose = [-0.7, 0.1, 0, 0];
     const speed = this.state === 'strike' ? 30 : this.state === 'windup' ? 9 : 8;
     const b = 1 - Math.exp(-speed * dt);
-    this.sword.rotation.x += (pose[0] - this.sword.rotation.x) * b;
-    this.sword.rotation.z += (pose[1] - this.sword.rotation.z) * b;
-    this.body.rotation.y += (pose[2] - this.body.rotation.y) * b;
+    if (this.kind !== 'archer') {   // archers pose their own arms (animateArcher)
+      this.sword.rotation.x += (pose[0] - this.sword.rotation.x) * b;
+      this.sword.rotation.z += (pose[1] - this.sword.rotation.z) * b;
+      this.body.rotation.y += (pose[2] - this.body.rotation.y) * b;
+    }
     this.body.rotation.x += (pose[3] - this.body.rotation.x) * b;
     // For the side slash the blade sticks straight out from his arm, so it sweeps wide and flat.
     const flat = this.attack === 'slash' && (this.state === 'windup' || this.state === 'strike');
@@ -374,8 +534,50 @@ export class Samurai {
     const glowing = this.state === 'windup' && this.attack === 'chop';
     if (glowing) this.steel.emissive.setRGB(1.0, 0.12, 0.05).multiplyScalar(0.6 + Math.sin(performance.now() / 60) * 0.4);
 
+    if (this.kind === 'archer') this.animateArcher(dt, b);
+    if (this.kind === 'nunchuck') this.animateNunchucks(dt);
+
     this.root.position.copy(this.pos);
     this.root.rotation.y = this.facing;
+  }
+
+  // Bow arm out at the target, string hand pulling back, and the red aim line on the ground.
+  animateArcher(dt, b) {
+    const drawing = this.state === 'windup';
+    const k = drawing ? 1 - Math.max(0, this.timer) / this.cfg.archer.drawSeconds : 0;
+    const aiming = drawing || this.state === 'strike';
+    // Right (string) arm: forward and pulled in to the chest while drawing.
+    const rx = aiming ? -1.45 : -0.35, rz = aiming ? -0.25 - k * 0.2 : 0.05;
+    this.sword.rotation.x += (rx - this.sword.rotation.x) * b;
+    this.sword.rotation.z += (rz - this.sword.rotation.z) * b;
+    this.body.rotation.y += ((aiming ? -0.35 : 0) - this.body.rotation.y) * b;
+    if (aiming) { this.leftArm.rotation.x = -1.55; this.leftArm.rotation.z = -0.15; }
+    else { this.leftArm.rotation.z = 0; }
+    drawBow(this.bow, drawing ? k : 0, drawing);
+    // The red line grows stronger as he gets ready to let go.
+    const line = this.aimLine;
+    line.visible = drawing;
+    if (drawing) {
+      line.position.set(this.pos.x, this.pos.y + 0.12, this.pos.z);
+      line.rotation.y = this.facing;
+      line.scale.z = this.cfg.archer.shootRange + 2;
+      line.material.opacity = 0.12 + k * 0.4;
+    }
+  }
+
+  // The free stick whirls while winding up and during the combo, and hangs down otherwise.
+  animateNunchucks(dt) {
+    const pivot = this.nunchucks.userData.pivot;
+    const spinning = this.state === 'windup' || this.state === 'strike';
+    if (spinning) pivot.rotation.x -= dt * 28;
+    else pivot.rotation.x += (Math.round(pivot.rotation.x / (Math.PI * 2)) * Math.PI * 2 - pivot.rotation.x) * (1 - Math.exp(-6 * dt));
+    if (this.state === 'strike') {   // quick hits swinging back and forth
+      this.body.rotation.y = Math.sin(this.timer * 45) * 0.6;
+      this.sword.rotation.x = -1.6;
+      this.sword.rotation.z = 0.2;
+    } else if (this.state === 'windup') {
+      this.sword.rotation.x += (-2.3 - this.sword.rotation.x) * (1 - Math.exp(-14 * dt));
+    }
   }
 
   // Falls over, then sinks and fades away.
@@ -397,6 +599,7 @@ export class Samurai {
   remove() {
     this.gone = true;
     if (this.vine) { this.scene.remove(this.vine); this.vine = null; }
+    if (this.aimLine) { this.scene.remove(this.aimLine); this.aimLine = null; }
     this.scene.remove(this.root);
     this.root.traverse(o => { if (o.geometry) o.geometry.dispose(); });
     for (const m of this.mats) m.dispose();

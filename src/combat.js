@@ -1,6 +1,6 @@
 // Fighting: Uzi bullets, thrown shurikens, and levels of samurai.
 import * as THREE from 'three';
-import { Samurai } from './samurai.js';
+import { Samurai, buildArrow } from './samurai.js';
 import { makeShurikenGeometry } from './models.js';
 import { sfx } from './sound.js';
 
@@ -29,6 +29,7 @@ export class Combat {
     this.vs = false;    // VS mode: the brothers' weapons hit each other
     this.players = [];
     this.bombs = [];    // smoke bombs in the air
+    this.arrows = [];   // archers' arrows in flight or stuck in trees
     this.samurai = [];
     this.shurikens = [];
     this.level = 0;
@@ -52,6 +53,9 @@ export class Combat {
     this.waveSize = Math.max(3, Math.round((L.startSamurai + L.extraPerLevel * (n - 1)) * L.waveSizeFactor));
     this.spawnWave(players);
     hud.banner(`Level ${n}`, 2);
+    const M = this.samuraiCfg.mix;
+    if (n === M.archerFromLevel) hud.toast('Samurai archers (green)! Watch the red line and step out of the way.', 5);
+    if (n === M.nunchuckFromLevel) hud.toast('Nunchuck fighters (blue)! Fast and hit 3 times. Keep your distance!', 5);
     this.onLevelStart?.(n, hud);
   }
 
@@ -61,10 +65,66 @@ export class Combat {
     for (let i = 0; i < this.waveSize; i++) {
       const spot = this.spawnSpot(players);
       // They come down their vines one after another, not all at once.
-      const s = new Samurai(this.scene, this.world, this.samuraiCfg, spot.x, spot.z, this.toughness, i * 0.45 + Math.random() * 0.3);
+      const s = new Samurai(this.scene, this.world, this.samuraiCfg, spot.x, spot.z, this.toughness,
+        i * 0.45 + Math.random() * 0.3, this.pickKind());
       s.effects = this.effects;
+      s.shoot = (from, dir, damage) => this.fireArrow(from, dir, damage);
       this.samurai.push(s);
     }
+  }
+
+  // Sword samurai, archer or nunchuck fighter: more of the special kinds in later levels.
+  pickKind() {
+    const M = this.samuraiCfg.mix, n = this.level;
+    const share = from => n >= from ? Math.min(M.maxShare, M.startShare + M.sharePerLevel * (n - from)) : 0;
+    const r = Math.random(), a = share(M.archerFromLevel);
+    if (r < a) return 'archer';
+    if (r < a + share(M.nunchuckFromLevel)) return 'nunchuck';
+    return 'sword';
+  }
+
+  // ---------- arrows ----------
+  fireArrow(from, dir, damage) {
+    const mesh = buildArrow();
+    mesh.position.copy(from);
+    mesh.rotation.y = Math.atan2(dir.x, dir.z);
+    this.scene.add(mesh);
+    this.arrows.push({ mesh, dx: dir.x, dz: dir.z, damage, life: 2, stuck: 0 });
+  }
+
+  updateArrows(dt, players) {
+    const speed = this.samuraiCfg.archer.arrowSpeed;
+    const ninjas = players.filter(p => p.alive);
+    for (const a of this.arrows) {
+      const m = a.mesh.position;
+      if (a.stuck > 0) {   // stuck in a tree or the ground for a while
+        a.stuck -= dt;
+        if (a.stuck <= 0) a.life = 0;
+      } else {
+        const step = speed * dt;
+        const hit = this.castRay(m.x, m.y, m.z, a.dx, a.dz, step, null, ninjas);
+        if (hit.target) {
+          hit.target.hurt(a.damage);
+          hit.target.justHurt = true;
+          hit.target.vel.x += a.dx * 2; hit.target.vel.z += a.dz * 2;
+          this.effects.burst(m, 'chip', 6);
+          sfx.hurt();
+          a.life = 0;
+        } else if (hit.obstacle) {
+          m.x += a.dx * (hit.dist - 0.35); m.z += a.dz * (hit.dist - 0.35);   // tip sinks into the bark
+          this.effects.burst(m, 'chip', 5);
+          sfx.arrowThunk();
+          a.stuck = 4;
+        } else {
+          m.x += a.dx * step; m.z += a.dz * step;
+          m.y -= dt * 0.6;   // drops a tiny bit as it flies
+          a.life -= dt;
+          if (m.y < this.world.heightAt(m.x, m.z) + 0.05) { a.stuck = 4; a.mesh.rotation.x = 0.4; sfx.arrowThunk(); }
+        }
+      }
+      if (a.life <= 0) this.scene.remove(a.mesh);
+    }
+    this.arrows = this.arrows.filter(a => a.life > 0);
   }
 
   // Somewhere 14-26 m from the ninjas, not inside a tree or rock.
@@ -87,6 +147,8 @@ export class Combat {
     for (const s of this.samurai) if (!s.gone) s.remove();
     for (const s of this.shurikens) this.scene.remove(s.mesh);
     for (const b of this.bombs) this.scene.remove(b.mesh);
+    for (const a of this.arrows) this.scene.remove(a.mesh);
+    this.arrows = [];
     this.samurai = [];
     this.shurikens = [];
     this.bombs = [];
@@ -124,6 +186,7 @@ export class Combat {
     });
 
     this.updateShurikens(dt);
+    this.updateArrows(dt, players);
     this.updateBombs(dt);
     for (const sm of this.smokes) sm.t -= dt;
     this.smokes = this.smokes.filter(sm => sm.t > 0);
@@ -319,9 +382,10 @@ export class Combat {
   }
 
   // Finds the first target (samurai / other brother) or tree/rock along a shot.
-  castRay(ox, oy, oz, dx, dz, range, shooter = null) {
+  // list: who can be hit (default: whatever the shooter's weapons can hit).
+  castRay(ox, oy, oz, dx, dz, range, shooter = null, list = null) {
     let dist = range, target = null, obstacle = null;
-    for (const s of this.targets(shooter)) {
+    for (const s of list ?? this.targets(shooter)) {
       const t = rayCircle(ox, oz, dx, dz, s.pos.x, s.pos.z, s.radius + 0.1);
       if (t !== null && t < dist) { dist = t; target = s; }
     }

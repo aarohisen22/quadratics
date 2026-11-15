@@ -69,7 +69,7 @@ Then open http://localhost:8080 (this server turns off browser caching so refres
   - [x] Fixes after kids' check: first-person shuriken no longer a "third hand" (left hand lets go of the gun, reaches to the belt, flicks a real star shape); new smoke bomb look (steel shell, red band, paper cap, lit fuse); smoke lasts 5 s and thins out over the last 40%; minimap now also in first person
   - [x] 6. Samurai slide down vines instead of popping in: one after another (~0.5 s apart), 1.4 s slide gripping with both hands, thump + dust on landing, vine pulls back up; can't be hit or attack until landed; hidden from the map while still up in the trees
   - [x] 7. Samurai mix attacks (config.js `samurai.attacks`): quick jab (0.28 s warning, 7 dmg at level 1, narrow, lunges; step aside), side slash (0.45 s, 12 dmg, wide flat sweep from either side; back off), overhead chop (0.8 s with red glowing blade, 22 dmg). Shurikens still interrupt any windup
-  - [ ] 8. Enemy archers (bow, dodgeable arrows) and nunchuck fighters
+  - [x] 8. Enemy archers (green armor, quiver; keep 7-15 m away, 0.9 s draw with red aim line on the ground, arrow 16 m/s you can sidestep, sticks in trees) and nunchuck fighters (blue armor, faster, spin-up then 3-hit combo). Archers from level 3, nunchucks from level 4, 20% each +3%/level up to 35% (config.js `samurai.mix`); a toast warns the first time each appears
   - [ ] 9. Giant Oni warlord mini boss after levels 5, 10, 15…
 - [ ] Phase 7: Menus, polish, publish  ← after feedback round 2
 

@@ -83,7 +83,19 @@ export const CONFIG = {
       jab:   { chance: 0.35, windup: 0.28, damage: 0.6, range: 2.3, arc: 0.85, recover: 0.35 }, // fast poke: step aside
       slash: { chance: 0.40, windup: 0.45, damage: 1.0, range: 2.0, arc: -0.2, recover: 0.55 }, // wide sweep from the side: back off
       chop:  { chance: 0.25, windup: 0.80, damage: 1.8, range: 1.9, arc: 0.35, recover: 0.85 }, // big overhead: long warning, hurts most
+      // Nunchuck fighters only: a quick spin, then 3 fast hits.
+      combo: { chance: 0, windup: 0.22, damage: 0.35, range: 1.8, arc: 0.2, recover: 0.5, hits: 3, interval: 0.14 },
     },
+    // Kinds of samurai: health and speed compared with a sword samurai.
+    kinds: {
+      sword:    { health: 1,    speed: 1 },
+      archer:   { health: 0.8,  speed: 0.95 },
+      nunchuck: { health: 0.85, speed: 1.3 },
+    },
+    // Archers keep their distance, draw (a red line shows where the arrow will go), then shoot.
+    archer: { keepAway: 7, shootRange: 15, drawSeconds: 0.9, reloadSeconds: 1.6, damage: 0.8, arrowSpeed: 16 },
+    // How many of each wave are archers / nunchuck fighters: 20% from their first level, +3% a level, at most 35% each.
+    mix: { archerFromLevel: 3, nunchuckFromLevel: 4, startShare: 0.2, sharePerLevel: 0.03, maxShare: 0.35 },
   },
 
   versus: {
