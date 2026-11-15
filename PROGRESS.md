@@ -60,12 +60,17 @@ Then open http://localhost:8080 (this server turns off browser caching so refres
   - [x] Hands + weapon on screen (fps.js) for Uzi, shotgun (pump moves), katana (slash), smoke bombs, left-hand shuriken flick; walk bob and recoil
   - [x] Crosshair with red hit marker; less aim help (4°) than overhead
   - Tested by stepping the game; pointer lock (mouse grab) can't be tested automatically — try it by hand
-- [ ] Phase 7: Menus, polish, publish  ← next
-- [ ] Phase 3: Co-op mode
-- [ ] Phase 4: Drops and hazards
-- [ ] Phase 5: VS mode
-- [ ] Phase 6: 1-player first-person mode
-- [ ] Phase 7: Menus, polish, publish
+- [ ] Feedback round 2 (kids' "Part 2" note)  ← in progress
+  - [ ] 1. Fallen trees stay down (no trees standing back up on try-again)
+  - [ ] 2. Oni / demon masks on the samurai
+  - [ ] 3. Water foam around legs when wading
+  - [ ] 4. Minimap bottom-left in overhead modes (brothers, samurai, crates, boss)
+  - [ ] 5. Weapons carried on belt and back + switch animation (overhead and first person)
+  - [ ] 6. Samurai slide down vines instead of popping in
+  - [ ] 7. Samurai mix attacks: quick jab / side slash / overhead chop, different damage
+  - [ ] 8. Enemy archers (bow, dodgeable arrows) and nunchuck fighters
+  - [ ] 9. Giant Oni warlord mini boss after levels 5, 10, 15…
+- [ ] Phase 7: Menus, polish, publish  ← after feedback round 2
 
 ## Notes and decisions made while building
 - Three.js r170 loads from the jsDelivr CDN through an import map, so there's nothing to install.
