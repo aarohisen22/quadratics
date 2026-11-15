@@ -291,6 +291,7 @@ export class World {
     const canopy = new Batch(makeLumpyGeometry(1, 1, 0.35, r), leafMat, { shade: 0.7 });
     const fronds = new Batch(makeFrondGeometry(4.2, 0.9, 0.35), frondMat, { shade: 0.5 });
     const vines = new Batch(vineGeo, frondMat, { shadow: false, shade: 0.6 });
+    const brokenCrowns = new Batch(makeLumpyGeometry(1, 1, 0.45, r), leafMat, { shade: 0.8 });
     const placed = [];
 
     // --- giant rainforest trees ---
@@ -366,7 +367,20 @@ export class World {
       roots.add(dummy.matrix, color.setHSL(0.08, 0.15, 0.18));
       const obstacle = { x: s.x, z: s.z, r: rad + 0.25, base: y, h: 99 };
       this.obstacles.push(obstacle);
-      const tree = { x: s.x, z: s.z, y, height: h, lean, yaw, radius: rad, index, obstacle };
+      // A crown of dying yellow-green leaves, so you can see from above which tree it is.
+      // Stored relative to the trunk top so it can fall together with the trunk.
+      const crown = [];
+      const lumps = 3 + Math.floor(r() * 2);
+      for (let b = 0; b < lumps; b++) {
+        const a = r() * 6.28, d = r() * 1.2, br = 1.1 + r() * 0.7;
+        dummy.rotation.set(r() * 3, r() * 3, r() * 3);
+        dummy.position.set(Math.cos(a) * d, h - 0.2 + (r() - 0.4) * 1.2, Math.sin(a) * d);
+        dummy.scale.set(br, br * 0.6, br); dummy.updateMatrix();
+        crown.push({ local: dummy.matrix.clone(), index: brokenCrowns.matrices.length });
+        brokenCrowns.add(dummy.matrix, color.setHSL(0.13 + r() * 0.05, 0.45, 0.24 + r() * 0.06));
+      }
+      dummy.rotation.order = 'YZX';
+      const tree = { x: s.x, z: s.z, y, height: h, lean, yaw, radius: rad, index, obstacle, crown };
       obstacle.tree = tree;
       this.brokenTrees.push(tree);
     }
@@ -460,10 +474,14 @@ export class World {
       made++;
     }
 
-    for (const b of [trunks, roots, canopy, fronds, vines, logs, rocks, ferns, bigLeaves, puddles]) {
+    for (const b of [trunks, roots, canopy, fronds, vines, logs, rocks, ferns, bigLeaves, puddles, brokenCrowns]) {
       if (b.matrices.length) b.build(scene);
     }
     this.trunkMesh = trunks.mesh;
+    this.crownMesh = brokenCrowns.mesh;
+    // The instances move when trees fall, so don't let three.js cull them using their starting spots.
+    if (this.trunkMesh) this.trunkMesh.frustumCulled = false;
+    if (this.crownMesh) this.crownMesh.frustumCulled = false;
 
     this.buildMist(scene);
   }

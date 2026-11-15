@@ -87,7 +87,7 @@ function setFirstPerson(on) {
 function newGame() {
   combat.reset();
   drops.reset();
-  trees.reset();
+  trees.calm();   // fallen trees stay down; they only stand back up from the main menu
   hud.hideDefeat();
   combat.vs = mode === 'vs';
   if (mode === 'vs') {

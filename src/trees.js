@@ -11,6 +11,9 @@ export class FallingTrees {
     this.cfg = cfg;
     this.dummy = new THREE.Object3D();
     this.dummy.rotation.order = 'YZX';
+    this.frame = new THREE.Object3D();
+    this.frame.rotation.order = 'YZX';
+    this.tmp = new THREE.Matrix4();
     this.fallenObstacles = [];
 
     // Red danger strip on the ground, one per tree (only shown while it's about to fall).
@@ -47,6 +50,18 @@ export class FallingTrees {
     this.nextFall();
   }
 
+  // New game / try again: stop any tree that was about to fall, but leave fallen ones on the ground.
+  calm() {
+    for (const t of this.world.brokenTrees) {
+      if (t.state !== 'warning') continue;
+      t.state = 'standing';
+      t.angle = t.lean;
+      t.zone.visible = false;
+      this.place(t);
+    }
+    this.nextFall();
+  }
+
   nextFall() {
     const [a, b] = this.cfg.treeFallEverySeconds;
     this.timer = a + Math.random() * (b - a);
@@ -60,6 +75,16 @@ export class FallingTrees {
     d.updateMatrix();
     this.world.trunkMesh.setMatrixAt(t.index, d.matrix);
     this.world.trunkMesh.instanceMatrix.needsUpdate = true;
+
+    // The leafy crown rides along on top of the trunk.
+    const crownMesh = this.world.crownMesh;
+    if (!crownMesh || !t.crown) return;
+    const f = this.frame;
+    f.position.copy(d.position);
+    f.rotation.copy(d.rotation);
+    f.updateMatrix();
+    for (const c of t.crown) crownMesh.setMatrixAt(c.index, this.tmp.multiplyMatrices(f.matrix, c.local));
+    crownMesh.instanceMatrix.needsUpdate = true;
   }
 
   warn(t, seconds) {

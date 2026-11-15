@@ -61,7 +61,7 @@ Then open http://localhost:8080 (this server turns off browser caching so refres
   - [x] Crosshair with red hit marker; less aim help (4°) than overhead
   - Tested by stepping the game; pointer lock (mouse grab) can't be tested automatically — try it by hand
 - [ ] Feedback round 2 (kids' "Part 2" note)  ← in progress
-  - [ ] 1. Fallen trees stay down (no trees standing back up on try-again)
+  - [x] 1. Fallen trees stay down on try-again; breakable trees now have a yellow-green crown that falls with the trunk (before, from above they were just a bare pole, so a falling one looked like a new tree appearing)
   - [ ] 2. Oni / demon masks on the samurai
   - [ ] 3. Water foam around legs when wading
   - [ ] 4. Minimap bottom-left in overhead modes (brothers, samurai, crates, boss)
