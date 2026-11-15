@@ -5,7 +5,7 @@ Read this first when picking the game back up in a new session. The plan is in `
 ## How to run
 ```
 cd ~/Documents/Game
-python3 -m http.server 8080
+python3 tools/serve.py
 ```
 Then open http://localhost:8080 (add `?low` for low graphics).
 

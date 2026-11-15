@@ -1,6 +1,6 @@
 // Samurai enemies: they chase the nearest ninja, raise their katana, then strike.
 import * as THREE from 'three';
-import { part } from './ninja.js';
+import { part, buildKatana } from './models.js';
 import { sfx } from './sound.js';
 
 function buildSamurai() {
@@ -56,13 +56,8 @@ function buildSamurai() {
   // Right arm holds the katana.
   const shoulder = new THREE.Group(); shoulder.position.set(0.3, 1.48, 0);
   shoulder.add(part(new THREE.CapsuleGeometry(0.07, 0.45, 4, 8), mats.cloth, 0, -0.28, 0));
-  const katana = new THREE.Group();
-  katana.add(part(new THREE.CylinderGeometry(0.022, 0.022, 0.26, 6), mats.dark, 0, 0, 0));           // handle
-  katana.add(part(new THREE.CylinderGeometry(0.06, 0.06, 0.015, 10), mats.gold, 0, 0.14, 0));        // guard
-  const blade = part(new THREE.BoxGeometry(0.035, 0.95, 0.012), mats.steel, 0, 0.62, 0);
-  blade.rotation.z = 0.04;
-  katana.add(blade);
-  katana.position.set(0, -0.58, 0.02);
+  const katana = buildKatana(0.85);
+  katana.position.set(0, -0.56, 0.02);
   katana.rotation.x = Math.PI / 2;
   shoulder.add(katana);
   body.add(shoulder);
@@ -92,6 +87,7 @@ export class Samurai {
     this.walkPhase = Math.random() * 6;
     this.gone = false;
     Object.assign(this, buildSamurai());
+    this.root.scale.setScalar(1.15);
     this.root.position.copy(this.pos);
     scene.add(this.root);
   }

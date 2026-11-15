@@ -1,5 +1,6 @@
 // Visual effects: bullet tracers, muzzle flashes and sparks.
 import * as THREE from 'three';
+import { muzzleFlashTexture, MAT } from './models.js';
 
 export class Effects {
   constructor(scene) {
@@ -43,6 +44,38 @@ export class Effects {
       return light;
     });
     this.flashTime = [0, 0];
+    this.flashSprites = [0, 1].map(() => {
+      const sp = new THREE.Sprite(new THREE.SpriteMaterial({
+        map: muzzleFlashTexture(), transparent: true, depthWrite: false, blending: THREE.AdditiveBlending,
+      }));
+      sp.visible = false;
+      scene.add(sp);
+      return sp;
+    });
+
+    // Brass shell casings that fly out of the gun and bounce on the ground.
+    this.casingMax = 120;
+    this.casings = new THREE.InstancedMesh(new THREE.CylinderGeometry(0.012, 0.012, 0.035, 6), MAT.brass, this.casingMax);
+    this.casings.castShadow = false;
+    this.casings.frustumCulled = false;
+    this.casingData = [];
+    for (let i = 0; i < this.casingMax; i++) {
+      this.casingData.push({ p: new THREE.Vector3(0, -999, 0), v: new THREE.Vector3(), spin: new THREE.Euler(), life: 0 });
+    }
+    this.nextCasing = 0;
+    this.dummy = new THREE.Object3D();
+    scene.add(this.casings);
+    this.world = null;  // set by main so casings know where the ground is
+  }
+
+  casing(pos, side) {
+    const c = this.casingData[this.nextCasing];
+    this.nextCasing = (this.nextCasing + 1) % this.casingMax;
+    c.p.copy(pos);
+    c.v.set(side.x * (2 + Math.random() * 1.5), 2.5 + Math.random() * 1.5, side.z * (2 + Math.random() * 1.5));
+    c.spin.set(Math.random() * 6, Math.random() * 6, Math.random() * 6);
+    c.life = 6;
+    c.bounced = false;
   }
 
   tracer(from, to) {
@@ -58,8 +91,13 @@ export class Effects {
 
   muzzle(index, pos) {
     this.flashes[index].position.copy(pos);
-    this.flashes[index].intensity = 25;
+    this.flashes[index].intensity = 30;
     this.flashTime[index] = 0.05;
+    const sp = this.flashSprites[index];
+    sp.position.copy(pos);
+    sp.scale.setScalar(0.45 + Math.random() * 0.35);
+    sp.material.rotation = Math.random() * Math.PI;
+    sp.visible = true;
   }
 
   // kind: 'spark' (metal/armor), 'chip' (wood/bark), 'dirt'
@@ -87,7 +125,7 @@ export class Effects {
     }
     for (let i = 0; i < 2; i++) {
       this.flashTime[i] -= dt;
-      if (this.flashTime[i] <= 0) this.flashes[i].intensity = 0;
+      if (this.flashTime[i] <= 0) { this.flashes[i].intensity = 0; this.flashSprites[i].visible = false; }
     }
     for (let i = 0; i < this.max; i++) {
       if (this.pLife[i] <= 0) continue;
@@ -103,5 +141,29 @@ export class Effects {
     }
     this.points.geometry.attributes.position.needsUpdate = true;
     this.points.geometry.attributes.color.needsUpdate = true;
+
+    for (let i = 0; i < this.casingMax; i++) {
+      const c = this.casingData[i];
+      if (c.life > 0 && this.world) {
+        c.life -= dt;
+        const ground = this.world.heightAt(c.p.x, c.p.z) + 0.012;
+        if (c.p.y > ground || c.v.y > 0) {
+          c.v.y -= 20 * dt;
+          c.p.addScaledVector(c.v, dt);
+          c.spin.x += dt * 25; c.spin.z += dt * 18;
+          if (c.p.y < ground) {
+            c.p.y = ground;
+            if (!c.bounced) { c.v.set(c.v.x * 0.35, -c.v.y * 0.3, c.v.z * 0.35); c.bounced = true; }
+            else { c.v.set(0, 0, 0); c.spin.set(Math.PI / 2, c.spin.y, 0); }
+          }
+        }
+        if (c.life <= 0) c.p.y = -999;
+      }
+      this.dummy.position.copy(c.p);
+      this.dummy.rotation.copy(c.spin);
+      this.dummy.updateMatrix();
+      this.casings.setMatrixAt(i, this.dummy.matrix);
+    }
+    this.casings.instanceMatrix.needsUpdate = true;
   }
 }

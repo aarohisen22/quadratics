@@ -30,6 +30,7 @@ const rain = new Rain(scene, world, CONFIG.weather);
 const input = new Input(renderer.domElement);
 const rig = new CameraRig(camera, CONFIG.camera);
 const effects = new Effects(scene);
+effects.world = world;
 const combat = new Combat(scene, world, effects, CONFIG);
 
 // Both brothers are built up front; 1-player mode only uses the first.
@@ -125,8 +126,10 @@ function updatePadInfo(dt) {
 
 const clock = new THREE.Clock();
 let time = 0;
+let paused = false;   // for testing from the browser console: game.paused = true
 function frame() {
-  step(Math.min(clock.getDelta(), 0.05));
+  const dt = Math.min(clock.getDelta(), 0.05);
+  if (!paused) step(dt);
   requestAnimationFrame(frame);
 }
 function step(dt) {
@@ -182,4 +185,4 @@ addEventListener('resize', () => {
 });
 
 // Handy for testing in the browser console.
-window.game = { scene, world, get players() { return players; }, allPlayers, combat, team, camera, input, CONFIG, get state() { return state; }, step };
+window.game = { scene, world, get players() { return players; }, allPlayers, combat, team, camera, input, CONFIG, get state() { return state; }, step, renderer, rig, get paused() { return paused; }, set paused(v) { paused = v; } };

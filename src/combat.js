@@ -150,6 +150,8 @@ export class Combat {
 
     const from = p.muzzlePosition(this.tmp);
     this.effects.muzzle(index, from);
+    const f = p.forward;
+    this.effects.casing(p.ejectPosition(this.tmp2), { x: -f.z, z: f.x });  // casings fly out to the right
     let dir = this.aimDirection(p);
     const spread = (Math.random() - 0.5) * 0.06;
     dir = { x: dir.x * Math.cos(spread) - dir.z * Math.sin(spread), z: dir.x * Math.sin(spread) + dir.z * Math.cos(spread) };
@@ -165,6 +167,7 @@ export class Combat {
       sfx.hitEnemy();
     } else if (hit.obstacle) {
       this.effects.burst(end, 'chip', 5, { x: -dir.x, z: -dir.z });
+      sfx.ricochet();
     }
   }
 
@@ -191,7 +194,8 @@ export class Combat {
     const dir = this.aimDirection(p);
     const mesh = new THREE.Mesh(this.shurikenGeo, this.shurikenMat);
     mesh.castShadow = true;
-    p.muzzlePosition(mesh.position);
+    p.throwT = 0;
+    p.throwPosition(mesh.position);
     this.scene.add(mesh);
     this.shurikens.push({ mesh, dx: dir.x, dz: dir.z, life: 1.4 });
   }
@@ -205,7 +209,7 @@ export class Combat {
       if (hit.samurai) {
         hit.samurai.hit(this.weapons.shurikenDamage, s.dx, s.dz, true);
         this.effects.burst(m, 'steel', 12, { x: -s.dx, z: -s.dz });
-        sfx.hitEnemy();
+        sfx.shurikenHit();
         s.life = 0;
       } else if (hit.obstacle) {
         m.x += s.dx * hit.dist; m.z += s.dz * hit.dist;

@@ -71,8 +71,8 @@ export const CONFIG = {
   },
 
   camera: {
-    height: 15,           // how high above the ninjas
-    distance: 10,         // how far behind
+    height: 10.5,         // how high above the ninjas (lower = bigger ninjas)
+    distance: 7.5,        // how far behind
     zoomOutPerMeter: 0.5, // zooms out as the brothers move apart (Phase 3)
   },
 };
