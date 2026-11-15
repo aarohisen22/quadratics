@@ -144,21 +144,50 @@ modeButtons.forEach((b, i) => {
   b.addEventListener('click', () => { selectMode(i); if (mode === 'fps') input.lockMouse(); beginGame(); });
 });
 
-// First person: clicking the game locks the mouse for looking around. Letting go (Esc) pauses.
+// ---------- pause menu ----------
+// The ❚❚ button, Esc, P or a controller's Start button pause the game (and leaving the window does too).
 const pausedEl = document.getElementById('paused');
-renderer.domElement.addEventListener('click', () => { if (mode === 'fps' && state !== 'menu' && !input.mouseLocked) input.lockMouse(); });
-document.addEventListener('pointerlockchange', () => {
-  if (mode === 'fps' && state === 'playing' && !input.mouseLocked && input.pads().length === 0) {
-    paused = true;
-    pausedEl.classList.remove('hidden');
-  }
-});
-pausedEl.addEventListener('click', () => {
+const pauseBtn = document.getElementById('pausebtn');
+const pauseItems = [...document.querySelectorAll('.pbtn')];
+let pauseSel = 0;
+function selectPause(i) {
+  pauseSel = (i + pauseItems.length) % pauseItems.length;
+  pauseItems.forEach((b, j) => b.classList.toggle('selected', j === pauseSel));
+}
+function pauseGame() {
+  if (state === 'menu' || menuPaused) return;
+  menuPaused = paused = true;
+  selectPause(0);
+  pausedEl.classList.remove('hidden');
+  if (document.pointerLockElement) document.exitPointerLock();
+}
+function pauseChoice(act) {
   pausedEl.classList.add('hidden');
-  input.lockMouse();
-  input.takeLook();
-  paused = false;
+  menuPaused = paused = false;
   clock.getDelta();
+  if (act === 'restart') newGame();
+  else if (act === 'menu') openMenu();
+  if (act !== 'menu' && mode === 'fps') { input.lockMouse(); input.takeLook(); }
+}
+pauseBtn.addEventListener('click', e => { e.stopPropagation(); pauseGame(); });
+pauseItems.forEach((b, i) => {
+  b.addEventListener('mouseenter', () => selectPause(i));
+  b.addEventListener('click', () => pauseChoice(b.dataset.act));
+});
+document.addEventListener('visibilitychange', () => { if (document.hidden && state === 'playing') pauseGame(); });
+// While paused, the controller and keyboard still work the pause menu.
+function pollPauseMenu() {
+  const m = input.menu();
+  if (m.up) selectPause(pauseSel - 1);
+  if (m.down) selectPause(pauseSel + 1);
+  if (m.confirm) pauseChoice(pauseItems[pauseSel].dataset.act);
+  else if (m.pause || m.back) pauseChoice('resume');
+}
+
+// First person: clicking the game locks the mouse for looking around. Letting go (Esc) pauses.
+renderer.domElement.addEventListener('click', () => { if (mode === 'fps' && state !== 'menu' && !input.mouseLocked && !menuPaused) input.lockMouse(); });
+document.addEventListener('pointerlockchange', () => {
+  if (mode === 'fps' && state === 'playing' && !input.mouseLocked && input.pads().length === 0) pauseGame();
 });
 
 // Tells the players who controls which brother.
@@ -199,9 +228,11 @@ function updatePadInfo(dt) {
 const clock = new THREE.Clock();
 let time = 0;
 let paused = false;   // for testing from the browser console: game.paused = true
+let menuPaused = false;   // paused by the player (the pause menu is showing)
 function frame() {
   const dt = Math.min(clock.getDelta(), 0.05);
-  if (!paused) step(dt);
+  if (menuPaused) pollPauseMenu();
+  else if (!paused) step(dt);
   requestAnimationFrame(frame);
 }
 function step(dt) {
@@ -230,6 +261,7 @@ function step(dt) {
     if (menu.right) selectMode(Math.min(MODES.length - 1, selected + 1));
     if (menu.confirm) beginGame();
   } else if (state === 'playing') {
+    if (menu.pause) { pauseGame(); return; }
     combat.update(dt, players, ctrls, hud);
     drops.update(dt, players, hud);
     trees.update(dt, players, combat.samurai, hud);
@@ -276,6 +308,7 @@ function step(dt) {
     : combat.level > 0 ? `Level ${combat.level} · Wave ${combat.wave}/${combat.waveTotal} · Samurai left: ${combat.samuraiLeft}` : '';
   hud.update(dt, players, status);
   minimap.show(state !== 'menu');
+  pauseBtn.classList.toggle('hidden', state === 'menu');
   minimap.update(dt, camera, { players, samurai: combat.samurai, crates: drops.crates, boss: combat.boss });
   hud.bossBar(state === 'menu' ? null : combat.boss);
   updatePadInfo(dt);

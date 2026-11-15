@@ -34,9 +34,15 @@
   <div id="banner"></div>
   <div id="toast"></div>
   <div id="crosshair" class="hidden"><div class="hitmark"></div></div>
+  <button id="pausebtn" class="hidden" title="Pause (Esc / P / Start)" aria-label="Pause">❚❚</button>
   <div id="paused" class="hidden">
     <h2>Paused</h2>
-    <p class="cta">Click to continue</p>
+    <div id="pausemenu">
+      <button class="pbtn selected" data-act="resume">Resume</button>
+      <button class="pbtn" data-act="restart">Restart</button>
+      <button class="pbtn" data-act="menu">Main menu</button>
+    </div>
+    <p class="small">Esc / P / Start: resume · arrows or stick + Enter / A to pick</p>
   </div>
   <div id="hurt"></div>
   <div id="defeat" class="hidden">

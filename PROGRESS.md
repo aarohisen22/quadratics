@@ -73,7 +73,7 @@ Then open http://localhost:8080 (this server turns off browser caching so refres
   - [x] 9. Giant Oni warlord mini boss after levels 5, 10, 15… (boss.js, config.js `boss`): comes down a thick vine with a roar, 2.3x size, studded club; wide club swing (20 dmg) and ground slam with red ring (32 dmg, knock-back, camera shake); calls 2 samurai at half health; shurikens don't interrupt him; health bar at the top + big marker on the minimap; 800 health, +50% each appearance
 - [ ] Feedback round 3 (parent's list)  ← in progress
   - [x] Uzi ammo 60 → 100 (crates +80, carry up to 250); health crates (22% of crates, white with red crosses, green beam and green on the map, +40 health)
-  - [ ] Pause button + Esc/Start pause menu (Resume / Restart / Menu)
+  - [x] Pause button (top-right ❚❚) + Esc / P / Start pause menu (Resume / Restart / Main menu, mouse or controller); also pauses when you leave the window
   - [ ] Samurai vines only hang from real tree branches (not from the open sky)
   - [ ] Enemies jump over logs and steer around boulders instead of getting stuck
   - [ ] Gatling gun: crate special (rarer), 150 rounds, 0.5 s spin-up then very fast fire, walk slower

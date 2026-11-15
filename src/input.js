@@ -137,6 +137,9 @@ export class Input {
     const k = this.keys, pads = this.pads();
     const any = fn => pads.some(fn);
     const now = {
+      up: k.has('ArrowUp') || k.has('KeyW') || any(p => p.buttons[12]?.pressed || p.axes[1] < -0.5),
+      down: k.has('ArrowDown') || k.has('KeyS') || any(p => p.buttons[13]?.pressed || p.axes[1] > 0.5),
+      pause: k.has('Escape') || k.has('KeyP') || any(p => p.buttons[9]?.pressed),
       left: k.has('ArrowLeft') || k.has('KeyA') || any(p => p.buttons[14]?.pressed || p.axes[0] < -0.5),
       right: k.has('ArrowRight') || k.has('KeyD') || any(p => p.buttons[15]?.pressed || p.axes[0] > 0.5),
       confirm: k.has('Enter') || any(p => p.buttons[0]?.pressed || p.buttons[9]?.pressed),
