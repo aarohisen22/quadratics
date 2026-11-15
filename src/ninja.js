@@ -102,6 +102,17 @@ export class Ninja {
     this.fireCooldown = 0;
     this.recoil = 0;
     this.fallen = 0;
+    this.reviveProgress = 0;
+    this.root.rotation.x = 0;
+  }
+
+  // Back on his feet after his brother helped him (or a new level started).
+  revive(healthFraction) {
+    this.alive = true;
+    this.health = Math.max(1, Math.round(this.cfg.health * healthFraction));
+    this.fallen = 0;
+    this.reviveProgress = 0;
+    this.vy = 0;
     this.root.rotation.x = 0;
   }
 
@@ -126,6 +137,7 @@ export class Ninja {
     if (!this.alive) {  // fall over
       this.fallen = Math.min(1, this.fallen + dt * 3);
       this.root.rotation.x = -this.fallen * Math.PI / 2;
+      this.pos.y = this.world.heightAt(this.pos.x, this.pos.z) + 0.15;
       this.root.position.copy(this.pos);
       return;
     }

@@ -29,7 +29,14 @@ Then open http://localhost:8080 (add `?low` for low graphics).
   - [x] Levels: +2 samurai and +15% health/damage each level; ammo refills on level clear (until Phase 4 drops)
   - [x] Sound effects made in code (sound.js), no audio files
   - Tested: game logic checked step by step in the browser. Tracers and sparks were NOT viewed live (browser pane was hidden)
-- [ ] Phase 3: Co-op mode  ← next
+- [x] Phase 3: Co-op mode (waiting on the kids' playtest)
+  - [x] Start menu: 1 Player / 2 Player Co-op (stick/arrows + A/Enter, or click)
+  - [x] Second brother (blue headband); controller assignment: 2 pads = one each; 1 pad = keyboard+mouse & pad; 0 pads = WASD+mouse & arrow keys
+  - [x] Revive: stand within 2 m for 2.5 s → back with 40% health; ring + "Reviving…%" on HUD; downed brothers return with 50% at the next level
+  - [x] Brothers can't get more than 24 m apart; camera zooms out to fit both
+  - [x] Defeat when both are down; A/Enter = try again, B/Esc = menu
+  - Tested in browser by stepping the game (`game.step(dt)` in the console). Not tested with real controllers yet
+- [ ] Phase 4: Drops and hazards  ← next
 - [ ] Phase 3: Co-op mode
 - [ ] Phase 4: Drops and hazards
 - [ ] Phase 5: VS mode

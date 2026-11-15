@@ -6,6 +6,12 @@ let ctx = null, master = null, noiseBuf = null;
 export function startSound(volume) {
   if (ctx) return;
   ctx = new AudioContext();
+  // Started from a controller? Browsers wait for a click or key press before playing sound.
+  if (ctx.state === 'suspended') {
+    const wake = () => { ctx.resume(); removeEventListener('pointerdown', wake); removeEventListener('keydown', wake); };
+    addEventListener('pointerdown', wake);
+    addEventListener('keydown', wake);
+  }
   master = ctx.createGain();
   master.gain.value = volume;
   master.connect(ctx.destination);

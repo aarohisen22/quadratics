@@ -37,6 +37,7 @@ export class Combat {
     this.weapons = config.weapons;
     this.samuraiCfg = config.samurai;
     this.levelsCfg = config.levels;
+    this.coopCfg = config.coop;
     this.samurai = [];
     this.shurikens = [];
     this.level = 0;
@@ -114,6 +115,7 @@ export class Combat {
         if (this.levelsCfg.refillAmmoOnLevelUp) {
           for (const p of players) { p.ammo = this.weapons.uziAmmo; p.shurikens = this.weapons.shurikens; }
         }
+        for (const p of players) if (!p.alive) p.revive(this.coopCfg.reviveOnNewLevel);
         this.startLevel(this.level + 1, players, hud);
       }
     }

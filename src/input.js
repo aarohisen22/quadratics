@@ -3,6 +3,13 @@
 // Standard controller layout (Xbox names):
 //   left stick = move, right stick = aim, A = jump, LB = run,
 //   RT = fire Uzi, RB = throw shuriken
+//
+// Who uses what:
+//   1 player:  controller 1 and/or keyboard + mouse
+//   2 players with 2 controllers: one each (keyboard + mouse also work for brother 1)
+//   2 players with 1 controller:  brother 1 = keyboard + mouse, brother 2 = the controller
+//   2 players, no controllers:    brother 1 = WASD + mouse, brother 2 = arrow keys
+//     (brother 2 keys: arrows move, / fire, . throw shuriken, Right Shift jump)
 const DEADZONE = 0.2;
 
 function stick(x, y) {
@@ -19,6 +26,7 @@ export class Input {
     this.prevJump = [false, false];
     this.prevThrow = [false, false];
     this.prevConfirm = false;
+    this.prevMenu = {};
     addEventListener('keydown', e => { this.keys.add(e.code); });
     addEventListener('keyup', e => { this.keys.delete(e.code); });
     addEventListener('blur', () => this.keys.clear());
@@ -46,8 +54,14 @@ export class Input {
 
   // What player 0 or 1 wants to do this frame.
   // move.x = right, move.y = down the screen (toward the camera).
-  read(index) {
-    const pad = this.pads()[index];
+  read(index, playerCount = 1) {
+    const pads = this.pads();
+    let pad = null, keys = null;
+    if (playerCount === 1) { pad = pads[0]; keys = 'main'; }
+    else if (pads.length >= 2) { pad = pads[index]; keys = index === 0 ? 'main' : null; }
+    else if (pads.length === 1) { pad = index === 1 ? pads[0] : null; keys = index === 0 ? 'main' : null; }
+    else keys = index === 0 ? 'main' : 'arrows';
+
     const c = { move: { x: 0, y: 0, mag: 0 }, aim: null, aimMouse: false, run: false, jump: false, jumpPressed: false, fire: false, throw: false, throwPressed: false, source: 'none' };
 
     if (pad) {
@@ -61,8 +75,18 @@ export class Input {
       c.throw = !!pad.buttons[5]?.pressed;
     }
 
-    // Keyboard and mouse always work for player 1.
-    if (index === 0) {
+    if (keys === 'arrows') {
+      const k = this.keys;
+      const kx = (k.has('ArrowRight') ? 1 : 0) - (k.has('ArrowLeft') ? 1 : 0);
+      const ky = (k.has('ArrowDown') ? 1 : 0) - (k.has('ArrowUp') ? 1 : 0);
+      if (kx || ky) { const m = Math.hypot(kx, ky); c.move = { x: kx / m, y: ky / m, mag: 1 }; }
+      c.source = 'keyboard';
+      if (k.has('Slash')) c.fire = true;
+      if (k.has('Period')) c.throw = true;
+      if (k.has('ShiftRight')) c.jump = true;
+    }
+
+    if (keys === 'main') {
       const k = this.keys;
       const kx = (k.has('KeyD') ? 1 : 0) - (k.has('KeyA') ? 1 : 0);
       const ky = (k.has('KeyS') ? 1 : 0) - (k.has('KeyW') ? 1 : 0);
@@ -71,7 +95,7 @@ export class Input {
         c.move = { x: kx / m, y: ky / m, mag: 1 };
         if (c.source === 'none') c.source = 'keyboard';
       }
-      if (k.has('ShiftLeft') || k.has('ShiftRight')) c.run = true;
+      if (k.has('ShiftLeft') || (playerCount === 1 && k.has('ShiftRight'))) c.run = true;
       if (k.has('Space')) c.jump = true;
       if (this.mouse.left) c.fire = true;
       if (this.mouse.right || k.has('KeyE')) c.throw = true;
@@ -85,11 +109,19 @@ export class Input {
     return c;
   }
 
-  // "Try again" button: A on any controller, or Enter.
-  confirmPressed() {
-    const down = this.keys.has('Enter') || this.pads().some(p => p.buttons[0]?.pressed);
-    const pressed = down && !this.prevConfirm;
-    this.prevConfirm = down;
-    return pressed;
+  // Menu buttons from any controller or the keyboard. Each is true only on the frame it is pressed.
+  menu() {
+    const k = this.keys, pads = this.pads();
+    const any = fn => pads.some(fn);
+    const now = {
+      left: k.has('ArrowLeft') || k.has('KeyA') || any(p => p.buttons[14]?.pressed || p.axes[0] < -0.5),
+      right: k.has('ArrowRight') || k.has('KeyD') || any(p => p.buttons[15]?.pressed || p.axes[0] > 0.5),
+      confirm: k.has('Enter') || any(p => p.buttons[0]?.pressed || p.buttons[9]?.pressed),
+      back: k.has('Escape') || any(p => p.buttons[1]?.pressed),
+    };
+    const out = {};
+    for (const key in now) { out[key] = now[key] && !this.prevMenu[key]; }
+    this.prevMenu = now;
+    return out;
   }
 }

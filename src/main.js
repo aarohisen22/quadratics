@@ -10,6 +10,7 @@ import { Effects } from './effects.js';
 import { Combat } from './combat.js';
 import { Hud } from './hud.js';
 import { startSound } from './sound.js';
+import { Team } from './team.js';
 
 const renderer = new THREE.WebGLRenderer({ antialias: !LOW_GRAPHICS, powerPreference: 'high-performance' });
 renderer.setPixelRatio(LOW_GRAPHICS ? 1 : Math.min(devicePixelRatio, 1.75));
@@ -31,30 +32,72 @@ const rig = new CameraRig(camera, CONFIG.camera);
 const effects = new Effects(scene);
 const combat = new Combat(scene, world, effects, CONFIG);
 
-// Phase 2: one brother. Phase 3 adds the second (blue headband).
-const players = [new Ninja(scene, world, CONFIG.player, CONFIG.weapons, { bandColor: 0xc0272d, x: 0, z: 0 })];
-const hud = new Hud(players);
+// Both brothers are built up front; 1-player mode only uses the first.
+const allPlayers = [
+  new Ninja(scene, world, CONFIG.player, CONFIG.weapons, { bandColor: 0xc0272d, x: -1, z: 0 }),
+  new Ninja(scene, world, CONFIG.player, CONFIG.weapons, { bandColor: 0x2f7be0, x: 1, z: 0 }),
+];
+let players = allPlayers.slice(0, 1);
+const hud = new Hud(allPlayers);
+const team = new Team(scene, allPlayers, CONFIG.coop);
 
-// States: 'title' (start screen), 'playing', 'defeated'
-let state = 'title';
+// States: 'menu', 'playing', 'dying' (falling over), 'defeated'
+let state = 'menu';
 let dyingTimer = 0;
+let playerCount = 1;
+
+function setPlayerCount(n) {
+  playerCount = n;
+  players = allPlayers.slice(0, n);
+  allPlayers.forEach((p, i) => { p.root.visible = i < n; });
+  hud.setCount(n);
+}
+setPlayerCount(1);
 
 function newGame() {
   combat.reset();
-  players.forEach((p, i) => p.reset(i * 2, 0));
+  players.forEach((p, i) => p.reset(players.length > 1 ? (i ? 1.5 : -1.5) : 0, 0));
   hud.hideDefeat();
   combat.startLevel(1, players, hud);
   state = 'playing';
 }
 
-// Start screen: a click is needed before the browser allows sound.
+// ---------- start menu ----------
 const start = document.getElementById('start');
-start.addEventListener('click', () => {
+const modeButtons = [...document.querySelectorAll('.mode')];
+let selected = 0;
+function selectMode(i) {
+  selected = i;
+  modeButtons.forEach((b, j) => b.classList.toggle('selected', j === i));
+  setPlayerCount(i + 1);
+}
+function beginGame() {
   start.classList.add('hidden');
   startSound(CONFIG.weather.rainVolume);
   newGame();
+}
+function openMenu() {
+  combat.reset();
+  combat.level = 0;
+  hud.hideDefeat();
+  players.forEach((p, i) => p.reset(players.length > 1 ? (i ? 1.5 : -1.5) : 0, 0));
+  start.classList.remove('hidden');
+  state = 'menu';
+}
+modeButtons.forEach((b, i) => {
+  b.addEventListener('mouseenter', () => selectMode(i));
+  b.addEventListener('click', () => { selectMode(i); beginGame(); });
 });
-document.getElementById('defeat').addEventListener('click', newGame);
+
+// Tells the players who controls which brother.
+const whoEl = document.getElementById('who');
+function describeControls() {
+  const pads = input.pads().length;
+  if (playerCount === 1) return pads ? 'Use the controller or keyboard + mouse' : 'Keyboard + mouse (plug in a controller and press a button to use it)';
+  if (pads >= 2) return 'Red brother: controller 1 · Blue brother: controller 2';
+  if (pads === 1) return 'Red brother: keyboard + mouse · Blue brother: the controller';
+  return 'Red brother: WASD + mouse · Blue brother: arrow keys, / fire, . shuriken, Right Shift jump';
+}
 
 // Mouse aiming: find where the mouse points at ninja height.
 const raycaster = new THREE.Raycaster();
@@ -77,31 +120,47 @@ function updatePadInfo(dt) {
   padsEl.textContent = pads.length
     ? pads.map((p, i) => `Controller ${i + 1}: connected`).join(' · ')
     : 'No controller found: press a button on it, or use the keyboard';
+  whoEl.textContent = describeControls();
 }
 
 const clock = new THREE.Clock();
+let time = 0;
 function frame() {
-  const dt = Math.min(clock.getDelta(), 0.05);
+  step(Math.min(clock.getDelta(), 0.05));
+  requestAnimationFrame(frame);
+}
+function step(dt) {
+  time += dt;
+  const menu = input.menu();
 
-  const ctrls = players.map((p, i) => input.read(i));
-  if (state !== 'playing') ctrls.forEach(c => { c.fire = false; c.throwPressed = false; });
+  const ctrls = players.map((p, i) => input.read(i, playerCount));
+  if (state !== 'playing') ctrls.forEach(c => { c.fire = false; c.throwPressed = false; c.jumpPressed = false; });
+  if (state === 'menu') ctrls.forEach(c => { c.move = { x: 0, y: 0, mag: 0 }; });
   players.forEach((p, i) => p.update(dt, ctrls[i], ctrls[i].aimMouse ? mouseAimPoint(p) : null));
 
-  if (state === 'playing') {
+  if (state === 'menu') {
+    if (menu.left) selectMode(0);
+    if (menu.right) selectMode(1);
+    if (menu.confirm) beginGame();
+  } else if (state === 'playing') {
     combat.update(dt, players, ctrls, hud);
+    team.update(dt, players, time);
     if (players.every(p => !p.alive)) { state = 'dying'; dyingTimer = 1.2; }
   } else if (state === 'dying') {
     combat.update(dt, players, ctrls, hud);
     dyingTimer -= dt;
-    if (dyingTimer <= 0) { state = 'defeated'; hud.showDefeat(combat.level); input.confirmPressed(); }
-  } else if (state === 'defeated' && input.confirmPressed()) {
-    newGame();
-  } else {
-    combat.update(dt, players, ctrls, hud);  // samurai keep moving behind menus
+    if (dyingTimer <= 0) { state = 'defeated'; hud.showDefeat(combat.level, playerCount); }
+  } else if (state === 'defeated') {
+    combat.update(dt, players, ctrls, hud);  // samurai keep moving behind the message
+    if (menu.confirm) newGame();
+    else if (menu.back) openMenu();
   }
 
   rig.update(dt, players.map(p => p.pos));
-  players.forEach((p, i) => cutaway.uCutTargets.value[i].copy(p.pos));
+  allPlayers.forEach((p, i) => {
+    if (i < playerCount) cutaway.uCutTargets.value[i].copy(p.pos);
+    else cutaway.uCutTargets.value[i].set(0, -9999, 0);
+  });
 
   // Keep the sun's shadows centered on the action.
   sun.position.set(rig.focus.x + 30, rig.focus.y + 40, rig.focus.z + 15);
@@ -113,7 +172,6 @@ function frame() {
   hud.update(dt, players, combat.level, combat.samuraiLeft);
   updatePadInfo(dt);
   renderer.render(scene, camera);
-  requestAnimationFrame(frame);
 }
 requestAnimationFrame(frame);
 
@@ -124,4 +182,4 @@ addEventListener('resize', () => {
 });
 
 // Handy for testing in the browser console.
-window.game = { scene, world, players, combat, camera, CONFIG };
+window.game = { scene, world, get players() { return players; }, allPlayers, combat, team, camera, input, CONFIG, get state() { return state; }, step };

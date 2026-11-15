@@ -55,6 +55,14 @@ export const CONFIG = {
     windupSeconds: 0.45,  // how long he raises his sword before striking (time to dodge!)
   },
 
+  coop: {
+    reviveSeconds: 2.5,   // stand next to your downed brother this long to revive him
+    reviveDistance: 2,    // how close you need to be (meters)
+    reviveHealth: 0.4,    // he comes back with 40% health
+    maxApart: 24,         // brothers can't get further apart than this (keeps both on screen)
+    reviveOnNewLevel: 0.5, // a downed brother comes back with 50% health when a level starts
+  },
+
   levels: {
     startSamurai: 5,      // samurai on level 1
     extraPerLevel: 2,     // more samurai each level

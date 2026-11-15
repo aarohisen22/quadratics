@@ -10,15 +10,21 @@ export class Hud {
       card.innerHTML = `
         <div class="name">Brother ${i + 1}</div>
         <div class="bar"><div class="fill"></div><div class="num"></div></div>
-        <div class="ammo"><span class="uzi"></span><span class="shur"></span></div>`;
+        <div class="ammo"><span class="uzi"></span><span class="shur"></span></div>
+        <div class="status"></div>`;
       $('players').append(card);
       return {
-        fill: card.querySelector('.fill'), num: card.querySelector('.num'),
-        uzi: card.querySelector('.uzi'), shur: card.querySelector('.shur'),
+        el: card, fill: card.querySelector('.fill'), num: card.querySelector('.num'),
+        uzi: card.querySelector('.uzi'), shur: card.querySelector('.shur'), status: card.querySelector('.status'),
       };
     });
     this.hurtAlpha = 0;
     this.bannerTimer = 0;
+  }
+
+  // Show one or two player cards.
+  setCount(n) {
+    this.cards.forEach((c, i) => { c.el.style.display = i < n ? '' : 'none'; });
   }
 
   update(dt, players, level, samuraiLeft) {
@@ -33,6 +39,13 @@ export class Hud {
       c.uzi.classList.toggle('out', p.ammo === 0);
       c.shur.textContent = `Shurikens ${p.shurikens}`;
       c.shur.classList.toggle('out', p.shurikens === 0);
+      const down = !p.alive && players.length > 1;
+      c.el.classList.toggle('down', down);
+      if (down) {
+        c.status.textContent = p.reviveProgress > 0
+          ? `Reviving… ${Math.floor(p.reviveProgress * 100)}%`
+          : 'DOWN! Brother, stand next to him to revive';
+      }
       if (p.justHurt) { this.hurtAlpha = 0.9; p.justHurt = false; }
     });
     this.hurtAlpha = Math.max(0, this.hurtAlpha - dt * 2.5);
@@ -52,8 +65,10 @@ export class Hud {
     this.bannerTimer = seconds;
   }
 
-  showDefeat(level) {
-    $('defeat-text').textContent = `You reached level ${level}.`;
+  showDefeat(level, playerCount) {
+    $('defeat-text').textContent = playerCount > 1
+      ? `Both brothers are down. You reached level ${level}.`
+      : `You reached level ${level}.`;
     $('defeat').classList.remove('hidden');
   }
 
