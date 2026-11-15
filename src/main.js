@@ -12,6 +12,7 @@ import { Hud } from './hud.js';
 import { startSound } from './sound.js';
 import { Team } from './team.js';
 import { Drops } from './drops.js';
+import { FallingTrees } from './trees.js';
 
 const renderer = new THREE.WebGLRenderer({ antialias: !LOW_GRAPHICS, powerPreference: 'high-performance' });
 renderer.setPixelRatio(LOW_GRAPHICS ? 1 : Math.min(devicePixelRatio, 1.75));
@@ -43,6 +44,8 @@ let players = allPlayers.slice(0, 1);
 const hud = new Hud(allPlayers);
 const team = new Team(scene, allPlayers, CONFIG.coop);
 const drops = new Drops(scene, world, effects, CONFIG);
+const trees = new FallingTrees(scene, world, effects, rig, CONFIG.hazards);
+combat.onObstacleHit = (obstacle, amount) => trees.onShot(obstacle, amount);
 allPlayers.forEach((p, i) => { p.index = i; });
 
 // States: 'menu', 'playing', 'dying' (falling over), 'defeated'
@@ -61,6 +64,7 @@ setPlayerCount(1);
 function newGame() {
   combat.reset();
   drops.reset();
+  trees.reset();
   players.forEach((p, i) => p.reset(players.length > 1 ? (i ? 1.5 : -1.5) : 0, 0));
   hud.hideDefeat();
   combat.startLevel(1, players, hud);
@@ -84,6 +88,7 @@ function beginGame() {
 function openMenu() {
   combat.reset();
   drops.reset();
+  trees.reset();
   combat.level = 0;
   hud.hideDefeat();
   players.forEach((p, i) => p.reset(players.length > 1 ? (i ? 1.5 : -1.5) : 0, 0));
@@ -153,6 +158,7 @@ function step(dt) {
   } else if (state === 'playing') {
     combat.update(dt, players, ctrls, hud);
     drops.update(dt, players, hud);
+    trees.update(dt, players, combat.samurai, hud);
     team.update(dt, players, time);
     if (players.every(p => !p.alive)) { state = 'dying'; dyingTimer = 1.2; }
   } else if (state === 'dying') {
@@ -191,4 +197,4 @@ addEventListener('resize', () => {
 });
 
 // Handy for testing in the browser console.
-window.game = { scene, world, get players() { return players; }, allPlayers, combat, team, drops, camera, input, CONFIG, get state() { return state; }, step, renderer, rig, get paused() { return paused; }, set paused(v) { paused = v; } };
+window.game = { scene, world, get players() { return players; }, allPlayers, combat, team, drops, trees, camera, input, CONFIG, get state() { return state; }, step, renderer, rig, get paused() { return paused; }, set paused(v) { paused = v; } };

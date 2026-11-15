@@ -7,7 +7,7 @@ Read this first when picking the game back up in a new session. The plan is in `
 cd ~/Documents/Game
 python3 tools/serve.py
 ```
-Then open http://localhost:8080 (add `?low` for low graphics).
+Then open http://localhost:8080 (this server turns off browser caching so refreshes show the latest code) (add `?low` for low graphics).
 
 ## How to resume
 - `git log --oneline` shows the save points. Each one is a working state.
@@ -36,7 +36,13 @@ Then open http://localhost:8080 (add `?low` for low graphics).
   - [x] Brothers can't get more than 24 m apart; camera zooms out to fit both
   - [x] Defeat when both are down; A/Enter = try again, B/Esc = menu
   - Tested in browser by stepping the game (`game.step(dt)` in the console). Not tested with real controllers yet
-- [ ] Phase 4: Drops and hazards  ← next
+- [x] Graphics + sound upgrade (asked for by parent): detailed code-built ninja (hood, eyes, sash, straps, pouches, katana on back, jointed arms/legs), realistic Uzi / shotgun / katana models, bigger characters (1.15x) and closer camera, muzzle flash burst, brass shell casings, layered realistic weapon sounds with outdoor echo (sound.js)
+- [x] Phase 4: Drops and hazards (waiting on the kids' playtest)
+  - [x] Supply crate falls every 30 s (first at 10 s) with a light beam: ammo (+60 bullets, +2 shurikens) or a special weapon
+  - [x] Specials: shotgun (8 shells, 7 pellets), katana (25 slashes, 130° arc), smoke bombs (3; samurai can't see you in the smoke). Y / Q / , to switch weapons
+  - [x] Broken trees: one near you creaks + shows a red zone, then falls (40 damage, samurai take 80) and leaves a log. Shoot a broken tree 14 times to knock it over on purpose
+  - Tested by stepping the game in the browser (game.paused = true; game.step(1/60)). Not tested with real controllers
+- [ ] Phase 5: VS mode  ← next
 - [ ] Phase 3: Co-op mode
 - [ ] Phase 4: Drops and hazards
 - [ ] Phase 5: VS mode

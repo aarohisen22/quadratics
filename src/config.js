@@ -12,7 +12,7 @@ export const CONFIG = {
     size: 120,            // jungle width and depth in meters
     giantTrees: 90,
     palmTrees: 60,
-    brokenTrees: 14,      // the ones that may fall on you (Phase 4)
+    brokenTrees: 24,      // dead leaning trees that can fall on you
     fallenLogs: 16,
     rocks: 50,
     ferns: LOW_GRAPHICS ? 180 : 380,
@@ -62,6 +62,13 @@ export const CONFIG = {
     shotgun: { shells: 8, pellets: 7, damagePerPellet: 12, spreadDegrees: 24, range: 14, shotsPerSecond: 1.5 },
     katana:  { swings: 25, damage: 45, reach: 2.6, arcDegrees: 130, swingsPerSecond: 2.5 },
     smoke:   { bombs: 3, radius: 5, seconds: 7, throwDistance: 7 }, // samurai can't see you in the smoke
+  },
+
+  hazards: {
+    treeFallEverySeconds: [10, 20], // a broken tree near you falls every 10-20 seconds
+    warningSeconds: 2.2,  // creaking + red zone before it falls: time to get out of the way
+    treeDamage: 40,       // to ninjas; samurai get double
+    shotsToTopple: 14,    // shoot a broken tree this many times to knock it over on purpose!
   },
 
   samurai: {

@@ -140,6 +140,7 @@ class Batch {
     mesh.castShadow = this.shadow;
     mesh.receiveShadow = this.receive;
     scene.add(mesh);
+    this.mesh = mesh;
     return mesh;
   }
 }
@@ -308,12 +309,16 @@ export class World {
       dummy.position.set(s.x, y - 0.3, s.z);
       dummy.rotation.set(0, yaw, lean);
       dummy.scale.set(rad, h, rad); dummy.updateMatrix();
+      const index = trunks.matrices.length;   // remember which trunk, so it can fall later
       trunks.add(dummy.matrix, color.setHSL(0.08, 0.12, 0.22 + r() * 0.05));
       dummy.rotation.set(0, 0, 0);
       dummy.scale.set(rad * 2.2, 1.2, rad * 2.2); dummy.updateMatrix();
       roots.add(dummy.matrix, color.setHSL(0.08, 0.15, 0.18));
-      this.obstacles.push({ x: s.x, z: s.z, r: rad + 0.25, base: y, h: 99 });
-      this.brokenTrees.push({ x: s.x, z: s.z, height: h, lean, yaw, radius: rad });
+      const obstacle = { x: s.x, z: s.z, r: rad + 0.25, base: y, h: 99 };
+      this.obstacles.push(obstacle);
+      const tree = { x: s.x, z: s.z, y, height: h, lean, yaw, radius: rad, index, obstacle };
+      obstacle.tree = tree;
+      this.brokenTrees.push(tree);
     }
     dummy.rotation.order = 'XYZ';
 
@@ -406,6 +411,7 @@ export class World {
     for (const b of [trunks, roots, canopy, fronds, vines, logs, rocks, ferns, bigLeaves, puddles]) {
       if (b.matrices.length) b.build(scene);
     }
+    this.trunkMesh = trunks.mesh;
 
     this.buildMist(scene);
   }

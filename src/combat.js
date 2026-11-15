@@ -337,6 +337,7 @@ export class Combat {
         m.x += s.dx * hit.dist; m.z += s.dz * hit.dist;
         this.effects.burst(m, 'chip', 6);
         sfx.thud();
+        this.onObstacleHit?.(hit.obstacle, 3);
         s.stuck = true;
         s.life = Math.min(s.life, 0);
       } else {
