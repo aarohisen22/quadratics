@@ -13,7 +13,8 @@ export function setupLighting(renderer, scene, cfg, lowGraphics) {
   scene.environment = pmrem.fromScene(new RoomEnvironment(), 0.04).texture;
   scene.environmentIntensity = 0.2;
 
-  scene.add(new THREE.HemisphereLight(0xb8cad6, 0x1e2a16, 0.85));
+  const hemi = new THREE.HemisphereLight(0xb8cad6, 0x1e2a16, 0.85);
+  scene.add(hemi);
 
   // Low, warm morning sun breaking through the clouds.
   const sun = new THREE.DirectionalLight(0xffe0b0, 1.25);
@@ -27,7 +28,7 @@ export function setupLighting(renderer, scene, cfg, lowGraphics) {
     sun.shadow.normalBias = 0.04;
   }
   scene.add(sun, sun.target);
-  return sun;
+  return { sun, hemi };
 }
 
 export class Rain {
@@ -39,6 +40,8 @@ export class Rain {
     this.top = 26;      // how high above the ground it starts
     this.len = 0.9;     // streak length
     this.focus = new THREE.Vector3();
+    this.amount = 1;          // 0 = no rain, 1 = downpour (set by the sky)
+    this.wind = cfg.wind;
 
     this.drops = new Float32Array(this.count * 3);
     for (let i = 0; i < this.count; i++) {
@@ -70,13 +73,17 @@ export class Rain {
 
   update(dt, focus) {
     this.focus.copy(focus);
-    const { rainSpeed, wind } = this.cfg;
+    const { rainSpeed } = this.cfg;
+    const wind = this.wind;
+    const active = Math.floor(this.count * Math.min(1, this.amount));   // fewer drops when it's easing off
+    this.lines.geometry.setDrawRange(0, active * 2);
+    this.lines.visible = active > 0;
     const d = this.drops, out = this.lines.geometry.attributes.position.array;
     const sp = this.splashes.geometry.attributes.position.array;
     const box = this.box, fx = focus.x, fz = focus.z;
     const slant = (wind / rainSpeed) * this.len;
 
-    for (let i = 0; i < this.count; i++) {
+    for (let i = 0; i < active; i++) {
       const k = i * 3;
       // Drops live around the focus point; wrap them when it moves.
       let x = d[k] + wind * dt, y = d[k + 1] - rainSpeed * dt, z = d[k + 2];

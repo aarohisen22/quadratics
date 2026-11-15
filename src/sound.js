@@ -1,7 +1,7 @@
 // All game sounds, made from noise and tones, so there are no audio files to download.
 // Browsers only allow sound after a click, so start() runs from the start screen.
 
-let ctx = null, master = null, noiseBuf = null, reverb = null;
+let ctx = null, master = null, noiseBuf = null, reverb = null, rainBus = null;
 
 export function startSound(volume) {
   if (ctx) return;
@@ -46,18 +46,28 @@ export function startSound(volume) {
 }
 
 function startRain() {
+  rainBus = ctx.createGain();
+  rainBus.gain.value = pendingRain;
+  rainBus.connect(master);
   const layer = (type, freq, q, gain) => {
     const src = ctx.createBufferSource();
     src.buffer = noiseBuf; src.loop = true;
     const f = ctx.createBiquadFilter();
     f.type = type; f.frequency.value = freq; f.Q.value = q;
     const g = ctx.createGain(); g.gain.value = gain;
-    src.connect(f).connect(g).connect(master);
+    src.connect(f).connect(g).connect(rainBus);
     src.start(0, Math.random() * 2);
   };
   layer('lowpass', 500, 0.5, 0.45);   // deep roar of heavy rain
   layer('bandpass', 1800, 0.6, 0.28); // hiss on the leaves
   layer('highpass', 6000, 0.3, 0.06); // fine patter
+}
+
+// How loud the rain is (0 = stopped, 1 = downpour). Changes smoothly.
+let pendingRain = 1;
+export function setRainLevel(level) {
+  pendingRain = level;
+  if (rainBus) rainBus.gain.setTargetAtTime(level, ctx.currentTime, 0.6);
 }
 
 // ---------- sound building blocks ----------
@@ -206,6 +216,15 @@ export const sfx = {
     burst({ type: 'lowpass', freq: 380, q: 0.7, gain: 1.0, decay: 1.2, verb: 0.8 });
     tone(60, 25, 0.9, 0.6, 'sine', { verb: 0.5 });
     for (let i = 0; i < 6; i++) burst({ type: 'bandpass', freq: rand(1500, 4000), q: 3, gain: 0.25, decay: 0.03, delay: rand(0, 0.6) }); // snapping branches
+  },
+  thunder() {
+    burst({ type: 'highpass', freq: 1500, q: 0.5, gain: 0.5, decay: 0.15, verb: 0.8 });       // crack
+    burst({ type: 'lowpass', freq: 160, q: 0.6, gain: 1.0, attack: 0.08, decay: 2.8, verb: 1 }); // rumble
+    burst({ type: 'lowpass', freq: 90, q: 0.6, gain: 0.9, attack: 0.3, decay: 2.2, delay: 0.4 });
+  },
+  bird() {   // a short jungle bird call
+    const base = rand(1800, 3200), n = 2 + Math.floor(Math.random() * 3), gap = rand(0.08, 0.16);
+    for (let i = 0; i < n; i++) tone(base, base * rand(1.2, 1.6), 0.035, 0.07, 'sine', { delay: i * gap, verb: 0.4 });
   },
   levelUp() { [523, 659, 784].forEach((f, i) => tone(f, f, 0.12, 0.25, 'triangle', { delay: i * 0.12 })); },
   thud() { burst({ type: 'lowpass', freq: 160, q: 1, gain: 0.5, decay: 0.12 }); },

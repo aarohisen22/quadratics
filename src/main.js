@@ -14,6 +14,7 @@ import { Team } from './team.js';
 import { Drops } from './drops.js';
 import { FallingTrees } from './trees.js';
 import { Versus } from './versus.js';
+import { Sky } from './sky.js';
 
 const renderer = new THREE.WebGLRenderer({ antialias: !LOW_GRAPHICS, powerPreference: 'high-performance' });
 renderer.setPixelRatio(LOW_GRAPHICS ? 1 : Math.min(devicePixelRatio, 1.75));
@@ -27,7 +28,7 @@ document.body.prepend(renderer.domElement);
 const scene = new THREE.Scene();
 const camera = new THREE.PerspectiveCamera(50, innerWidth / innerHeight, 0.1, 300);
 
-const sun = setupLighting(renderer, scene, CONFIG.weather, LOW_GRAPHICS);
+const { sun, hemi } = setupLighting(renderer, scene, CONFIG.weather, LOW_GRAPHICS);
 const world = new World(scene, CONFIG.world);
 const rain = new Rain(scene, world, CONFIG.weather);
 const input = new Input(renderer.domElement);
@@ -49,6 +50,8 @@ const trees = new FallingTrees(scene, world, effects, rig, CONFIG.hazards);
 combat.onObstacleHit = (obstacle, amount) => trees.onShot(obstacle, amount);
 allPlayers.forEach((p, i) => { p.index = i; });
 const versus = new Versus(world, CONFIG.versus);
+const sky = new Sky({ scene, renderer, sun, hemi, rain, world });
+combat.onLevelStart = (n, hud) => sky.forLevel(n, hud);
 
 // States: 'menu', 'playing', 'dying' (falling over), 'defeated', 'won' (VS winner)
 let state = 'menu';
@@ -72,11 +75,13 @@ function newGame() {
   hud.hideDefeat();
   combat.vs = mode === 'vs';
   if (mode === 'vs') {
+    sky.random(true);   // every VS match gets a surprise weather
     combat.level = 0;
     versus.start(players);
     hud.banner('Fight!', 1.5);
   } else {
     players.forEach((p, i) => p.reset(players.length > 1 ? (i ? 1.5 : -1.5) : 0, 0));
+    sky.set('rain', true);
     combat.startLevel(1, players, hud);
   }
   state = 'playing';
@@ -198,7 +203,8 @@ function step(dt) {
   });
 
   // Keep the sun's shadows centered on the action.
-  sun.position.set(rig.focus.x + 30, rig.focus.y + 40, rig.focus.z + 15);
+  sky.update(dt, rig.focus);
+  sun.position.copy(rig.focus).add(sky.sunOffset);
   sun.target.position.copy(rig.focus);
 
   world.update(dt);
@@ -219,4 +225,4 @@ addEventListener('resize', () => {
 });
 
 // Handy for testing in the browser console.
-window.game = { scene, world, get players() { return players; }, allPlayers, combat, team, drops, trees, versus, camera, input, CONFIG, get state() { return state; }, step, renderer, rig, get paused() { return paused; }, set paused(v) { paused = v; } };
+window.game = { scene, world, get players() { return players; }, allPlayers, combat, team, drops, trees, versus, sky, camera, input, CONFIG, get state() { return state; }, step, renderer, rig, get paused() { return paused; }, set paused(v) { paused = v; } };
