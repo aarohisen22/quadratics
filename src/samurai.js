@@ -261,6 +261,9 @@ export class Samurai {
     this.shoot = null;                   // set by combat: fires an arrow
     this.pos = new THREE.Vector3(x, world.heightAt(x, z), z);
     this.knock = new THREE.Vector2();
+    this.jumpY = 0;     // height of a jump over a log
+    this.vy = 0;
+    this.stuckT = 0;
     this.facing = Math.random() * Math.PI * 2;
     // He arrives by sliding down a vine from the trees (waiting up there for dropDelay first).
     this.state = 'descend';
@@ -468,7 +471,9 @@ export class Samurai {
       if (d > 0 && d < min) { moveX += (dx / d) * (min - d) * 2; moveZ += (dz / d) * (min - d) * 2; }
     }
 
-    const wade = this.world.waterDepthAt(this.pos.x, this.pos.z) > 0.25 ? 0.55 : 1;
+    [moveX, moveZ] = this.steer(moveX, moveZ, dt);
+    const startX = this.pos.x, startZ = this.pos.z;
+    const wade = (this.world.waterDepthAt(this.pos.x, this.pos.z) > 0.25 ? 0.55 : 1) * (this.jumpY > 0 ? 1.4 : 1);   // leaps forward when jumping
     this.pos.x += (moveX * this.speed * wade + this.knock.x) * dt;
     this.pos.z += (moveZ * this.speed * wade + this.knock.y) * dt;
     this.knock.multiplyScalar(Math.exp(-8 * dt));
@@ -477,10 +482,63 @@ export class Samurai {
       const dx = this.pos.x - p.pos.x, dz = this.pos.z - p.pos.z, d = Math.hypot(dx, dz), min = this.radius + p.radius;
       if (d > 0 && d < min) { this.pos.x = p.pos.x + dx / d * min; this.pos.z = p.pos.z + dz / d * min; }
     }
-    this.world.resolveCollision(this.pos, this.radius, this.pos.y);
+    this.world.resolveCollision(this.pos, this.radius, this.pos.y + this.jumpY);
     this.pos.y = this.world.heightAt(this.pos.x, this.pos.z);
 
+    // Jumping: up and back down again.
+    if (this.jumpY > 0 || this.vy > 0) {
+      this.vy -= 18 * dt;
+      this.jumpY += this.vy * dt;
+      if (this.jumpY <= 0) { this.jumpY = 0; this.vy = 0; if (this.isBoss) sfx.thud(); }
+    }
+    // Stuck? (trying to walk but hardly moving) Then try the other way around, or jump.
+    const wanted = Math.hypot(moveX, moveZ) * this.speed * wade * dt;
+    const moved = Math.hypot(this.pos.x - startX, this.pos.z - startZ);
+    if (wanted > 0.01 && moved < wanted * 0.3) this.stuckT += dt; else this.stuckT = Math.max(0, this.stuckT - dt);
+    if (this.stuckT > 0.6) {
+      this.stuckT = 0;
+      this.detourSide = -(this.detourSide || 1);
+      this.detourT = 1.4;
+      if (this.jumpY === 0) this.vy = 7.5;   // and hop, in case it's something low
+    }
+
     this.animate(dt, Math.hypot(moveX, moveZ) > 0.1);
+    this.root.position.y += this.jumpY;
+  }
+
+  // Look ahead along the way he wants to walk: jump over anything low (logs, low walls),
+  // and walk around the side of anything tall (boulders, trees, ruins, the plane).
+  steer(mx, mz, dt) {
+    this.detourT = Math.max(0, (this.detourT || 0) - dt);
+    const mag = Math.hypot(mx, mz);
+    if (mag < 0.1) return [mx, mz];
+    const dx = mx / mag, dz = mz / mag;
+    const feet = this.pos.y + this.jumpY;
+    const look = 1.4 + this.radius;
+    let block = null, blockT = Infinity, cross = 0;
+    for (const o of this.world.obstacles) {
+      const ox = o.x - this.pos.x, oz = o.z - this.pos.z;
+      const t = ox * dx + oz * dz;                       // how far ahead
+      if (t < -0.2 || t > look + o.r) continue;
+      const side = ox * dz - oz * dx;                    // how far to the side of the path
+      if (Math.abs(side) > o.r + this.radius) continue;
+      if (feet > (o.base ?? 0) + o.h) continue;          // already above it
+      if (t < blockT) { block = o; blockT = t; cross = side; }
+    }
+    if (!block) return [mx, mz];
+    const top = (block.base ?? this.pos.y) + block.h - this.pos.y;
+    if (top < 1.25) {                                    // low: jump it
+      if (this.jumpY === 0 && this.vy === 0 && blockT < block.r + this.radius + 1.1) this.vy = 7.5;
+      return [mx, mz];
+    }
+    // Tall: go round the side it's not leaning to, and keep going that way for a moment.
+    if (!this.detourT) { this.detourSide = cross > 0 ? 1 : -1; this.detourT = 0.8; }
+    const s = this.detourSide;
+    const tx = -dz * s, tz = dx * s;                     // sideways along the obstacle
+    const k = Math.min(1, (look + block.r - blockT) / look);
+    const nx = dx * (1 - k) + tx * (0.6 + k), nz = dz * (1 - k) + tz * (0.6 + k);
+    const n = Math.hypot(nx, nz) || 1;
+    return [nx / n * mag, nz / n * mag];
   }
 
   // Damage anyone in reach and inside this attack's arc.

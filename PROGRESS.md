@@ -75,7 +75,7 @@ Then open http://localhost:8080 (this server turns off browser caching so refres
   - [x] Uzi ammo 60 → 100 (crates +80, carry up to 250); health crates (22% of crates, white with red crosses, green beam and green on the map, +40 health)
   - [x] Pause button (top-right ❚❚) + Esc / P / Start pause menu (Resume / Restart / Main menu, mouse or controller); also pauses when you leave the window
   - [x] Samurai vines only hang from real tree branches: samurai (and the boss and his helpers) spawn under a big tree's leaf clump (world.canopySpots), vine length matches that tree
-  - [ ] Enemies jump over logs and steer around boulders instead of getting stuck
+  - [x] Enemies jump over logs and low walls and steer around boulders, trees, ruins and the plane (samurai.js `steer`); if still stuck for 0.6 s they try the other way round and hop. Tested 16 random obstacles: all got through in 0.7-3.4 s
   - [ ] Gatling gun: crate special (rarer), 150 rounds, 0.5 s spin-up then very fast fire, walk slower
   - [ ] Hiding: inside temple ruins / collapsed huts samurai lose track of you (unless right next to you); a few climbable trees with platforms (samurai can't reach, archers can shoot)
   - [ ] Twin-blade ronin boss (fast, two katanas, dashes with a red streak warning); bosses: ronin after 3, Warlord after 5, ronin 8, Warlord 10, … tougher each time
