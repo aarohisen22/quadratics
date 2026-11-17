@@ -370,9 +370,11 @@ export class Samurai {
     const blind = inSmoke(this.pos.x, this.pos.z);
     let target = null, best = Infinity;
     for (const p of players) {
-      if (!p.alive || blind || inSmoke(p.pos.x, p.pos.z)) continue;
+      if (!p.alive || blind) continue;
+      const spotted = p.revealed > 0;   // he just fired a gun: everyone knows where he is
+      if (!spotted && inSmoke(p.pos.x, p.pos.z)) continue;
       const d = Math.hypot(p.pos.x - this.pos.x, p.pos.z - this.pos.z);
-      if (d > 3.5 && this.world.inHideout(p.pos.x, p.pos.z)) continue;   // hiding in the ruins: can't see him
+      if (!spotted && d > 3.5 && this.world.inHideout(p.pos.x, p.pos.z)) continue;   // hiding in the ruins: can't see him
       if (d < best) { best = d; target = p; }
     }
 

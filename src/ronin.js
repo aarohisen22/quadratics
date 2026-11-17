@@ -54,7 +54,7 @@ export class Ronin extends Samurai {
     if (this.state === 'chase' && this.dashCd <= 0) {
       const t = players.filter(p => p.alive && !p.perch && !p.climb)
         .map(p => ({ p, d: Math.hypot(p.pos.x - this.pos.x, p.pos.z - this.pos.z) }))
-        .filter(o => o.d > D.minRange && o.d < D.maxRange && !this.world.inHideout(o.p.pos.x, o.p.pos.z))
+        .filter(o => o.d > D.minRange && o.d < D.maxRange && (o.p.revealed > 0 || !this.world.inHideout(o.p.pos.x, o.p.pos.z)))
         .sort((a, b) => a.d - b.d)[0];
       if (t) {
         const dx = t.p.pos.x - this.pos.x, dz = t.p.pos.z - this.pos.z;

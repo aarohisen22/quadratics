@@ -30,6 +30,7 @@ export class Combat {
     this.levelsCfg = config.levels;
     this.coopCfg = config.coop;
     this.specials = config.specials;
+    this.hidingCfg = config.hiding;
     this.smokes = [];   // active smoke clouds { x, z, r, t }
     this.vs = false;    // VS mode: the brothers' weapons hit each other
     this.players = [];
@@ -259,15 +260,34 @@ export class Combat {
         p.spin = Math.min(1, p.spin + dt / G.spinUpSeconds);
       } else p.spin = Math.max(0, p.spin - dt / 0.8);
       if (c.fire && p.fireCooldown <= 0 && !p.switching) {
-        if (p.current === 'gatling') { if (p.spin >= 1) this.fireGatling(p, i); }
-        else if (p.current === 'uzi') this.fireUzi(p, i);
-        else if (p.current === 'shotgun') this.fireShotgun(p, i);
-        else if (p.current === 'katana') this.slashKatana(p);
-        else if (p.current === 'smoke') this.throwSmoke(p);
+        const before = p.fireCooldown;
+        this.fireWeapon(p, i);
+        // Gunfire gives away where you are, even from a hideout or smoke (shurikens and the katana are silent).
+        if (p.fireCooldown > before && p.current !== 'katana' && p.current !== 'smoke') this.revealShooter(p, hud);
       }
       if (c.throwPressed) this.throwShuriken(p);
     });
+    this.updateRest(dt, players, hud);
+  }
 
+  fireWeapon(p, i) {
+    if (p.current === 'gatling') { if (p.spin >= 1) this.fireGatling(p, i); }
+    else if (p.current === 'uzi') this.fireUzi(p, i);
+    else if (p.current === 'shotgun') this.fireShotgun(p, i);
+    else if (p.current === 'katana') this.slashKatana(p);
+    else if (p.current === 'smoke') this.throwSmoke(p);
+  }
+
+  revealShooter(p, hud) {
+    const wasHiding = p.hidden || this.inSmoke(p.pos.x, p.pos.z);
+    p.revealed = this.hidingCfg.revealSeconds;
+    if (wasHiding && !this.toldReveal) {
+      this.toldReveal = true;
+      hud.toast('Shooting gives away your hiding spot! Shurikens are silent.', 4);
+    }
+  }
+
+  updateRest(dt, players, hud) {
     this.updateShurikens(dt);
     this.updateArrows(dt, players);
     this.updateBombs(dt);

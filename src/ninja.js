@@ -117,6 +117,7 @@ export class Ninja {
     this.perch = null;       // the treehouse he's standing on
     this.climb = null;       // climbing a rope ladder: { house, t }
     this.hidden = false;     // in a hideout (ruins, hut)
+    this.revealed = 0;       // seconds left that samurai can see him anyway (he fired a gun)
     this.spin = 0;           // gatling barrel spin 0..1
     this.recoil = 0;
     this.swing = -1;         // katana slash progress 0..1 (-1 = not swinging)
@@ -231,6 +232,7 @@ export class Ninja {
     this.time += dt;
     this.recoil = Math.max(0, this.recoil - dt * 9);
     this.sinceSwing += dt;
+    this.revealed = Math.max(0, this.revealed - dt);
     if (this.swing >= 0) { this.swing += dt / (this.swingMove === 3 ? 0.26 : 0.32); if (this.swing > 1) this.swing = -1; }
     if (this.throwT >= 0) { this.throwT += dt / 0.3; if (this.throwT > 1) this.throwT = -1; }
     const w = this.switching;

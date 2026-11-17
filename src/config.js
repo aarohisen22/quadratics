@@ -113,6 +113,10 @@ export const CONFIG = {
     mix: { archerFromLevel: 3, nunchuckFromLevel: 4, startShare: 0.2, sharePerLevel: 0.03, maxShare: 0.35 },
   },
 
+  hiding: {
+    revealSeconds: 4,     // after firing a gun, samurai can see you this long even in a hideout or smoke
+  },
+
   versus: {
     killsToWin: 5,        // first brother to this many knock-downs wins
     respawnSeconds: 3,

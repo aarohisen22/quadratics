@@ -70,7 +70,7 @@ export class Hud {
       c.el.classList.toggle('down', down);
       const hidden = p.alive && (p.hidden || p.perch);
       c.el.classList.toggle('hiding', !!hidden);
-      if (hidden && !down) c.status.textContent = p.perch ? 'UP A TREE (walk off the edge to get down)' : 'HIDDEN';
+      if (hidden && !down) c.status.textContent = p.revealed > 0 ? 'SPOTTED! (your shots gave you away)' : p.perch ? 'UP A TREE (walk off the edge to get down)' : 'HIDDEN';
       if (down) {
         c.status.textContent = p.respawnIn !== null && p.respawnIn !== undefined
           ? `Back in ${Math.max(1, Math.ceil(p.respawnIn))}…`
