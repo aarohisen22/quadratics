@@ -23,8 +23,10 @@ export class Ronin extends Samurai {
     this.dodge = null;   // leaping aside: { x, z, t, len }
     this.blockT = 0;     // swords raised to block
 
-    // Dark purple armor, and a wide straw hat over the helmet.
-    this.mats[0].color.set(0x3a2450);
+    // Dark purple armor, and a wide straw hat over the helmet. A masterless samurai: no clan banner or crest.
+    this.mats[0].color.set(0x5a3a7a);
+    this.banner.visible = false;
+    this.crest.visible = false;
     const straw = new THREE.MeshStandardMaterial({ color: 0xc9a85c, roughness: 0.9 });
     this.mats.push(straw);
     const hat = part(new THREE.ConeGeometry(0.62, 0.32, 18, 1, true), straw, 0, 2.03, 0);

@@ -3,7 +3,7 @@
 // slams the ground (a red ring shows where: get out of it!), and calls in help at half health.
 // He's built on the samurai, so he walks, attacks, gets hit and falls the same way, just bigger.
 import * as THREE from 'three';
-import { Samurai } from './samurai.js';
+import { Samurai, buildOniMask } from './samurai.js';
 import { part } from './models.js';
 import { sfx } from './sound.js';
 
@@ -52,6 +52,14 @@ export class Boss extends Samurai {
     // Dark blood-red armor with gold trim; the iron of his club glows red before a slam.
     this.mats[0].color.set(0x5a1212);
     this.mats[2].color.set(0xd4a440);
+    // He wears a carved Oni demon mask instead of the plain iron face guard, and no helmet crest.
+    this.mask.parent.remove(this.mask);
+    this.crest.visible = false;
+    const oni = new THREE.MeshStandardMaterial({ color: 0x7a1a12, roughness: 0.35, metalness: 0.1 });
+    this.mats.push(oni);
+    this.mask = buildOniMask({ oni, dark: this.mats[1], gold: this.mats[2] });
+    this.mask.position.set(0, 1.71, 0.02);
+    this.body.add(this.mask);
     this.sword.remove(this.blade);
     const club = buildClub(this.steel);
     club.position.set(0, -0.56, 0.02);

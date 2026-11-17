@@ -3,47 +3,142 @@ import * as THREE from 'three';
 import { part, buildKatana } from './models.js';
 import { sfx } from './sound.js';
 
-// An Oni (demon) face mask: red face, angry brows, glowing eyes, fangs and horns.
-// Built around the head's center, facing +z. Also used (bigger) by the mini boss.
+// ---------- armor textures (shared by every samurai; each gets its own tinted material) ----------
+// Kebiki-odoshi armor: rows of lacquered plates laced together with silk cords. Drawn in white
+// so the material color tints the lacing (red, green, blue...) while the plate edges stay black.
+const texCache = {};
+function lamellarTex(rows, cols = 3) {
+  const key = rows + 'x' + cols;
+  if (texCache[key]) return texCache[key];
+  const c = document.createElement('canvas');
+  c.width = 128; c.height = 256;
+  const g = c.getContext('2d'), w = 128, h = 256, rh = h / rows;
+  for (let r = 0; r < rows; r++) {
+    const y = r * rh;
+    g.fillStyle = '#ece6da'; g.fillRect(0, y, w, rh);                         // silk lacing
+    g.fillStyle = 'rgba(0,0,0,0.28)';
+    for (let x = 0; x < w; x += 6) g.fillRect(x, y, 1.5, rh);                // separate cords
+    g.fillStyle = 'rgba(255,255,255,0.25)';
+    for (let x = 3; x < w; x += 6) g.fillRect(x, y + rh * 0.3, 1, rh * 0.7); // shine on each cord
+    g.fillStyle = '#16120f'; g.fillRect(0, y, w, rh * 0.26);                  // lacquered plate edge
+    g.fillStyle = 'rgba(255,240,210,0.22)'; g.fillRect(0, y + 1, w, 2);       // its glossy top
+    g.fillStyle = '#b38b3c';                                                  // small gilt rivets
+    for (let x = 8; x < w; x += 21) g.fillRect(x, y + rh * 0.1, 3, 3);
+  }
+  // Red cross-knots (hishinui) along the bottom row.
+  g.strokeStyle = '#8f1b16'; g.lineWidth = 2.5;
+  const y0 = h - rh * 0.55;
+  for (let x = 6; x < w; x += 16) {
+    g.beginPath(); g.moveTo(x, y0); g.lineTo(x + 8, y0 + 8); g.moveTo(x + 8, y0); g.lineTo(x, y0 + 8); g.stroke();
+  }
+  const t = new THREE.CanvasTexture(c);
+  t.colorSpace = THREE.SRGBColorSpace;
+  t.wrapS = t.wrapT = THREE.RepeatWrapping;
+  t.repeat.set(cols, 1);
+  return texCache[key] = t;
+}
+// The helmet bowl: dark lacquer with raised ribs (suji) running up to the top.
+function helmetTex() {
+  if (texCache.helmet) return texCache.helmet;
+  const c = document.createElement('canvas');
+  c.width = 256; c.height = 64;
+  const g = c.getContext('2d');
+  g.fillStyle = '#1b1816'; g.fillRect(0, 0, 256, 64);
+  for (let x = 0; x < 256; x += 8) {
+    g.fillStyle = 'rgba(255,235,200,0.16)'; g.fillRect(x, 0, 2, 64);
+    g.fillStyle = 'rgba(0,0,0,0.45)'; g.fillRect(x + 2, 0, 1, 64);
+  }
+  return texCache.helmet = Object.assign(new THREE.CanvasTexture(c), { colorSpace: THREE.SRGBColorSpace });
+}
+// Flag for the banner on his back (sashimono): a white clan crest on the kind's color.
+function bannerTex() {
+  if (texCache.banner) return texCache.banner;
+  const c = document.createElement('canvas');
+  c.width = 64; c.height = 128;
+  const g = c.getContext('2d');
+  g.fillStyle = '#ece6da'; g.fillRect(0, 0, 64, 128);
+  g.fillStyle = '#16120f'; g.fillRect(0, 0, 64, 8);
+  g.strokeStyle = '#16120f'; g.lineWidth = 4;
+  g.beginPath(); g.arc(32, 52, 18, 0, Math.PI * 2); g.stroke();
+  g.fillStyle = '#16120f';
+  for (let i = 0; i < 3; i++) { const a = i * 2.094; g.beginPath(); g.arc(32 + Math.cos(a) * 7, 52 + Math.sin(a) * 7, 6, 0, 7); g.fill(); }
+  return texCache.banner = Object.assign(new THREE.CanvasTexture(c), { colorSpace: THREE.SRGBColorSpace });
+}
+
+// A menpo: the iron face guard samurai wore over the nose, cheeks and chin, with a moustache
+// and a laced throat guard hanging below. The eyes show above it in the helmet's shadow.
+// Built around the head's center, facing +z.
+function buildMenpo(mats) {
+  const g = new THREE.Group();
+  // Cheeks and chin: the lower front of a ball, slightly jutting forward.
+  const guard = part(new THREE.SphereGeometry(0.19, 18, 10, Math.PI / 2 - 1.15, 2.3, 0.53 * Math.PI, 0.33 * Math.PI), mats.iron);
+  guard.scale.set(1.04, 1, 1.12);
+  g.add(guard);
+  // Separate nose piece.
+  const nose = part(new THREE.SphereGeometry(0.03, 10, 8), mats.iron, 0, 0.0, 0.18);
+  nose.scale.set(0.8, 1.5, 1.1); nose.rotation.x = 0.25;
+  g.add(nose);
+  // Cheek ridges and a grim slit mouth.
+  for (const s of [-1, 1]) {
+    const ridge = part(new THREE.BoxGeometry(0.07, 0.018, 0.03), mats.iron, s * 0.09, -0.05, 0.175);
+    ridge.rotation.z = -s * 0.3; ridge.rotation.y = s * 0.5;
+    g.add(ridge);
+  }
+  g.add(part(new THREE.BoxGeometry(0.075, 0.01, 0.02), mats.dark, 0, -0.085, 0.208));
+  // Moustache sweeping down and out, and a little tuft on the chin.
+  for (const s of [-1, 1]) {
+    const m = part(new THREE.ConeGeometry(0.02, 0.11, 5), mats.hair, s * 0.05, -0.055, 0.2);
+    m.rotation.z = s * 2.0; m.rotation.x = 0.2; m.castShadow = false;
+    g.add(m);
+  }
+  const tuft = part(new THREE.ConeGeometry(0.018, 0.06, 5), mats.hair, 0, -0.16, 0.18);
+  tuft.rotation.x = Math.PI - 0.3; tuft.castShadow = false;
+  g.add(tuft);
+  // Throat guard (yodare-kake): three laced rows hanging under the chin.
+  const throat = part(new THREE.CylinderGeometry(0.16, 0.2, 0.14, 14, 1, true, -1.2, 2.4), mats.laceSmall, 0, -0.23, 0.02);
+  throat.material.side = THREE.DoubleSide;
+  g.add(throat);
+  return g;
+}
+
+// An Oni (demon) face mask in carved, painted lacquer: deep red, heavy brows, dark eye holes,
+// gilded teeth and horns. Built around the head's center, facing +z. The Oni Warlord wears it.
 export function buildOniMask(mats) {
   const g = new THREE.Group();
-  // Face plate: the front half of a slightly squashed ball, from the brow down to the chin.
-  const face = part(new THREE.SphereGeometry(0.195, 18, 12, 0, Math.PI, 0.32 * Math.PI, 0.6 * Math.PI), mats.oni);
-  face.scale.set(1, 1.05, 1.08);
+  const face = part(new THREE.SphereGeometry(0.195, 20, 14, 0, Math.PI, 0.3 * Math.PI, 0.62 * Math.PI), mats.oni);
+  face.scale.set(1, 1.05, 1.1);
   g.add(face);
-  // Cheek bumps and a broad nose.
   for (const s of [-1, 1]) {
-    const cheek = part(new THREE.SphereGeometry(0.06, 10, 8), mats.oni, s * 0.09, -0.04, 0.155);
-    cheek.scale.set(1, 0.8, 0.6);
+    const cheek = part(new THREE.SphereGeometry(0.06, 10, 8), mats.oni, s * 0.095, -0.04, 0.155);
+    cheek.scale.set(1, 0.85, 0.6);
     g.add(cheek);
-  }
-  const nose = part(new THREE.ConeGeometry(0.04, 0.08, 6), mats.oni, 0, -0.005, 0.21);
-  nose.rotation.x = Math.PI / 2 + 0.5;
-  g.add(nose);
-  // Angry brows slanting down toward the middle, and glowing eyes under them.
-  for (const s of [-1, 1]) {
-    const brow = part(new THREE.BoxGeometry(0.11, 0.035, 0.05), mats.dark, s * 0.065, 0.075, 0.18);
-    brow.rotation.z = s * 0.45;
-    brow.rotation.y = s * -0.25;
+    // Heavy carved brows knotted toward the middle.
+    const brow = part(new THREE.CapsuleGeometry(0.022, 0.08, 3, 6), mats.oni, s * 0.065, 0.085, 0.18);
+    brow.rotation.z = Math.PI / 2 + s * 0.45; brow.rotation.y = s * -0.3;
     g.add(brow);
-    const eye = part(new THREE.SphereGeometry(0.024, 10, 6), mats.eye, s * 0.062, 0.035, 0.185);
-    eye.scale.set(1.4, 0.7, 0.6);
+    // Deep dark eye holes (no glow).
+    const eye = part(new THREE.SphereGeometry(0.026, 10, 6), mats.dark, s * 0.064, 0.04, 0.178);
+    eye.scale.set(1.5, 0.7, 0.5);
     eye.castShadow = false;
     g.add(eye);
+    // Flared nostrils.
+    g.add(part(new THREE.SphereGeometry(0.02, 8, 6), mats.oni, s * 0.025, -0.01, 0.205));
   }
-  // Open snarling mouth with fangs.
-  const mouth = part(new THREE.BoxGeometry(0.13, 0.04, 0.04), mats.dark, 0, -0.1, 0.175);
-  g.add(mouth);
+  const nose = part(new THREE.ConeGeometry(0.035, 0.08, 6), mats.oni, 0, 0.0, 0.21);
+  nose.rotation.x = Math.PI / 2 + 0.5;
+  g.add(nose);
+  // Snarling mouth with gilded teeth and fangs.
+  g.add(part(new THREE.BoxGeometry(0.13, 0.045, 0.04), mats.dark, 0, -0.1, 0.175));
+  g.add(part(new THREE.BoxGeometry(0.11, 0.014, 0.02), mats.gold, 0, -0.085, 0.19));
   for (const s of [-1, 1]) {
-    const up = part(new THREE.ConeGeometry(0.014, 0.06, 5), mats.fang, s * 0.05, -0.095, 0.195);
-    g.add(up);                                            // bottom fangs point up
-    const down = part(new THREE.ConeGeometry(0.011, 0.045, 5), mats.fang, s * 0.025, -0.09, 0.197);
-    down.rotation.z = Math.PI;                            // top fangs point down
+    g.add(part(new THREE.ConeGeometry(0.014, 0.06, 5), mats.gold, s * 0.05, -0.095, 0.195));
+    const down = part(new THREE.ConeGeometry(0.011, 0.045, 5), mats.gold, s * 0.025, -0.09, 0.197);
+    down.rotation.z = Math.PI;
     g.add(down);
   }
-  // Two horns sweeping up and out from the forehead.
+  // Two gilded horns sweeping up and out from the forehead.
   for (const s of [-1, 1]) {
-    const horn = part(new THREE.ConeGeometry(0.035, 0.3, 7), mats.fang, s * 0.21, 0.26, 0.05);
+    const horn = part(new THREE.ConeGeometry(0.035, 0.3, 8), mats.gold, s * 0.21, 0.26, 0.05);
     horn.rotation.z = -s * 0.6;
     horn.rotation.x = -0.2;
     g.add(horn);
@@ -131,75 +226,170 @@ function buildNunchucks() {
   return g;
 }
 
-const ARMOR = { sword: 0x6a1515, archer: 0x2c4a22, nunchuck: 0x2a2f6a };   // easy to tell apart from above
+const ARMOR = { sword: 0x8f1d1a, archer: 0x2f5a26, nunchuck: 0x2c3a8a };   // lacing colors: easy to tell apart from above
 
 function buildSamurai(kind = 'sword') {
   // Each samurai gets its own materials so it can flash and fade on its own.
+  // (mats[0] = armor, [1] = dark, [2] = gold: the bosses recolor these.)
+  const tint = ARMOR[kind];
+  const laced = (rows, cols) => new THREE.MeshStandardMaterial({ color: tint, map: lamellarTex(rows, cols), roughness: 0.45, metalness: 0.15, side: THREE.DoubleSide });
   const mats = {
-    armor: new THREE.MeshStandardMaterial({ color: ARMOR[kind], roughness: 0.35, metalness: 0.2 }),
-    dark: new THREE.MeshStandardMaterial({ color: 0x17161a, roughness: 0.5, metalness: 0.3 }),
-    gold: new THREE.MeshStandardMaterial({ color: 0xb08a3a, roughness: 0.35, metalness: 0.8 }),
-    cloth: new THREE.MeshStandardMaterial({ color: 0x2a2730, roughness: 0.85 }),
+    armor: laced(5, 3),
+    dark: new THREE.MeshStandardMaterial({ color: 0x17161a, roughness: 0.35, metalness: 0.3 }),
+    gold: new THREE.MeshStandardMaterial({ color: 0xb08a3a, roughness: 0.3, metalness: 0.85 }),
+    cloth: new THREE.MeshStandardMaterial({ color: 0x24212a, roughness: 0.9 }),
     steel: new THREE.MeshStandardMaterial({ color: 0xd0d6dc, roughness: 0.15, metalness: 0.95 }),
-    oni: new THREE.MeshStandardMaterial({ color: 0xa3170f, roughness: 0.3, metalness: 0.15 }),
-    fang: new THREE.MeshStandardMaterial({ color: 0xeee6cf, roughness: 0.4 }),
-    eye: new THREE.MeshStandardMaterial({ color: 0xffd23a, emissive: 0xffb300, emissiveIntensity: 1.2 }),
+    iron: new THREE.MeshStandardMaterial({ color: 0x2b2522, roughness: 0.4, metalness: 0.55 }),
+    hair: new THREE.MeshStandardMaterial({ color: 0x5b5148, roughness: 0.9 }),   // grey-brown horsehair
+    skin: new THREE.MeshStandardMaterial({ color: 0xa8775a, roughness: 0.7 }),
+    eye: new THREE.MeshStandardMaterial({ color: 0x0c0a09, roughness: 0.3 }),
+    hakama: new THREE.MeshStandardMaterial({ color: 0x2d2a33, roughness: 0.95 }),
+    lacquer: new THREE.MeshStandardMaterial({ color: 0xffffff, map: helmetTex(), roughness: 0.3, metalness: 0.3 }),
+    skirt: laced(4, 1),
+    sode: laced(6, 1),
+    laceSmall: laced(3, 2),
+    banner: new THREE.MeshStandardMaterial({ color: tint, map: bannerTex(), roughness: 0.85, side: THREE.DoubleSide }),
   };
-  mats.eye.userData.glow = true;   // keeps its own glow when the samurai flashes
+  mats.banner.color.lerp(new THREE.Color(0xffffff), 0.25);
   const root = new THREE.Group();
   const body = new THREE.Group();
   root.add(body);
+  const small = m => { m.castShadow = false; return m; };
 
-  const chest = part(new THREE.CapsuleGeometry(0.24, 0.38, 4, 10), mats.armor, 0, 1.3, 0);
-  chest.scale.set(1.25, 1, 0.85);
-  body.add(chest);
-  // Armored skirt plates.
-  const skirt = part(new THREE.CylinderGeometry(0.3, 0.42, 0.42, 8, 1, true), mats.armor, 0, 0.9, 0);
-  body.add(skirt);
-  const belt = part(new THREE.TorusGeometry(0.27, 0.03, 6, 16), mats.gold, 0, 1.08, 0);
-  belt.rotation.x = Math.PI / 2;
-  body.add(belt);
+  // --- torso: a dark undercoat, the laced cuirass (do) and a lacquered chest plate ---
+  const core = part(new THREE.CapsuleGeometry(0.22, 0.36, 4, 10), mats.cloth, 0, 1.32, 0);
+  core.scale.set(1.2, 1, 0.82);
+  body.add(core);
+  const dou = part(new THREE.CylinderGeometry(0.28, 0.255, 0.4, 18, 1, true), mats.armor, 0, 1.24, 0);
+  dou.scale.set(1, 1, 0.8);
+  body.add(dou);
+  const muna = part(new THREE.CylinderGeometry(0.25, 0.28, 0.08, 18, 1, false, -1.1, 2.2), mats.dark, 0, 1.475, 0);
+  muna.scale.set(1, 1, 0.8);
+  body.add(muna);
+  // Silk obi sash and the cords tying the cuirass.
+  const obi = part(new THREE.CylinderGeometry(0.265, 0.265, 0.07, 18), mats.cloth, 0, 1.06, 0);
+  obi.scale.set(1, 1, 0.82);
+  body.add(obi);
+  const knot = small(part(new THREE.BoxGeometry(0.08, 0.06, 0.04), mats.gold, 0.1, 1.06, 0.21));
+  body.add(knot);
+  // Short sword (wakizashi) in its scabbard through the sash on the left.
+  const saya = small(part(new THREE.CylinderGeometry(0.02, 0.017, 0.55, 6), mats.dark, -0.24, 1.02, 0.1));
+  saya.rotation.set(1.2, 0, 0.25);
+  body.add(saya);
+  body.add(small(part(new THREE.CylinderGeometry(0.018, 0.018, 0.14, 6), mats.hair, -0.2, 1.1, 0.3).rotateX(1.2)));
 
-  // Helmet, face mask and golden crest.
-  body.add(part(new THREE.SphereGeometry(0.18, 14, 10), mats.cloth, 0, 1.73, 0));
-  const mask = buildOniMask(mats);
-  mask.position.set(0, 1.71, 0.01);
-  body.add(mask);
-  const helmet = part(new THREE.SphereGeometry(0.23, 14, 8, 0, Math.PI * 2, 0, Math.PI / 2), mats.dark, 0, 1.84, -0.02);
-  body.add(helmet);
-  const brim = part(new THREE.CylinderGeometry(0.34, 0.38, 0.04, 14), mats.dark, 0, 1.85, -0.06);
-  brim.rotation.x = -0.18;   // front tipped up so the Oni face shows
-  body.add(brim);
-  const crest = part(new THREE.TorusGeometry(0.16, 0.025, 4, 12, Math.PI), mats.gold, 0, 2.0, 0.1);
-  crest.rotation.z = 0;
-  body.add(crest);
-
-  // Big shoulder plates.
-  for (const side of [-1, 1]) {
-    const plate = part(new THREE.BoxGeometry(0.22, 0.28, 0.3), mats.armor, side * 0.38, 1.45, 0);
-    plate.rotation.z = side * 0.35;
-    body.add(plate);
+  // --- skirt: six laced panels (kusazuri) hanging from the waist ---
+  for (let i = 0; i < 6; i++) {
+    const a = (i / 6) * Math.PI * 2 + Math.PI / 6;
+    const panel = part(new THREE.CylinderGeometry(0.3, 0.41, 0.4, 4, 1, true, a - 0.46, 0.92), mats.skirt, 0, 0.84, 0);
+    panel.scale.set(1, 1, 0.85);
+    body.add(panel);
   }
 
+  // --- shoulder guards (sode): big laced panels hanging off each shoulder ---
+  for (const side of [-1, 1]) {
+    const sode = part(new THREE.BoxGeometry(0.04, 0.32, 0.3), mats.sode, side * 0.41, 1.39, 0);
+    sode.rotation.z = side * 0.3;
+    body.add(sode);
+    body.add(small(part(new THREE.BoxGeometry(0.05, 0.03, 0.31), mats.dark, side * 0.37, 1.545, 0).rotateZ(side * 0.3)));
+  }
+
+  // --- head: face, the menpo, eyes in the shadow of the helmet ---
+  const head = part(new THREE.SphereGeometry(0.175, 16, 12), mats.skin, 0, 1.73, 0);
+  body.add(head);
+  for (const s of [-1, 1]) {
+    const eye = small(part(new THREE.SphereGeometry(0.02, 8, 6), mats.eye, s * 0.06, 1.765, 0.155));
+    eye.scale.set(1.5, 0.6, 0.5);
+    body.add(eye);
+    const brow = small(part(new THREE.BoxGeometry(0.06, 0.012, 0.02), mats.hair, s * 0.06, 1.792, 0.158));
+    brow.rotation.z = s * 0.25;
+    body.add(brow);
+  }
+  const mask = buildMenpo(mats);
+  mask.position.set(0, 1.71, 0.005);
+  body.add(mask);
+
+  // --- helmet (kabuto): ribbed bowl, visor, neck guard, turned-back side flaps and a golden crest ---
+  const helmet = new THREE.Group();
+  helmet.position.set(0, 1.79, -0.01);
+  body.add(helmet);
+  const bowl = part(new THREE.SphereGeometry(0.21, 20, 8, 0, Math.PI * 2, 0, Math.PI / 2), mats.lacquer);
+  bowl.scale.set(1, 0.9, 1.05);
+  helmet.add(bowl);
+  helmet.add(small(part(new THREE.TorusGeometry(0.035, 0.012, 5, 12), mats.gold, 0, 0.185, 0).rotateX(Math.PI / 2)));   // top ring
+  const visor = part(new THREE.CylinderGeometry(0.24, 0.255, 0.025, 20, 1, false, -1.2, 2.4), mats.dark, 0, 0.005, 0.02);
+  visor.rotation.x = -0.12;
+  helmet.add(visor);
+  // Neck guard: three flaring laced rows around the back and sides.
+  for (let r = 0; r < 3; r++) {
+    const ring = part(new THREE.CylinderGeometry(0.21 + r * 0.03, 0.235 + r * 0.03, 0.07, 20, 1, true, 1.1, Math.PI * 2 - 2.2),
+      mats.laceSmall, 0, -0.025 - r * 0.06, -0.015);
+    helmet.add(ring);
+  }
+  // Fukigaeshi: the flaps at the front of the neck guard, folded back, with a gilt crest each.
+  for (const s of [-1, 1]) {
+    const flap = part(new THREE.BoxGeometry(0.08, 0.1, 0.02), mats.armor, s * 0.215, -0.04, 0.1);
+    flap.rotation.y = s * 1.0;
+    helmet.add(flap);
+    helmet.add(small(part(new THREE.CylinderGeometry(0.022, 0.022, 0.01, 10), mats.gold, s * 0.225, -0.04, 0.115).rotateX(Math.PI / 2).rotateZ(0)));
+  }
+  // Crest (maedate): two tall golden horn blades in a V and a crest disc between them.
+  const crest = new THREE.Group();
+  crest.position.set(0, 0.06, 0.2);
+  for (const s of [-1, 1]) {
+    const horn = small(part(new THREE.ConeGeometry(0.03, 0.42, 4), mats.gold, s * 0.08, 0.19, 0));
+    horn.scale.set(1, 1, 0.25);
+    horn.rotation.z = -s * 0.42;
+    crest.add(horn);
+  }
+  crest.add(small(part(new THREE.CylinderGeometry(0.045, 0.045, 0.012, 14), mats.gold, 0, 0.03, 0.01).rotateX(Math.PI / 2)));
+  helmet.add(crest);
+
+  // --- banner on his back (sashimono) in his color ---
+  const banner = new THREE.Group();
+  banner.position.set(-0.1, 1.45, -0.26);
+  banner.add(small(part(new THREE.CylinderGeometry(0.012, 0.012, 1.25, 5), mats.dark, 0, 0.55, 0)));
+  const flag = small(part(new THREE.PlaneGeometry(0.24, 0.5), mats.banner, 0.12, 0.88, 0));
+  banner.add(flag);
+  banner.add(small(part(new THREE.CylinderGeometry(0.008, 0.008, 0.26, 4), mats.dark, 0.12, 1.13, 0).rotateZ(Math.PI / 2)));
+  body.add(banner);
+
+  // --- legs: wide pleated hakama, laced thigh guards, iron shin guards, sandals ---
   const legs = [];
   for (const side of [-1, 1]) {
     const hip = new THREE.Group(); hip.position.set(side * 0.14, 0.95, 0);
-    hip.add(part(new THREE.CapsuleGeometry(0.1, 0.6, 4, 8), mats.cloth, 0, -0.42, 0));
-    hip.add(part(new THREE.BoxGeometry(0.14, 0.08, 0.28), mats.dark, 0, -0.9, 0.05));
+    const trouser = part(new THREE.CylinderGeometry(0.11, 0.16, 0.6, 10), mats.hakama, 0, -0.33, 0);
+    hip.add(trouser);
+    const thigh = part(new THREE.BoxGeometry(0.2, 0.26, 0.035), mats.laceSmall, 0, -0.2, 0.14);
+    thigh.rotation.x = -0.12;
+    hip.add(thigh);
+    const shin = part(new THREE.CylinderGeometry(0.085, 0.075, 0.3, 10, 1, true, -1.3, 2.6), mats.iron, 0, -0.74, 0.01);
+    hip.add(shin);
+    for (const y of [-0.64, -0.84]) hip.add(small(part(new THREE.TorusGeometry(0.08, 0.008, 4, 12), mats.gold, 0, y, 0.01).rotateX(Math.PI / 2)));
+    hip.add(part(new THREE.BoxGeometry(0.12, 0.07, 0.24), mats.cloth, 0, -0.91, 0.05));       // tabi socks
+    hip.add(small(part(new THREE.BoxGeometry(0.13, 0.025, 0.27), mats.gold, 0, -0.955, 0.05))); // straw sandal
     body.add(hip); legs.push(hip);
   }
 
+  // --- arms: dark sleeves with iron forearm plates (kote) and gloved hands ---
+  const buildArm = () => {
+    const a = new THREE.Group();
+    a.add(part(new THREE.CapsuleGeometry(0.075, 0.42, 4, 8), mats.cloth, 0, -0.26, 0));
+    const kote = part(new THREE.CylinderGeometry(0.07, 0.06, 0.24, 8, 1, true), mats.iron, 0, -0.4, 0);
+    a.add(kote);
+    a.add(small(part(new THREE.TorusGeometry(0.07, 0.007, 4, 10), mats.gold, 0, -0.29, 0).rotateX(Math.PI / 2)));
+    a.add(part(new THREE.SphereGeometry(0.06, 8, 6), mats.dark, 0, -0.54, 0));   // gauntlet
+    return a;
+  };
   // Right arm holds the katana.
-  const shoulder = new THREE.Group(); shoulder.position.set(0.3, 1.48, 0);
-  shoulder.add(part(new THREE.CapsuleGeometry(0.07, 0.45, 4, 8), mats.cloth, 0, -0.28, 0));
+  const shoulder = buildArm(); shoulder.position.set(0.3, 1.48, 0);
   const katana = buildKatana(0.85);
   katana.position.set(0, -0.56, 0.02);
   katana.rotation.x = Math.PI / 2;
   katana.children[0].material = mats.steel;   // his own blade material, so it can glow before a big chop
   shoulder.add(katana);
   body.add(shoulder);
-  const leftArm = new THREE.Group(); leftArm.position.set(-0.3, 1.48, 0);
-  leftArm.add(part(new THREE.CapsuleGeometry(0.07, 0.45, 4, 8), mats.cloth, 0, -0.28, 0));
+  const leftArm = buildArm(); leftArm.position.set(-0.3, 1.48, 0);
   body.add(leftArm);
 
   let bow = null, nunchucks = null;
@@ -209,7 +399,7 @@ function buildSamurai(kind = 'sword') {
     bow.position.set(0, -0.56, 0);
     leftArm.add(bow);
     const quiver = buildQuiver();
-    quiver.position.set(0.14, 1.35, -0.24);
+    quiver.position.set(0.16, 1.35, -0.3);
     quiver.rotation.z = -0.35;
     body.add(quiver);
   } else if (kind === 'nunchuck') {
@@ -219,7 +409,8 @@ function buildSamurai(kind = 'sword') {
     shoulder.add(nunchucks);
   }
 
-  return { root, body, legs, sword: shoulder, blade: katana, leftArm, bow, nunchucks, steel: mats.steel, mats: Object.values(mats) };
+  return { root, body, legs, sword: shoulder, blade: katana, leftArm, bow, nunchucks, steel: mats.steel,
+           mask, helmet, crest, banner, mats: Object.values(mats) };
 }
 
 // The vine a samurai slides down on: a thin green rope hanging from the canopy, with a few leaves.
