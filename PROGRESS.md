@@ -87,6 +87,13 @@ Then open http://localhost:8080 (this server turns off browser caching so refres
   - [x] Samurai camp (outpost.js) at (-6, -30): stake wall with a gate, tents, commander's curtain tent, banners, torches, campfire, weapon rack. Red-ribboned posts 38 m out mark samurai territory (dashed ring + flag on the minimap). Waves: 60% march out of the gate, the rest slide down vines; after each wave a 30–40 s quiet countdown (15 s before the first; bosses too) that only runs inside territory; leave it and no more come, and samurai past the posts +8 m give up and walk back to camp (config `world.outpost`, `levels.quietSeconds` etc.)
   - [x] Samurai redesign: laced lamellar armor (lacing in their kind's color), kabuto with gold crest, neck guard and side flaps, iron menpō face guard with moustache and throat guard (no glowing eyes), hakama, shin guards, sandals, banner on the back. Ronin: no crest or banner. Oni Warlord: carved lacquer Oni mask, no glow
   - [x] Treehouse climb (third person): rung by rung, hand reaches while the opposite foot steps up, weapon put away, then hauls himself over the edge and stands
+- [x] Feedback round 5 (first controller playtest, 2026-11-17)
+  - [x] Controller: letting go of the right stick keeps your aim (mouse aiming switches off while the controller is used, back on when the mouse really moves). Tested with a simulated controller
+  - [x] Campfire burns: 25 health/s with embers and a toast; samurai burn too (config `world.outpost.fireDamage`)
+  - [x] 20 s between waves (`levels.quietSeconds`), and each wave in a level brings 2 more samurai than the one before (`levels.extraPerWave`)
+  - [x] Jungle 120 m → 180 m (about 2x area): stream and landmarks spread out, twice the trees/plants, 6 huts, 7 treehouses 32 m+ apart. Same frame rate in the preview pane
+  - [x] Camp at (-10, -48), wall 15 m, territory 58 m: gatehouse (pillars, curved top beam, roof, crest plaque, lanterns, open studded doors), two watchtowers, 6 tents, 8 torches, 14 banners, 2 weapon racks. Camp guards: 4 + 1 per level (max 12) at posts with patrols, attack within 12 m of the wall, don't count toward waves, replaced each level (`levels.guards` etc.). Samurai route round the wall and through the gate to get in or out (samurai.js `routeVia`)
+  - [ ] Smoke "colourful particles in first person": could not reproduce. In test renders the cloud is plain grey in both views. Waiting for a screenshot. (Only other coloured particles: fireflies at dusk, levels 9–10; spark/dirt bits from bullet hits)
 - [ ] Phase 7: Menus, polish, publish  ← next (pause menu already done in round 3)
 
 ## Notes and decisions made while building
@@ -95,8 +102,8 @@ Then open http://localhost:8080 (this server turns off browser caching so refres
 - Treetops dissolve near the ninjas so the overhead camera can see them (`cutaway` in world.js).
 - Files: src/config.js (settings to tune), world.js (jungle), outpost.js (samurai camp + territory), weather.js (light, rain), sound.js, effects.js, combat.js (weapons + levels + arrows + boss fights), samurai.js (sword/archer/nunchuck kinds, vines, attacks, obstacle steering), boss.js (Oni Warlord), ronin.js (Twin-blade Ronin), treehouses.js, foam.js (water foam), minimap.js, hud.js, ninja.js, input.js, camera.js, main.js.
 
-## Where we left off (2026-11-17, after feedback round 4, before Phase 7)
-Everything through Phase 6 and feedback rounds 2, 3 and 4 is committed. To resume, open this folder and say "continue the game from PROGRESS.md".
+## Where we left off (2026-11-17, after feedback round 5, before Phase 7)
+Everything through Phase 6 and feedback rounds 2–5 is committed (one open question: the smoke particles). To resume, open this folder and say "continue the game from PROGRESS.md".
 
 **Phase 7 to-do (menus, polish, publish):**
 - Settings screen: volume, mouse sensitivity, low graphics toggle (currently `?low` in the URL)
