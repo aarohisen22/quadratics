@@ -91,9 +91,10 @@ export class Combat {
     this.wave++;
     this.quiet = null;
     const O = this.world.outpost;
-    const fromCamp = O && !this.vs ? Math.round(this.waveSize * this.levelsCfg.fromCamp) : 0;
     let marched = 0, dropped = 0;
-    for (let i = 0; i < this.waveSize; i++) {
+    const size = this.waveSize + (this.wave - 1) * (this.levelsCfg.extraPerWave || 0);   // each wave bigger than the last
+    const fromCamp = O && !this.vs ? Math.round(size * this.levelsCfg.fromCamp) : 0;
+    for (let i = 0; i < size; i++) {
       if (i < fromCamp) {
         // Lined up inside the gate, then they march out one after another.
         const inward = Math.atan2(O.z - O.gate.z, O.x - O.gate.x);
@@ -324,6 +325,29 @@ export class Combat {
     else if (p.current === 'smoke') this.throwSmoke(p);
   }
 
+  // Standing in a campfire burns (ninjas and samurai alike).
+  updateFire(dt, players, hud) {
+    const fires = this.world.outpost?.fires || [];
+    if (!fires.length) return;
+    const dmg = this.world.outpost.fireDamage || 25;
+    const inFire = pos => fires.some(f => Math.hypot(pos.x - f.x, pos.z - f.z) < f.r && pos.y < f.y + 0.8);
+    for (const p of players) {
+      if (!p.alive || !inFire(p.pos)) { p.burnT = 0; continue; }
+      p.hurt(dmg * dt);
+      p.burnT = (p.burnT || 0) - dt;
+      if (p.burnT <= 0) {   // ouch, a flash and a puff of embers every so often
+        p.burnT = 0.4;
+        p.justHurt = true;
+        sfx.hurt();
+        this.effects.burst(new THREE.Vector3(p.pos.x, p.pos.y + 0.5, p.pos.z), 'spark', 6);
+        if (!this.toldFire) { this.toldFire = true; hud.toast('Ouch! The fire burns. Get out!', 3); }
+      }
+    }
+    for (const s of this.samurai) {
+      if (s.alive && s.state !== 'descend' && inFire(s.pos)) s.hit(dmg * 0.5 * dt, 0, 0);
+    }
+  }
+
   revealShooter(p, hud) {
     const wasHiding = p.hidden || this.inSmoke(p.pos.x, p.pos.z);
     p.revealed = this.hidingCfg.revealSeconds;
@@ -334,6 +358,7 @@ export class Combat {
   }
 
   updateRest(dt, players, hud) {
+    this.updateFire(dt, players, hud);
     this.updateShurikens(dt);
     this.updateArrows(dt, players);
     this.updateBombs(dt);

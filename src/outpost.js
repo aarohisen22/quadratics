@@ -40,7 +40,7 @@ function drawMon(g, cx, cy, r, color) {
 
 export function buildOutpost(world, scene, cfg) {
   const rnd = makeRandom(world.cfg.seed + 21);
-  const O = { x: cfg.x, z: cfg.z, r: cfg.territory, wall: 9.5 };
+  const O = { x: cfg.x, z: cfg.z, r: cfg.territory, wall: 9.5, fireDamage: cfg.fireDamage };
   const g = new THREE.Group();
   const groundY = (x, z) => world.heightAt(x, z);
   // Which way the gate faces: toward the middle of the jungle.
@@ -219,7 +219,7 @@ export function buildOutpost(world, scene, cfg) {
   fireLight.position.set(0, 1.4, 0);
   fire.add(fireLight);
   g.add(fire);
-  obstacles.push({ x: O.x, z: O.z, r: 0.9, h: 0.5 });
+  O.fires = [{ x: O.x, z: O.z, r: 0.95, y: groundY(O.x, O.z) }];   // walkable, but it burns
 
   // --- a weapon rack with spears and a few supply barrels ---
   {
