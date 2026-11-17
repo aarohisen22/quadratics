@@ -2,6 +2,7 @@
 import * as THREE from 'three';
 import { buildLandmarks } from './landmarks.js';
 import { buildOutpost } from './outpost.js';
+import { pixelTexture } from './pixeltex.js';
 
 // ---------- small helpers ----------
 
@@ -571,15 +572,7 @@ export class World {
 
   // Soft low clouds of mist drifting between the trees.
   buildMist(scene) {
-    const c = document.createElement('canvas');
-    c.width = c.height = 128;
-    const g = c.getContext('2d');
-    const grad = g.createRadialGradient(64, 64, 0, 64, 64, 64);
-    grad.addColorStop(0, 'rgba(255,255,255,0.9)');
-    grad.addColorStop(1, 'rgba(255,255,255,0)');
-    g.fillStyle = grad;
-    g.fillRect(0, 0, 128, 128);
-    const tex = new THREE.CanvasTexture(c);
+    const tex = pixelTexture(128, 128, (u, v) => [1, 1, 1, 0.9 * Math.max(0, 1 - Math.hypot(u - 0.5, v - 0.5) * 2)]);
     const mat = new THREE.SpriteMaterial({ map: tex, color: 0xc8d4cc, opacity: 0.14, transparent: true, depthWrite: false });
     this.mist = [];
     const r = this.rnd;

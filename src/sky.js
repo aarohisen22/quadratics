@@ -2,6 +2,7 @@
 // heavy rain → sun breaking through → golden afternoon → thunderstorm → evening with fireflies.
 import * as THREE from 'three';
 import { setRainLevel, sfx } from './sound.js';
+import { pixelTexture } from './pixeltex.js';
 
 export const PRESETS = {
   rain: {
@@ -83,19 +84,11 @@ export class Sky {
 
   // ---------- sunbeams: soft shafts of light slanting down through the canopy ----------
   buildRays() {
-    const c = document.createElement('canvas');
-    c.width = 64; c.height = 256;
-    const g = c.getContext('2d');
-    const v = g.createLinearGradient(0, 0, 0, 256);
-    v.addColorStop(0, 'rgba(255,255,255,0.9)');
-    v.addColorStop(0.7, 'rgba(255,255,255,0.35)');
-    v.addColorStop(1, 'rgba(255,255,255,0)');
-    g.fillStyle = v; g.fillRect(0, 0, 64, 256);
-    g.globalCompositeOperation = 'destination-in';   // soft left and right edges
-    const h = g.createLinearGradient(0, 0, 64, 0);
-    h.addColorStop(0, 'rgba(0,0,0,0)'); h.addColorStop(0.5, 'rgba(0,0,0,1)'); h.addColorStop(1, 'rgba(0,0,0,0)');
-    g.fillStyle = h; g.fillRect(0, 0, 64, 256);
-    const tex = new THREE.CanvasTexture(c);
+    // Bright at the top, fading toward the ground, with soft left and right edges.
+    const tex = pixelTexture(64, 256, (u, v) => {
+      const down = v < 0.7 ? 0.9 - 0.55 * (v / 0.7) : 0.35 * (1 - (v - 0.7) / 0.3);
+      return [1, 1, 1, down * (1 - Math.abs(u - 0.5) * 2)];
+    });
     const geo = new THREE.PlaneGeometry(1, 1).translate(0, 0.5, 0);
     this.rays = [];
     for (let i = 0; i < 12; i++) {

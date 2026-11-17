@@ -72,23 +72,31 @@ export class Effects {
   smokeCloud(x, y, z, radius, seconds) {
     if (!this.smokeTex) {
       // One soft, round puff that fades to nothing well inside the edges (no corners to show).
-      const c = document.createElement('canvas');
-      c.width = c.height = 128;
-      const g = c.getContext('2d');
-      const base = g.createRadialGradient(64, 64, 0, 64, 64, 60);
-      base.addColorStop(0, 'rgba(255,255,255,0.75)');
-      base.addColorStop(0.5, 'rgba(255,255,255,0.4)');
-      base.addColorStop(1, 'rgba(255,255,255,0)');
-      g.fillStyle = base; g.fillRect(0, 0, 128, 128);
+      // Worked out pixel by pixel, NOT drawn on a canvas: some browsers (Safari's fingerprinting
+      // protection, Brave, privacy add-ons) sprinkle coloured noise into canvas pictures, which
+      // turned the see-through smoke into confetti.
+      const N = 128, data = new Uint8Array(N * N * 4);
+      const lumps = [];
       for (let i = 0; i < 7; i++) {   // a few softer lumps near the middle so it billows
         const a = Math.random() * Math.PI * 2, d = Math.random() * 16;
-        const bx = 64 + Math.cos(a) * d, by = 64 + Math.sin(a) * d, br = 22 + Math.random() * 14;
-        const grad = g.createRadialGradient(bx, by, 0, bx, by, br);
-        grad.addColorStop(0, 'rgba(255,255,255,0.25)');
-        grad.addColorStop(1, 'rgba(255,255,255,0)');
-        g.fillStyle = grad; g.fillRect(0, 0, 128, 128);
+        lumps.push([64 + Math.cos(a) * d, 64 + Math.sin(a) * d, 22 + Math.random() * 14]);
       }
-      this.smokeTex = new THREE.CanvasTexture(c);
+      const fall = (d, r) => Math.max(0, 1 - d / r);
+      for (let y = 0; y < N; y++) {
+        for (let x = 0; x < N; x++) {
+          const d = Math.hypot(x + 0.5 - 64, y + 0.5 - 64) / 60;   // 0 at the middle, 1 at the rim
+          let a = d >= 1 ? 0 : d < 0.5 ? 0.75 - 0.7 * d : 0.4 * (1 - (d - 0.5) / 0.5);
+          for (const [bx, by, br] of lumps) a += 0.25 * fall(Math.hypot(x + 0.5 - bx, y + 0.5 - by), br);
+          const k = (y * N + x) * 4;
+          data[k] = data[k + 1] = data[k + 2] = 255;
+          data[k + 3] = Math.round(Math.min(1, a) * 255);
+        }
+      }
+      this.smokeTex = new THREE.DataTexture(data, N, N, THREE.RGBAFormat);
+      this.smokeTex.magFilter = THREE.LinearFilter;
+      this.smokeTex.minFilter = THREE.LinearMipmapLinearFilter;
+      this.smokeTex.generateMipmaps = true;
+      this.smokeTex.needsUpdate = true;
       this.smokeParts = [];
     }
     // Lots of big, overlapping, slow grey puffs: reads as one cloud, not bits.

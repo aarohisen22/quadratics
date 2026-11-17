@@ -2,28 +2,19 @@
 // Fresh patches form a ring around the legs, then drift downstream with the current
 // and fade, leaving a foamy trail. Walking through the water also throws up splashes.
 import * as THREE from 'three';
+import { blobTexture } from './pixeltex.js';
 
 const FLOW_SPEED = 1.1;   // m/s, matches the stream texture drifting toward +x
 
 function foamTexture() {
-  const c = document.createElement('canvas');
-  c.width = c.height = 128;
-  const g = c.getContext('2d');
   // Lots of little bubbles, packed thicker toward a ring, thinning out at the edge.
+  const t = blobTexture(128);
   for (let i = 0; i < 260; i++) {
     const a = Math.random() * Math.PI * 2;
     const d = Math.min(1, Math.abs(0.55 + (Math.random() - 0.5) * 0.7 * Math.random() * 2)) * 54;
-    const x = 64 + Math.cos(a) * d, y = 64 + Math.sin(a) * d, r = 1.5 + Math.random() * 4.5;
-    const alpha = 0.35 + Math.random() * 0.5;
-    const grad = g.createRadialGradient(x, y, 0, x, y, r);
-    grad.addColorStop(0, `rgba(255,255,255,${alpha})`);
-    grad.addColorStop(1, 'rgba(255,255,255,0)');
-    g.fillStyle = grad;
-    g.beginPath(); g.arc(x, y, r, 0, Math.PI * 2); g.fill();
+    t.blob(64 + Math.cos(a) * d, 64 + Math.sin(a) * d, 1.5 + Math.random() * 4.5, 0.35 + Math.random() * 0.5);
   }
-  const t = new THREE.CanvasTexture(c);
-  t.colorSpace = THREE.SRGBColorSpace;
-  return t;
+  return t.done();
 }
 
 export class Foam {

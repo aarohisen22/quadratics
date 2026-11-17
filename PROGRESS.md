@@ -93,7 +93,7 @@ Then open http://localhost:8080 (this server turns off browser caching so refres
   - [x] 20 s between waves (`levels.quietSeconds`), and each wave in a level brings 2 more samurai than the one before (`levels.extraPerWave`)
   - [x] Jungle 120 m → 180 m (about 2x area): stream and landmarks spread out, twice the trees/plants, 6 huts, 7 treehouses 32 m+ apart. Same frame rate in the preview pane
   - [x] Camp at (-10, -48), wall 15 m, territory 58 m: gatehouse (pillars, curved top beam, roof, crest plaque, lanterns, open studded doors), two watchtowers, 6 tents, 8 torches, 14 banners, 2 weapon racks. Camp guards: 4 + 1 per level (max 12) at posts with patrols, attack within 12 m of the wall, don't count toward waves, replaced each level (`levels.guards` etc.). Samurai route round the wall and through the gate to get in or out (samurai.js `routeVia`)
-  - [ ] Smoke "colourful particles in first person": could not reproduce. In test renders the cloud is plain grey in both views. Waiting for a screenshot. (Only other coloured particles: fireflies at dusk, levels 9–10; spark/dirt bits from bullet hits)
+  - [x] Smoke "colourful particles": the kids' screenshot showed coloured speckle noise over the cloud. That's the browser's anti-fingerprinting noise (Safari Advanced Fingerprinting Protection / Brave / privacy add-ons) added to canvas-drawn pictures. Soft see-through textures (smoke, mist, sunbeams, muzzle flash, foam) are now computed pixel by pixel (src/pixeltex.js), not drawn on a canvas. Solid canvas textures (armor, crates, stone, flags) still use canvas: the noise is hard to see on them, but if speckles show up there, convert them the same way
 - [ ] Phase 7: Menus, polish, publish  ← next (pause menu already done in round 3)
 
 ## Notes and decisions made while building
@@ -103,7 +103,7 @@ Then open http://localhost:8080 (this server turns off browser caching so refres
 - Files: src/config.js (settings to tune), world.js (jungle), outpost.js (samurai camp + territory), weather.js (light, rain), sound.js, effects.js, combat.js (weapons + levels + arrows + boss fights), samurai.js (sword/archer/nunchuck kinds, vines, attacks, obstacle steering), boss.js (Oni Warlord), ronin.js (Twin-blade Ronin), treehouses.js, foam.js (water foam), minimap.js, hud.js, ninja.js, input.js, camera.js, main.js.
 
 ## Where we left off (2026-11-17, after feedback round 5, before Phase 7)
-Everything through Phase 6 and feedback rounds 2–5 is committed (one open question: the smoke particles). To resume, open this folder and say "continue the game from PROGRESS.md".
+Everything through Phase 6 and feedback rounds 2–5 is committed. To resume, open this folder and say "continue the game from PROGRESS.md".
 
 **Phase 7 to-do (menus, polish, publish):**
 - Settings screen: volume, mouse sensitivity, low graphics toggle (currently `?low` in the URL)

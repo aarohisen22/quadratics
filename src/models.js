@@ -2,6 +2,7 @@
 // Every gun is built pointing forward (+z), with its grip at (0, 0, 0) where the hand holds it.
 import * as THREE from 'three';
 import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
+import { pixelTexture } from './pixeltex.js';
 
 export function part(geo, mat, x = 0, y = 0, z = 0) {
   const m = new THREE.Mesh(geo, mat);
@@ -360,21 +361,17 @@ export function buildCrate(kind, label) {
 let flashTex = null;
 export function muzzleFlashTexture() {
   if (flashTex) return flashTex;
-  const c = document.createElement('canvas');
-  c.width = c.height = 128;
-  const g = c.getContext('2d');
-  const grad = g.createRadialGradient(64, 64, 0, 64, 64, 64);
-  grad.addColorStop(0, 'rgba(255,255,230,1)');
-  grad.addColorStop(0.25, 'rgba(255,200,90,0.9)');
-  grad.addColorStop(1, 'rgba(255,120,20,0)');
-  g.fillStyle = grad;
-  g.beginPath();
-  for (let i = 0; i < 16; i++) {
-    const a = (i / 16) * Math.PI * 2, r = i % 2 ? 22 : 62;
-    g.lineTo(64 + Math.cos(a) * r, 64 + Math.sin(a) * r);
-  }
-  g.closePath();
-  g.fill();
-  flashTex = new THREE.CanvasTexture(c);
+  // A 16-point star, white-hot in the middle fading to orange at the tips.
+  flashTex = pixelTexture(128, 128, (u, v) => {
+    const dx = (u - 0.5) * 128, dy = (v - 0.5) * 128, d = Math.hypot(dx, dy);
+    const seg = ((Math.atan2(dy, dx) + Math.PI * 2) % (Math.PI * 2)) / (Math.PI * 2 / 16);
+    const i = Math.floor(seg), f = seg - i;
+    const r0 = i % 2 ? 22 : 62, r1 = (i + 1) % 2 ? 22 : 62;
+    if (d > r0 + (r1 - r0) * f) return [0, 0, 0, 0];
+    const k = d / 64;
+    if (k < 0.25) { const m = k / 0.25; return [1, 1 - 0.22 * m, 0.9 - 0.55 * m, 1 - 0.1 * m]; }
+    const m = (k - 0.25) / 0.75;
+    return [1, 0.78 - 0.31 * m, 0.35 - 0.27 * m, 0.9 * (1 - m)];
+  });
   return flashTex;
 }
