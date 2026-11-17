@@ -26,6 +26,9 @@ const REACH = {
   smoke:   { sx: -0.45, sy: 0.5, sz: -0.5, ex: -1.3 }, // bombs on the left of the belt
   gatling: { sx: 0.55, sy: 0, sz: 0.25, ex: -0.7 },    // slung on the back like the shotgun
 };
+const RUNG = 0.38;          // rope ladder rung spacing (meters)
+const STEP_SECONDS = 0.2;   // time to climb one rung
+const MANTLE_SECONDS = 0.6; // hauling himself over the edge onto the platform
 const SWITCH_TIME = 0.5;   // seconds to put one weapon away and draw the next
 // Parts of a switch: put away the old one, reach for the new one, bring it up.
 const PUT_AWAY = 0.4, GRAB = 0.7;
@@ -155,7 +158,7 @@ export class Ninja {
 
   // Show the weapon in his hand, and everything else where it's carried.
   showHeld() {
-    const d = this.displayed;
+    const d = this.climb ? null : this.displayed;   // both hands on the ladder: weapon put away
     for (const [k, m] of Object.entries(this.models)) m.visible = k === d;
     const c = this.carried, sp = this.special;
     c.uzi.visible = d !== 'uzi';
@@ -165,6 +168,53 @@ export class Ninja {
     c.bombs.forEach((b, i) => { b.visible = i < bombs; });
     // The sheath stays on his back; only the handle goes when the katana is out.
     this.sheath.children[1].visible = this.sheath.children[2].visible = d !== 'katana';
+  }
+
+  // Arms and legs on the rope ladder (alternating hand and opposite foot), and hauling himself
+  // over the edge at the top.
+  climbPose() {
+    const C = this.climb, [L, R] = this.legs, aR = this.armR, aL = this.armL;
+    const set = (arm, sx, sz, ex) => { arm.shoulder.rotation.set(sx, 0, sz); arm.elbow.rotation.x = ex; };
+    if (C.mantle < 0) {
+      const right = C.step % 2 === 0;   // whose turn to reach
+      const f = C.f;
+      const reach = f < 0.35 ? f / 0.35 : 1 - (f - 0.35) / 0.65 * 0.55;   // up to the next rung, then pull down
+      const ease = reach * reach * (3 - 2 * reach);
+      // Reaching hand: from shoulder height up over the head. Holding hand: pulls down toward the chest.
+      const up = (k) => [-2.0 - k * 0.95, -0.25 - (1 - k) * 0.95];
+      const [rs, re] = up(right ? ease : 1 - ease);
+      const [ls, le] = up(right ? 1 - ease : ease);
+      set(aR, rs, 0.12, re);
+      set(aL, ls, -0.12, le);
+      // Opposite foot steps up to the next rung, the other pushes straight.
+      const stepK = right ? ease : 1 - ease;
+      const legUp = (k) => [-0.25 - k * 1.15, 0.25 + k * 1.45];
+      const [lh, lk] = legUp(stepK);
+      const [rh, rk] = legUp(1 - stepK);
+      L.hip.rotation.x = lh; L.knee.rotation.x = lk;
+      R.hip.rotation.x = rh; R.knee.rotation.x = rk;
+      this.body.rotation.set(0.12, 0, (right ? 1 : -1) * 0.05 * (1 - Math.abs(ease - 0.5) * 2));
+      this.body.position.y = 0;
+      this.head.rotation.x = -0.25;   // looking up the ladder
+    } else {
+      const m = C.mantle;
+      if (m < 0.55) {   // palms flat on the boards, pushing up, one knee coming up over the edge
+        const k = m / 0.55;
+        set(aR, -1.4 + k * 1.2, 0.15, -1.6 + k * 1.5);
+        set(aL, -1.4 + k * 1.2, -0.15, -1.6 + k * 1.5);
+        R.hip.rotation.x = -0.4 - k * 1.3; R.knee.rotation.x = 0.4 + k * 1.6;
+        L.hip.rotation.x = -0.2; L.knee.rotation.x = 0.3;
+        this.body.rotation.set(0.25 + k * 0.35, 0, 0);
+      } else {          // stands up on the platform
+        const k = (m - 0.55) / 0.45;
+        set(aR, -0.2 * (1 - k), 0.1, -0.4 * (1 - k));
+        set(aL, -0.2 * (1 - k), -0.1, -0.4 * (1 - k));
+        R.hip.rotation.x = -1.7 * (1 - k); R.knee.rotation.x = 2.0 * (1 - k);
+        L.hip.rotation.x = -0.2 * (1 - k); L.knee.rotation.x = 0.3 * (1 - k);
+        this.body.rotation.set(0.6 * (1 - k), 0, 0);
+      }
+      this.head.rotation.x = 0;
+    }
   }
 
   // Back on his feet after his brother helped him (or a new level started).
@@ -254,20 +304,40 @@ export class Ninja {
     }
 
     // Climbing a rope ladder up to a treehouse.
+    // Rung by rung: one hand reaches up while the opposite foot steps up, then he pulls himself up
+    // a rung. At the top he hauls himself over the edge onto the platform and stands up.
     if (this.climb) {
-      const h = this.climb.house, L = h.ladder;
-      this.climb.t += dt / 1.0;
-      const k = Math.min(1, this.climb.t);
-      this.pos.set(L.x, L.y + (h.y - L.y) * k, L.z);
+      const h = this.climb.house, L = h.ladder, C = this.climb;
+      const height = h.y - L.y;
+      const top = height - 1.05;                          // feet height when his hands reach the top
+      const steps = Math.max(2, Math.round(top / RUNG));
+      const climbTime = steps * STEP_SECONDS;
+      C.t += dt;
       this.vel.set(0, 0, 0);
       this.facing = Math.atan2(-h.out.x, -h.out.z);   // facing the ladder
-      if (k >= 1) {   // step onto the platform
-        this.climb = null;
-        this.perch = h;
-        this.pos.set(h.x + h.out.x * (h.r - 0.7), h.y, h.z + h.out.z * (h.r - 0.7));
-        this.vy = 0; this.onGround = true;
+      const away = 0.32;                                // his chest is just off the ropes
+      if (C.t < climbTime) {
+        const u = C.t / STEP_SECONDS, i = Math.floor(u), f = u - i;
+        const lift = f < 0.35 ? 0 : (f - 0.35) / 0.65;   // reach first, then pull up
+        const e = lift * lift * (3 - 2 * lift);
+        this.pos.set(L.x + h.out.x * away, L.y + Math.min(top, (i + e) * (top / steps)), L.z + h.out.z * away);
+        C.step = i; C.f = f; C.mantle = -1;
+      } else {
+        const m = Math.min(1, (C.t - climbTime) / MANTLE_SECONDS);
+        const smooth = x => { x = Math.max(0, Math.min(1, x)); return x * x * (3 - 2 * x); };
+        // Up over the edge first, then forward onto the boards to the standing spot.
+        const from = h.r - 0.2 + away, to = h.r - 0.7;
+        const spot = from + (to - from) * smooth((m - 0.3) / 0.7);
+        this.pos.set(h.x + h.out.x * spot, L.y + top + (height - top) * smooth(m / 0.6), h.z + h.out.z * spot);
+        C.mantle = m;
+        if (m >= 1) {   // standing on the platform
+          this.climb = null;
+          this.perch = h;
+          this.pos.set(h.x + h.out.x * (h.r - 0.7), h.y, h.z + h.out.z * (h.r - 0.7));
+          this.vy = 0; this.onGround = true;
+        }
       }
-      this.climbAnim = k;
+      this.climbAnim = this.climb ? 1 : -1;
       this.animate(dt);
       return;
     }
@@ -390,13 +460,7 @@ export class Ninja {
       lExtra.sx = 0.1 - s * 0.35 * k;      // free arm swings when walking
     }
     setArm(this.armL, pose.l, lExtra);
-    if (this.climbAnim >= 0) {   // hand over hand up the ladder
-      const c = Math.sin(this.climbAnim * Math.PI * 6);
-      this.armR.shoulder.rotation.set(-2.7 + c * 0.35, 0, 0.1);
-      this.armL.shoulder.rotation.set(-2.7 - c * 0.35, 0, -0.1);
-      this.legs[0].hip.rotation.x = -0.6 - c * 0.4;
-      this.legs[1].hip.rotation.x = -0.6 + c * 0.4;
-    }
+    if (this.climb) this.climbPose();
 
     this.showHeld();
     const d = this.displayed;
