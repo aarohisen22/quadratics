@@ -71,27 +71,39 @@ export class Effects {
   // A thick cloud of smoke that billows out, hangs around, then thins away.
   smokeCloud(x, y, z, radius, seconds) {
     if (!this.smokeTex) {
+      // One soft, round puff that fades to nothing well inside the edges (no corners to show).
       const c = document.createElement('canvas');
       c.width = c.height = 128;
       const g = c.getContext('2d');
-      for (let i = 0; i < 9; i++) {   // lumpy puff made of overlapping blobs
-        const bx = 40 + Math.random() * 48, by = 40 + Math.random() * 48, br = 24 + Math.random() * 20;
+      const base = g.createRadialGradient(64, 64, 0, 64, 64, 60);
+      base.addColorStop(0, 'rgba(255,255,255,0.75)');
+      base.addColorStop(0.5, 'rgba(255,255,255,0.4)');
+      base.addColorStop(1, 'rgba(255,255,255,0)');
+      g.fillStyle = base; g.fillRect(0, 0, 128, 128);
+      for (let i = 0; i < 7; i++) {   // a few softer lumps near the middle so it billows
+        const a = Math.random() * Math.PI * 2, d = Math.random() * 16;
+        const bx = 64 + Math.cos(a) * d, by = 64 + Math.sin(a) * d, br = 22 + Math.random() * 14;
         const grad = g.createRadialGradient(bx, by, 0, bx, by, br);
-        grad.addColorStop(0, 'rgba(255,255,255,0.55)');
+        grad.addColorStop(0, 'rgba(255,255,255,0.25)');
         grad.addColorStop(1, 'rgba(255,255,255,0)');
         g.fillStyle = grad; g.fillRect(0, 0, 128, 128);
       }
       this.smokeTex = new THREE.CanvasTexture(c);
       this.smokeParts = [];
     }
-    for (let i = 0; i < 22; i++) {
+    // Lots of big, overlapping, slow grey puffs: reads as one cloud, not bits.
+    for (let i = 0; i < 34; i++) {
+      const shade = 0.52 + Math.random() * 0.1;   // all grey, just slightly lighter or darker
       const sp = new THREE.Sprite(new THREE.SpriteMaterial({
-        map: this.smokeTex, color: 0xb9bdb8, transparent: true, depthWrite: false, opacity: 0,
+        map: this.smokeTex, color: new THREE.Color(shade, shade, shade * 1.01), transparent: true,
+        depthWrite: false, opacity: 0, fog: true,
       }));
-      const a = Math.random() * Math.PI * 2, d = Math.random() * radius * 0.8;
-      sp.position.set(x + Math.cos(a) * d, y + 0.5 + Math.random() * 2.2, z + Math.sin(a) * d);
+      const a = Math.random() * Math.PI * 2, d = Math.sqrt(Math.random()) * radius * 0.75;
+      const h = Math.random();
+      sp.position.set(x + Math.cos(a) * d, y + 0.8 + h * 2.6, z + Math.sin(a) * d);
       sp.material.rotation = Math.random() * 6;
-      sp.userData = { age: 0, life: seconds * (0.85 + Math.random() * 0.15), size: 3 + Math.random() * 3, spin: (Math.random() - 0.5) * 0.4 };
+      sp.userData = { age: 0, life: seconds * (0.9 + Math.random() * 0.1), size: 4.5 + Math.random() * 3,
+                      spin: (Math.random() - 0.5) * 0.12, peak: 0.42 + Math.random() * 0.1 };
       this.scene.add(sp);
       this.smokeParts.push(sp);
     }
@@ -180,13 +192,13 @@ export class Effects {
       for (const sp of this.smokeParts) {
         const u = sp.userData;
         u.age += dt;
-        const grow = Math.min(1, u.age / 0.8);
-        sp.scale.setScalar(u.size * (0.4 + grow * 0.6 + u.age * 0.04));
+        const grow = Math.min(1, u.age / 0.6);
+        sp.scale.setScalar(u.size * (0.35 + grow * 0.65 + u.age * 0.05));
         sp.material.rotation += u.spin * dt;
         // Thick for the first part, then thins out and drifts up over the last 40% of its life.
         const left = (u.life - u.age) / (u.life * 0.4);
         sp.position.y += dt * (left < 1 ? 0.6 : 0.15);
-        sp.material.opacity = Math.min(grow, Math.max(0, left) ** 1.5) * 0.85;
+        sp.material.opacity = Math.min(grow, Math.max(0, left) ** 1.5) * u.peak;
         if (u.age >= u.life) { this.scene.remove(sp); sp.material.dispose(); u.dead = true; }
       }
       this.smokeParts = this.smokeParts.filter(sp => !sp.userData.dead);
