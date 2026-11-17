@@ -57,10 +57,13 @@ export class Hud {
       c.num.textContent = `Health ${hp} / ${p.cfg.health}`;
       c.uzi.textContent = `Uzi ${p.ammo}`;
       c.uzi.classList.toggle('out', p.ammo === 0);
-      c.uzi.classList.toggle('active', p.current === 'uzi' && !!p.special);
-      const names = { shotgun: 'Shotgun', katana: 'Katana', smoke: 'Smoke', gatling: 'Gatling' };
-      c.spec.textContent = p.special ? `${names[p.special.type]} ${p.special.count}` : '';
-      c.spec.classList.toggle('active', !!p.special && p.current === p.special.type);
+      c.uzi.classList.toggle('active', p.current === 'uzi' && p.weaponsOwned.length > 1);
+      const names = { shotgun: 'Shotgun', smoke: 'Smoke', gatling: 'Gatling' };
+      const parts = [];
+      if (p.special) parts.push(p.current === p.special.type ? `<b>${names[p.special.type]} ${p.special.count}</b>` : `${names[p.special.type]} ${p.special.count}`);
+      if (p.hasKatana) parts.push(p.current === 'katana' ? '<b>Katana</b>' : 'Katana');
+      c.spec.innerHTML = parts.join(' · ');
+      c.spec.classList.toggle('active', p.current !== 'uzi' && p.weaponsOwned.length > 1);
       c.shur.textContent = `Shurikens ${p.shurikens}`;
       c.shur.classList.toggle('out', p.shurikens === 0);
       const down = !p.alive && players.length > 1;

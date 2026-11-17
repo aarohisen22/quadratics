@@ -156,9 +156,25 @@ export class FpsView {
     h.rotation.set(p.recoil * 0.12, 0, 0);
     if (p.current === 'katana') {
       if (p.swing >= 0) {
-        const t = p.swing;   // big slash from right to left
-        h.position.x = 0.25 - t * 0.5;
-        h.rotation.set(-0.3, 0.2, 1.2 - t * 2.2);
+        const t = p.swing, e = t * t * (3 - 2 * t), m = p.swingMove;
+        if (m === 0) {          // slash from right to left
+          h.position.x = 0.25 - e * 0.5;
+          h.rotation.set(-0.3, 0.2, 1.2 - e * 2.2);
+        } else if (m === 1) {   // backhand from left to right
+          h.position.x = -0.25 + e * 0.5;
+          h.position.y += 0.05;
+          h.rotation.set(-0.3, -0.2, -1.0 + e * 2.2);
+        } else if (m === 2) {   // overhead chop: up high, then down through the middle
+          h.position.x = 0.05;
+          h.position.y += 0.25 - e * 0.45;
+          h.rotation.set(0.5 - e * 1.9, 0, 0.1);
+        } else {                // thrust: blade points ahead and stabs forward
+          const k2 = t < 0.3 ? -0.25 * (t / 0.3) : Math.sin(((t - 0.3) / 0.7) * Math.PI);   // pull back, then stab
+          h.position.x = 0.06;
+          h.position.y += 0.02;
+          h.position.z = -0.45 - k2 * 0.35;
+          h.rotation.set(-1.25, 0.25, 0.1);   // angled a little so you see the blade, not just the handle
+        }
       } else {
         h.rotation.set(-0.3, 0, 0.28);   // blade leaning in toward the middle
       }

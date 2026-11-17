@@ -107,7 +107,10 @@ export class Ninja {
     this.health = this.cfg.health;
     this.ammo = this.weapons.uziAmmo;
     this.shurikens = this.weapons.shurikens;
-    this.special = null;     // { type: 'shotgun' | 'katana' | 'smoke', count }
+    this.special = null;     // { type: 'shotgun' | 'smoke' | 'gatling', count }
+    this.hasKatana = false;  // found a katana: it never breaks and is always on his back
+    this.swingMove = 0;      // which katana move: 0 slash, 1 backhand, 2 overhead, 3 thrust
+    this.sinceSwing = 9;
     this.current = 'uzi';
     this.alive = true;
     this.fireCooldown = 0;
@@ -173,6 +176,14 @@ export class Ninja {
     this.root.rotation.x = 0;
   }
 
+  // What he can switch between: the Uzi, his special weapon, the katana.
+  get weaponsOwned() {
+    const w = ['uzi'];
+    if (this.special) w.push(this.special.type);
+    if (this.hasKatana) w.push('katana');
+    return w;
+  }
+
   get forward() { return { x: Math.sin(this.facing), z: Math.cos(this.facing) }; }
 
   // The real tip of the gun barrel (or the hand, for the katana and smoke bombs).
@@ -219,7 +230,8 @@ export class Ninja {
     const c = this.cfg;
     this.time += dt;
     this.recoil = Math.max(0, this.recoil - dt * 9);
-    if (this.swing >= 0) { this.swing += dt / 0.32; if (this.swing > 1) this.swing = -1; }
+    this.sinceSwing += dt;
+    if (this.swing >= 0) { this.swing += dt / (this.swingMove === 3 ? 0.26 : 0.32); if (this.swing > 1) this.swing = -1; }
     if (this.throwT >= 0) { this.throwT += dt / 0.3; if (this.throwT > 1) this.throwT = -1; }
     const w = this.switching;
     if (w) {
@@ -336,11 +348,18 @@ export class Ninja {
 
     const rExtra = {};
     if (this.swing >= 0) {
-      // Big sideways slash: arm out front, sweeping right to left.
-      const t = this.swing;
-      rExtra.sx = -1.45; rExtra.ex = -0.15;
-      rExtra.sy = 1.3 - t * 2.6;
-      rExtra.sz = 0.2;
+      const t = this.swing, e = t * t * (3 - 2 * t);   // fast in the middle of the cut
+      const m = this.swingMove;
+      if (m === 0) {          // slash: arm out front, sweeping right to left
+        rExtra.sx = -1.45; rExtra.ex = -0.15; rExtra.sy = 1.3 - e * 2.6; rExtra.sz = 0.2;
+      } else if (m === 1) {   // backhand: sweeps back from left to right, a little higher
+        rExtra.sx = -1.6; rExtra.ex = -0.3; rExtra.sy = -1.3 + e * 2.6; rExtra.sz = -0.1;
+      } else if (m === 2) {   // overhead: blade raised high, chopped down in front
+        rExtra.sx = -2.9 + e * 2.2; rExtra.ex = -0.6 + e * 0.5; rExtra.sy = 0.25; rExtra.sz = 0.1;
+      } else {                // thrust: pulled back at the hip, then stabbed straight ahead
+        const pull = t < 0.3 ? t / 0.3 : 1 - (t - 0.3) / 0.7;
+        rExtra.sx = t < 0.3 ? -0.6 - pull * 0.2 : -1.55; rExtra.ex = t < 0.3 ? -1.5 : -0.05; rExtra.sy = 0.15; rExtra.sz = 0.05;
+      }
     } else if (this.switching) {
       // Reach to where the old weapon goes, then to where the new one is, then back to the pose.
       const t = this.switching.t;
@@ -382,7 +401,12 @@ export class Ninja {
     if (d) {
       const held = this.models[d], hp = POSES[d].hold;
       held.rotation.set(hp[0], hp[1], hp[2]);
-      if (d === 'katana' && this.swing >= 0) held.rotation.x = 1.6;   // blade forward during the slash
+      if (d === 'katana' && this.swing >= 0) {   // blade forward during the cut
+        const m = this.swingMove, t = this.swing, e = t * t * (3 - 2 * t);
+        held.rotation.x = m === 3 ? 3.05            // thrust: blade straight out along the arm
+          : m === 2 ? 1.7 + e * 1.2                 // overhead: blade back behind the head, then out in front
+          : 2.7;                                    // slashes: blade out level with the arm
+      }
       if (d === 'shotgun') held.userData.pump.position.z = 0.33 - Math.max(0, this.recoil - 0.3) * 0.12;
       if (d === 'gatling') held.userData.barrels.rotation.z += this.spin * dt * 45;   // barrels whirl
     }

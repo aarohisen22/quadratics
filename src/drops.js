@@ -42,8 +42,10 @@ export class Drops {
   }
 
   // A special weapon, picked by the weights in config (the gatling is rarer).
-  pickSpecial() {
-    const W = this.specials.weights;
+  pickSpecial(players = []) {
+    const W = { ...this.specials.weights };
+    // No more katanas once every brother has one (it never breaks).
+    if (players.length && players.every(p => p.hasKatana)) delete W.katana;
     const total = Object.values(W).reduce((a, b) => a + b, 0);
     let r = Math.random() * total;
     for (const [k, w] of Object.entries(W)) { if (r < w) return k; r -= w; }
@@ -54,7 +56,7 @@ export class Drops {
     const r = Math.random();
     const health = r < this.cfg.healthChance;
     const special = !health && r < this.cfg.healthChance + this.cfg.specialChance;
-    const type = health ? 'health' : special ? this.pickSpecial() : 'ammo';
+    const type = health ? 'health' : special ? this.pickSpecial(players) : 'ammo';
     const { x, z } = this.spot(players);
     const ground = this.world.heightAt(x, z);
     const group = buildCrate(health ? 'health' : special ? 'special' : 'ammo', health ? 'HEALTH' : special ? SPECIAL_NAMES[type] : 'AMMO');
@@ -125,12 +127,23 @@ export class Drops {
       p.shurikens = Math.min(this.cfg.maxShurikens, p.shurikens + this.cfg.ammoShurikens);
       sfx.pickupAmmo();
       hud.toast(`${name}: +${this.cfg.ammoBullets} bullets, +${this.cfg.ammoShurikens} shurikens`);
+    } else if (c.type === 'katana') {
+      if (p.hasKatana) {   // already has one: the crate's sharpening kit becomes ammo instead
+        p.ammo = Math.min(this.cfg.maxUziAmmo, p.ammo + this.cfg.ammoBullets);
+        sfx.pickupAmmo();
+        hud.toast(`${name} already has a katana: +${this.cfg.ammoBullets} bullets instead`);
+        return;
+      }
+      p.hasKatana = true;
+      p.switchTo('katana');
+      sfx.katanaDraw();
+      hud.toast(`${name} found a katana! It never breaks.  (Y / Q to switch)`);
     } else {
       const s = this.specials[c.type];
-      const count = c.type === 'shotgun' ? s.shells : c.type === 'katana' ? s.swings : c.type === 'gatling' ? s.rounds : s.bombs;
+      const count = c.type === 'shotgun' ? s.shells : c.type === 'gatling' ? s.rounds : s.bombs;
       p.special = { type: c.type, count };
       p.switchTo(c.type);
-      if (c.type === 'katana') sfx.katanaDraw(); else sfx.pickupWeapon();
+      sfx.pickupWeapon();
       hud.toast(`${name} got the ${SPECIAL_NAMES[c.type].toLowerCase()}!  (Y / Q to switch)`);
     }
   }

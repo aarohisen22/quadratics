@@ -248,8 +248,10 @@ export class Combat {
       if (!p.alive) return;
       p.fireCooldown -= dt;
       const c = ctrls[i];
-      if (c.switchPressed && p.special && !p.switching) p.switchTo(p.current === 'uzi' ? p.special.type : 'uzi');
-      if (c.fire && p.current !== 'uzi' && !p.special) p.switchTo('uzi');   // special just ran out
+      // Switch goes round what he carries: Uzi -> special weapon -> katana -> Uzi.
+      const owned = p.weaponsOwned;
+      if (c.switchPressed && owned.length > 1 && !p.switching) p.switchTo(owned[(owned.indexOf(p.current) + 1) % owned.length]);
+      if (c.fire && !owned.includes(p.current)) p.switchTo('uzi');   // special just ran out
       // Gatling: the barrels spin up while you hold fire, and slow down when you let go.
       const G = this.specials.gatling;
       if (p.current === 'gatling' && c.fire && !p.switching && p.special) {
@@ -417,26 +419,29 @@ export class Combat {
 
   slashKatana(p) {
     const K = this.specials.katana;
+    // Next move in the combo, or back to the first one after a pause.
+    p.swingMove = p.sinceSwing < K.comboResetSeconds ? (p.swingMove + 1) % K.moves.length : 0;
+    p.sinceSwing = 0;
+    const M = K.moves[p.swingMove];
     p.fireCooldown = 1 / K.swingsPerSecond;
     p.swing = 0;
     sfx.katanaSlash();
     const f = p.forward;
-    const half = (K.arcDegrees / 2) * Math.PI / 180;
+    const half = (K.arcDegrees * M.arc / 2) * Math.PI / 180, reach = K.reach * M.reach;
     let hits = 0;
     // Only the closest few in front of the blade get hit, not a whole crowd.
     const inReach = this.targets(p).filter(s => {
       const dx = s.pos.x - p.pos.x, dz = s.pos.z - p.pos.z, d = Math.hypot(dx, dz);
-      if (d > K.reach + s.radius) return false;
+      if (d > reach + s.radius) return false;
       return Math.acos(Math.max(-1, Math.min(1, (dx * f.x + dz * f.z) / (d || 1)))) <= half;
-    }).sort((a, b) => a.pos.distanceTo(p.pos) - b.pos.distanceTo(p.pos)).slice(0, K.maxHitsPerSwing);
+    }).sort((a, b) => a.pos.distanceTo(p.pos) - b.pos.distanceTo(p.pos)).slice(0, M.hits);
     for (const s of inReach) {
       const dx = s.pos.x - p.pos.x, dz = s.pos.z - p.pos.z, d = Math.hypot(dx, dz);
-      s.hit(K.damage, dx / (d || 1), dz / (d || 1), true, p);
+      s.hit(K.damage * M.damage, dx / (d || 1), dz / (d || 1), true, p);
       this.effects.burst(new THREE.Vector3(s.pos.x, s.pos.y + 1.2, s.pos.z), 'steel', 14, { x: dx / d, z: dz / d });
       hits++;
     }
     if (hits) { setTimeout(() => sfx.katanaHit(), 60); this.onHit?.(p); }
-    this.useSpecial(p);
   }
 
   throwSmoke(p) {

@@ -63,7 +63,15 @@ export const CONFIG = {
 
   specials: {
     shotgun: { shells: 8, pellets: 7, damagePerPellet: 12, spreadDegrees: 24, range: 14, shotsPerSecond: 1.5 },
-    katana:  { swings: 15, damage: 30, reach: 2.4, arcDegrees: 100, swingsPerSecond: 1.8, maxHitsPerSwing: 2 },
+    // The katana never breaks: once you find it, it stays on your back for the rest of the game.
+    // Pressing fire again quickly goes through a combo: slash right-to-left, backhand, overhead chop, thrust.
+    katana:  { damage: 26, reach: 2.4, arcDegrees: 100, swingsPerSecond: 1.8, maxHitsPerSwing: 2, comboResetSeconds: 0.9,
+               moves: [
+                 { name: 'slash',    damage: 1,    reach: 1,    arc: 1,   hits: 2 },
+                 { name: 'backhand', damage: 1,    reach: 1,    arc: 1,   hits: 2 },
+                 { name: 'overhead', damage: 1.2,  reach: 1.05, arc: 0.6, hits: 1 },
+                 { name: 'thrust',   damage: 1.3,  reach: 1.25, arc: 0.4, hits: 1 },
+               ] },
     smoke:   { bombs: 3, radius: 5, seconds: 5, throwDistance: 7 }, // samurai can't see you in the smoke
     // Barrels spin up for spinUpSeconds while you hold fire, then it shoots very fast (walk speed: weapons.gatlingWalk).
     gatling: { rounds: 150, spinUpSeconds: 0.5, shotsPerSecond: 22, damage: 9, range: 30, spreadDegrees: 5 },
