@@ -34,7 +34,7 @@ export class Input {
     dom.addEventListener('mousemove', e => {
       this.mouse.x = (e.clientX / innerWidth) * 2 - 1;
       this.mouse.y = -(e.clientY / innerHeight) * 2 + 1;
-      this.mouse.active = true;
+      if (Math.abs(e.movementX) + Math.abs(e.movementY) > 2) this.mouse.active = true;   // ignore a tiny bump of the desk
     });
     this.mouse.left = false;
     this.mouse.right = false;
@@ -92,6 +92,9 @@ export class Input {
       c.fire = (pad.buttons[7]?.value || 0) > 0.3;
       c.throw = !!pad.buttons[5]?.pressed;
       c.switch = !!pad.buttons[3]?.pressed;
+      // Using the controller switches off mouse aiming (until the mouse moves again), so letting go
+      // of the right stick keeps him facing where you aimed instead of snapping back to the mouse.
+      if (c.move.mag > 0 || a.mag > 0.3 || pad.buttons.some(b => b.pressed)) this.mouse.active = false;
     }
 
     if (keys === 'arrows') {
