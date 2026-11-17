@@ -79,16 +79,24 @@ Then open http://localhost:8080 (this server turns off browser caching so refres
   - [x] Gatling gun: crate special (half as likely as the others, config `specials.weights`), 150 rounds, barrels spin up 0.5 s (whirr) then ~20 shots/s, 9 dmg each; walk at 70%; slung on the back when not held; overhead + first person
   - [x] Hiding: temple ruins top (6.5 m) and around each collapsed hut (4.5 m) are hideouts (faint green ring on the ground + map): samurai lose track unless within 3.5 m; card says HIDDEN. 5 treehouses (treehouses.js, brown squares on the map): jump at the rope ladder to climb, platform 4 m up with railing; melee samurai wait below, archers aim up; walk off the edge to drop down
   - [x] Twin-blade Ronin boss (ronin.js, config `ronin`): 1.5x size, straw hat, purple armor, katana in each hand, 450 health (+50% each time); jabs and double slashes up close; from 5-13 m a red streak (0.7 s) shows his dash path, then he dashes through it (22 dmg at level 3), step aside to dodge, shuriken cancels it. Bosses: Ronin after 3, 8, 13…, Oni Warlord after 5, 10, 15… (config `boss.every` / `boss.roninAt`)
+- [x] Feedback round 4 (parent's list, 2026-11-17) (waiting on the kids' playtest)
+  - [x] Smoke bomb is one soft grey cloud (round, soft puffs) instead of confetti-like bits
+  - [x] Katana never breaks and has its own slot once found (switch: Uzi → special → katana); damage 30 → 26; a second katana crate gives ammo. Fire again quickly for a 4-move combo: slash, backhand, overhead chop, thrust (config `specials.katana.moves`)
+  - [x] Firing a gun from a hideout or smoke gives you away for 4 s (card says SPOTTED!); shurikens and the katana stay silent (config `hiding.revealSeconds`)
+  - [x] Ronin defends when he isn't attacking: blocks bullets (60% when facing you) and shurikens (50%), parries the katana and counters, leaps aside (35%, then may dash straight back); health 450 → 650 (config `ronin.defense`). Hit him during his windups
+  - [x] Samurai camp (outpost.js) at (-6, -30): stake wall with a gate, tents, commander's curtain tent, banners, torches, campfire, weapon rack. Red-ribboned posts 38 m out mark samurai territory (dashed ring + flag on the minimap). Waves: 60% march out of the gate, the rest slide down vines; after each wave a 30–40 s quiet countdown (15 s before the first; bosses too) that only runs inside territory; leave it and no more come, and samurai past the posts +8 m give up and walk back to camp (config `world.outpost`, `levels.quietSeconds` etc.)
+  - [x] Samurai redesign: laced lamellar armor (lacing in their kind's color), kabuto with gold crest, neck guard and side flaps, iron menpō face guard with moustache and throat guard (no glowing eyes), hakama, shin guards, sandals, banner on the back. Ronin: no crest or banner. Oni Warlord: carved lacquer Oni mask, no glow
+  - [x] Treehouse climb (third person): rung by rung, hand reaches while the opposite foot steps up, weapon put away, then hauls himself over the edge and stands
 - [ ] Phase 7: Menus, polish, publish  ← next (pause menu already done in round 3)
 
 ## Notes and decisions made while building
 - Three.js r170 loads from the jsDelivr CDN through an import map, so there's nothing to install.
 - Phase 1 builds the ninja and jungle from code-made shapes. Swapping in free asset-pack models needs a download, which waits for the user's OK.
 - Treetops dissolve near the ninjas so the overhead camera can see them (`cutaway` in world.js).
-- Files: src/config.js (settings to tune), world.js (jungle), weather.js (light, rain), sound.js, effects.js, combat.js (weapons + levels + arrows + boss fights), samurai.js (sword/archer/nunchuck kinds, vines, attacks, obstacle steering), boss.js (Oni Warlord), ronin.js (Twin-blade Ronin), treehouses.js, foam.js (water foam), minimap.js, hud.js, ninja.js, input.js, camera.js, main.js.
+- Files: src/config.js (settings to tune), world.js (jungle), outpost.js (samurai camp + territory), weather.js (light, rain), sound.js, effects.js, combat.js (weapons + levels + arrows + boss fights), samurai.js (sword/archer/nunchuck kinds, vines, attacks, obstacle steering), boss.js (Oni Warlord), ronin.js (Twin-blade Ronin), treehouses.js, foam.js (water foam), minimap.js, hud.js, ninja.js, input.js, camera.js, main.js.
 
-## Where we left off (2026-11-15, after feedback round 3, before Phase 7)
-Everything through Phase 6 and feedback rounds 2 and 3 is committed. To resume, open this folder and say "continue the game from PROGRESS.md".
+## Where we left off (2026-11-17, after feedback round 4, before Phase 7)
+Everything through Phase 6 and feedback rounds 2, 3 and 4 is committed. To resume, open this folder and say "continue the game from PROGRESS.md".
 
 **Phase 7 to-do (menus, polish, publish):**
 - Settings screen: volume, mouse sensitivity, low graphics toggle (currently `?low` in the URL)
