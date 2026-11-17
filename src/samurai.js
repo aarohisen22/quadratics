@@ -494,6 +494,29 @@ export class Samurai {
     this.root.position.copy(this.pos);
   }
 
+  // Where to walk first to reach `goal` if the camp wall is in the way: round the outside of the wall
+  // to the front of the gate, through it, then on. Returns null when the way is clear.
+  routeVia(goal) {
+    const O = this.world.outpost;
+    if (!O) return null;
+    const dSelf = Math.hypot(this.pos.x - O.x, this.pos.z - O.z);
+    const selfIn = dSelf < O.wall, goalIn = Math.hypot(goal.x - O.x, goal.z - O.z) < O.wall;
+    if (selfIn === goalIn) return null;
+    const ax = Math.cos(O.gateAngle), az = Math.sin(O.gateAngle);   // out through the gate
+    if (Math.hypot(this.pos.x - O.gate.x, this.pos.z - O.gate.z) < 3.4) {   // in the gateway: straight through
+      const s = selfIn ? 1 : -1;
+      return { x: O.gate.x + ax * 3.5 * s, z: O.gate.z + az * 3.5 * s };
+    }
+    if (selfIn) return { x: O.gate.x - ax * 3, z: O.gate.z - az * 3 };
+    const aSelf = Math.atan2(this.pos.z - O.z, this.pos.x - O.x);
+    const diff = Math.atan2(Math.sin(O.gateAngle - aSelf), Math.cos(O.gateAngle - aSelf));
+    if (Math.abs(diff) > 0.35) {   // round the outside of the wall toward the gate
+      const a = aSelf + Math.sign(diff) * 0.45, r = Math.max(dSelf, O.wall + 3);
+      return { x: O.x + Math.cos(a) * r, z: O.z + Math.sin(a) * r };
+    }
+    return { x: O.gate.x + ax * 3, z: O.gate.z + az * 3 };
+  }
+
   // Sliding down the vine; can't be hit and doesn't attack until his feet touch the ground.
   updateDescend(dt) {
     this.timer += dt;
@@ -673,7 +696,19 @@ export class Samurai {
 
     const L = this.leash;
     const home = L && Math.hypot(this.pos.x - L.x, this.pos.z - L.z);
-    if (!target && L && home > L.camp) {   // nobody to fight: walk back to the camp
+    let goal = target ? target.pos : null;
+    const G = this.guard;
+    if (!target && G) {   // camp guard with nobody to fight: walk to his post, wait, walk his patrol, wait...
+      const pt = G.out ? G.patrol : G.post;
+      const gx = pt.x - this.pos.x, gz = pt.z - this.pos.z, gd = Math.hypot(gx, gz);
+      goal = pt;
+      if (gd > 0.6) {
+        moveX = gx / gd * 0.45; moveZ = gz / gd * 0.45;
+        const want = Math.atan2(gx, gz);
+        this.facing += Math.atan2(Math.sin(want - this.facing), Math.cos(want - this.facing)) * (1 - Math.exp(-5 * dt));
+      } else if ((G.wait -= dt) <= 0) { G.out = !G.out; G.wait = 2 + Math.random() * 3; }
+    } else if (!target && L && home > L.camp) {   // nobody to fight: walk back to the camp
+      goal = L;
       const hx = (L.x - this.pos.x) / home, hz = (L.z - this.pos.z) / home;
       moveX = hx * 0.6; moveZ = hz * 0.6;
       const want = Math.atan2(hx, hz);
@@ -686,6 +721,18 @@ export class Samurai {
       const turn = Math.atan2(Math.sin(this.wanderDir - this.facing), Math.cos(this.wanderDir - this.facing));
       this.facing += turn * (1 - Math.exp(-4 * dt));
       if (this.state !== 'chase') { this.timer -= dt; if (this.timer <= 0) this.state = 'chase'; }
+    }
+
+    // The camp has a wall: to get in or out, go to the gate first.
+    if (goal && (moveX || moveZ) && ((goal.x - this.pos.x) * moveX + (goal.z - this.pos.z) * moveZ) > 0) {
+      const w = this.routeVia(goal);
+      if (w) {
+        const m = Math.max(0.6, Math.hypot(moveX, moveZ));
+        const wx = w.x - this.pos.x, wz = w.z - this.pos.z, wd = Math.hypot(wx, wz) || 1;
+        moveX = wx / wd * m; moveZ = wz / wd * m;
+        const want = Math.atan2(wx, wz);
+        this.facing += Math.atan2(Math.sin(want - this.facing), Math.cos(want - this.facing)) * (1 - Math.exp(-8 * dt));
+      }
     }
 
     // Keep a little space from other samurai and from the ninjas.

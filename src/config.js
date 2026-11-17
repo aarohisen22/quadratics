@@ -181,6 +181,9 @@ export const CONFIG = {
     extraWaveFromLevel: 5, // ...and from this level on, one more wave
     waveSizeFactor: 0.75, // waves are a bit smaller than a whole level used to be
     extraPerWave: 2,      // each wave in a level brings this many more samurai than the one before
+    // Guards posted inside the camp: they attack anyone near or inside it but don't chase far,
+    // and they don't count toward beating a wave. Fallen guards are replaced each new level.
+    guards: 4, guardsPerLevel: 1, maxGuards: 12, guardRange: 12,   // guardRange: meters outside the wall they'll come after you
     toughnessPerLevel: 0.15, // +15% health and damage each level
     refillAmmoOnLevelUp: false, // supply crates bring ammo now
     // Quiet time: after you beat a wave, nothing comes for a while (a countdown shows how long).

@@ -220,7 +220,8 @@ export class World {
     const O = this.outpostSpot;
     if (O) {
       const d = Math.hypot(x - O.x, z - O.z);
-      if (d < 16) h += (this.outpostY - h) * (1 - smoothstep(11, 16, d));
+      const w = O.wall || 15;
+      if (d < w + 7) h += (this.outpostY - h) * (1 - smoothstep(w + 2, w + 7, d));
     }
     return h;
   }
@@ -281,7 +282,7 @@ export class World {
       const td = Math.hypot(x - this.templeSpot.x, z - this.templeSpot.z);
       if (td < 9) color.lerp(stone, (1 - smoothstep(6, 9, td)) * 0.9);                       // old stone floor
       const od = Math.hypot(x - this.outpostSpot.x, z - this.outpostSpot.z);
-      if (od < 12) color.lerp(trampled, (1 - smoothstep(8, 12, od)) * 0.8);                  // trampled earth in the camp
+      if (od < this.outpostSpot.wall + 3) color.lerp(trampled, (1 - smoothstep(this.outpostSpot.wall - 2, this.outpostSpot.wall + 3, od)) * 0.8);                  // trampled earth in the camp
       colors.set([color.r, color.g, color.b], i * 3);
     }
     ground.setAttribute('color', new THREE.BufferAttribute(colors, 3));

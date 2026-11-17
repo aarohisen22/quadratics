@@ -40,12 +40,15 @@ function drawMon(g, cx, cy, r, color) {
 
 export function buildOutpost(world, scene, cfg) {
   const rnd = makeRandom(world.cfg.seed + 21);
-  const O = { x: cfg.x, z: cfg.z, r: cfg.territory, wall: 9.5, fireDamage: cfg.fireDamage };
+  const O = { x: cfg.x, z: cfg.z, r: cfg.territory, wall: cfg.wall || 15, fireDamage: cfg.fireDamage };
   const g = new THREE.Group();
   const groundY = (x, z) => world.heightAt(x, z);
   // Which way the gate faces: toward the middle of the jungle.
   const gateAngle = Math.atan2(-O.z, -O.x);
   O.gate = { x: O.x + Math.cos(gateAngle) * O.wall, z: O.z + Math.sin(gateAngle) * O.wall };
+  O.gateAngle = gateAngle;
+  const gapHalf = 2.7 / O.wall;   // the gate opening, as an angle seen from the middle
+  const at = (a, r) => ({ x: O.x + Math.cos(gateAngle + a) * r, z: O.z + Math.sin(gateAngle + a) * r });
 
   const log = new THREE.MeshStandardMaterial({ color: 0x5a3e24, roughness: 0.9 });
   const darkLog = new THREE.MeshStandardMaterial({ color: 0x3b281a, roughness: 0.95 });
@@ -92,11 +95,11 @@ export function buildOutpost(world, scene, cfg) {
   // --- the stake wall, with a gap for the gate ---
   const stakeGeo = new THREE.CylinderGeometry(0.16, 0.2, 1, 6).translate(0, 0.5, 0);
   const tipGeo = new THREE.ConeGeometry(0.16, 0.45, 6).translate(0, 0.22, 0);
-  const n = 64;
+  const n = Math.round(Math.PI * 2 * O.wall / 0.72);
   for (let i = 0; i < n; i++) {
     const a = (i / n) * Math.PI * 2;
     const gap = Math.abs(Math.atan2(Math.sin(a - gateAngle), Math.cos(a - gateAngle)));
-    if (gap < 0.17) continue;   // the gate
+    if (gap < gapHalf) continue;   // the gate
     const x = O.x + Math.cos(a) * O.wall, z = O.z + Math.sin(a) * O.wall;
     const h = 2.4 + rnd() * 0.5;
     const s = mesh(stakeGeo, log, x, groundY(x, z) - 0.2, z);
@@ -108,22 +111,115 @@ export function buildOutpost(world, scene, cfg) {
   }
   // Two rope bands lashing the stakes together.
   for (const y of [0.7, 1.7]) {
-    const band = new THREE.Mesh(new THREE.TorusGeometry(O.wall, 0.04, 4, 96), rope);
-    band.rotation.x = Math.PI / 2;
+    const band = new THREE.Mesh(new THREE.TorusGeometry(O.wall, 0.04, 4, 128, Math.PI * 2 - gapHalf * 2), rope);
+    band.rotation.set(Math.PI / 2, 0, gateAngle + gapHalf);   // all the way round except across the gate
     band.position.set(O.x, groundY(O.x, O.z) + y, O.z);
     g.add(band);
   }
-  // Gate posts with a crossbeam and a big banner hanging from it.
+  // --- the gatehouse: tall pillars, a curved top beam, a roof, the clan crest, and heavy doors swung open ---
   const gx = O.gate.x, gz = O.gate.z, side = { x: -Math.sin(gateAngle), z: Math.cos(gateAngle) };
+  const roofMat = new THREE.MeshStandardMaterial({ color: 0x2b2622, roughness: 0.75, side: THREE.DoubleSide });
+  const plank = new THREE.MeshStandardMaterial({
+    roughness: 0.85,
+    map: canvasTex(128, 256, (c, w, h) => {
+      c.fillStyle = '#5b3f26'; c.fillRect(0, 0, w, h);
+      for (let x = 0; x < w; x += 21) { c.fillStyle = 'rgba(0,0,0,0.45)'; c.fillRect(x, 0, 2, h); }   // planks
+      for (let i = 0; i < 120; i++) { c.fillStyle = `rgba(30,20,10,${0.05 + rnd() * 0.1})`; c.fillRect(rnd() * w, rnd() * h, 1, 10 + rnd() * 40); }
+    }),
+  });
+  const gate = new THREE.Group();
+  gate.position.set(gx, groundY(gx, gz), gz);
+  gate.rotation.y = Math.PI / 2 - gateAngle;   // local +z points out of the camp
+  g.add(gate);
+  const local = (lx, lz) => {   // gate-local (x across, z outward) to world
+    const ax = Math.cos(gateAngle), az = Math.sin(gateAngle);   // outward
+    const sx = az, sz = -ax;                                     // across (matches local +x after the rotation)
+    return { x: gx + sx * lx + ax * lz, z: gz + sz * lx + az * lz };
+  };
   for (const k of [-1, 1]) {
-    const px = gx + side.x * 1.9 * k, pz = gz + side.z * 1.9 * k;
-    const post = mesh(new THREE.CylinderGeometry(0.25, 0.3, 4.2, 8).translate(0, 2.1, 0), darkLog, px, groundY(px, pz) - 0.2, pz);
-    g.add(post);
-    obstacles.push({ x: px, z: pz, r: 0.5, h: 99 });
+    gate.add(mesh(new THREE.CylinderGeometry(0.28, 0.32, 5.4, 10).translate(0, 2.7, 0), darkLog, k * 2.5, -0.3, 0.2));   // main pillars
+    gate.add(mesh(new THREE.CylinderGeometry(0.2, 0.22, 4.4, 8).translate(0, 2.2, 0), darkLog, k * 2.5, -0.3, -1.6));   // back pillars
+    gate.add(mesh(new THREE.BoxGeometry(0.16, 0.16, 1.9), darkLog, k * 2.5, 3.9, -0.7));                                // side ties
+    gate.add(mesh(new THREE.BoxGeometry(0.62, 0.25, 0.62), iron, k * 2.5, 0.0, 0.2));                                   // iron feet
+    for (const lz of [0.2, -1.6]) { const p = local(k * 2.5, lz); obstacles.push({ x: p.x, z: p.z, r: 0.45, h: 99 }); }
   }
-  const beam = mesh(new THREE.BoxGeometry(4.8, 0.35, 0.35), darkLog, gx, groundY(gx, gz) + 3.7, gz);
-  beam.rotation.y = -gateAngle + Math.PI / 2;
-  g.add(beam);
+  const kasagi = mesh(new THREE.BoxGeometry(6.4, 0.32, 0.5), darkLog, 0, 5.15, 0.2);   // top beam
+  gate.add(kasagi);
+  for (const k of [-1, 1]) {   // its upturned ends
+    const tip = mesh(new THREE.BoxGeometry(0.9, 0.28, 0.5), darkLog, k * 3.45, 5.3, 0.2);
+    tip.rotation.z = k * 0.28;
+    gate.add(tip);
+  }
+  gate.add(mesh(new THREE.BoxGeometry(5.6, 0.24, 0.26), darkLog, 0, 4.3, 0.2));        // lower tie beam
+  // Plaque with the clan crest between the beams.
+  const plaque = mesh(new THREE.BoxGeometry(0.9, 0.7, 0.08), new THREE.MeshStandardMaterial({
+    roughness: 0.6, map: canvasTex(128, 96, (c, w, h) => { c.fillStyle = '#1d1a18'; c.fillRect(0, 0, w, h); c.strokeStyle = '#b08a3a'; c.lineWidth = 6; c.strokeRect(3, 3, w - 6, h - 6); drawMon(c, w / 2, h / 2, 30, '#b08a3a'); }),
+  }), 0, 4.75, 0.36);
+  gate.add(plaque);
+  // Gabled roof over the gate.
+  for (const k of [-1, 1]) {
+    const slope = mesh(new THREE.BoxGeometry(7.2, 0.12, 1.75), roofMat, 0, 5.75, -0.7 + k * 0.75);
+    slope.rotation.x = k * 0.5;
+    gate.add(slope);
+  }
+  gate.add(mesh(new THREE.BoxGeometry(7.4, 0.18, 0.2), darkLog, 0, 6.15, -0.7));   // ridge
+  // Two heavy doors, swung open into the camp, with iron bands and studs.
+  for (const k of [-1, 1]) {
+    const hinge = new THREE.Group();
+    hinge.position.set(k * 2.25, 0, -0.1);
+    hinge.rotation.y = -k * 1.25;   // swung open inward
+    const door = mesh(new THREE.BoxGeometry(2.2, 3.8, 0.14), plank, -k * 1.1, 1.9, 0);
+    hinge.add(door);
+    for (const y of [0.6, 1.9, 3.2]) {
+      hinge.add(mesh(new THREE.BoxGeometry(2.2, 0.12, 0.17), iron, -k * 1.1, y, 0));
+      for (let sx = 0.25; sx < 2.2; sx += 0.45) hinge.add(mesh(new THREE.SphereGeometry(0.04, 6, 4), iron, -k * sx, y, 0.1));
+    }
+    gate.add(hinge);
+    const mid = local(k * 2.25 - k * Math.cos(1.25) * 1.1, -0.1 - Math.sin(1.25) * 1.1);
+    obstacles.push({ x: mid.x, z: mid.z, r: 0.75, h: 99 });
+  }
+  // Lanterns hanging from the gate.
+  const paper = new THREE.MeshStandardMaterial({ color: 0xf2e2b8, emissive: 0xff9a40, emissiveIntensity: 0.9, roughness: 0.8 });
+  for (const k of [-1, 1]) {
+    gate.add(mesh(new THREE.CylinderGeometry(0.01, 0.01, 0.35, 4), rope, k * 1.6, 4.0, 0.36));
+    const lantern = mesh(new THREE.SphereGeometry(0.22, 12, 8), paper, k * 1.6, 3.65, 0.36);
+    lantern.scale.set(1, 1.25, 1);
+    gate.add(lantern);
+  }
+
+  // --- two watchtowers just inside the wall, one each side of the gate ---
+  for (const k of [-1, 1]) {
+    const p = local(k * 5.2, -2.6);
+    const tower = new THREE.Group();
+    tower.position.set(p.x, groundY(p.x, p.z), p.z);
+    tower.rotation.y = Math.PI / 2 - gateAngle;
+    for (const [lx, lz] of [[-0.9, -0.9], [0.9, -0.9], [-0.9, 0.9], [0.9, 0.9]]) {
+      const leg = mesh(new THREE.CylinderGeometry(0.11, 0.14, 6.2, 7).translate(0, 3.1, 0), darkLog, lx, -0.2, lz);
+      tower.add(leg);
+    }
+    for (const y of [1.6, 3.2]) {   // cross bracing
+      for (const r of [0, Math.PI / 2]) {
+        const br = mesh(new THREE.BoxGeometry(2.5, 0.08, 0.08), log, 0, y, 0);
+        br.rotation.set(0, r, 0.6);
+        tower.add(br);
+      }
+    }
+    tower.add(mesh(new THREE.BoxGeometry(2.4, 0.15, 2.4), log, 0, 4.4, 0));     // platform
+    for (const [lx, lz, w, d] of [[0, 1.15, 2.4, 0.08], [0, -1.15, 2.4, 0.08], [1.15, 0, 0.08, 2.4], [-1.15, 0, 0.08, 2.4]]) {
+      tower.add(mesh(new THREE.BoxGeometry(w, 0.9, d), plank, lx, 4.95, lz));   // waist-high boards
+    }
+    const roof = mesh(new THREE.ConeGeometry(2.0, 1.1, 4), roofMat, 0, 6.7, 0);
+    roof.rotation.y = Math.PI / 4;
+    tower.add(roof);
+    for (let y = 0.4; y < 4.4; y += 0.45) tower.add(mesh(new THREE.BoxGeometry(0.7, 0.06, 0.06), log, 0, y, -1.05));   // ladder rungs
+    const flag = new THREE.Mesh(new THREE.PlaneGeometry(0.7, 2.6, 1, 8).translate(0.35, -1.3, 0), flagMats[0]);
+    flag.position.set(0.95, 8.5, 0.95);
+    tower.add(mesh(new THREE.CylinderGeometry(0.04, 0.04, 3.4, 5).translate(0, 1.7, 0), darkLog, 0.95, 5.3, 0.95));
+    tower.add(flag);
+    flags.push({ mesh: flag, base: flag.geometry.attributes.position.array.slice(), phase: rnd() * 6 });
+    g.add(tower);
+    obstacles.push({ x: p.x, z: p.z, r: 1.4, h: 99 });
+  }
 
   // --- tents: canvas A-frames around the inside, and the commander's curtain tent ---
   const tentGeo = (() => {   // triangular prism, open at the ends
@@ -131,10 +227,10 @@ export function buildOutpost(world, scene, cfg) {
     s.moveTo(-1.6, 0); s.lineTo(0, 2.1); s.lineTo(1.6, 0);
     return new THREE.ExtrudeGeometry(s, { depth: 3.2, bevelEnabled: false }).translate(0, 0, -1.6);
   })();
-  const tentSpots = [2.2, 3.4, 4.4, 5.6];   // angles (from the gate) around the inside of the wall
+  const tentSpots = [0.95, 1.6, 2.3, 3.95, 4.65, 5.35];   // angles (from the gate) around the inside, leaving the gate path clear
   for (const off of tentSpots) {
     const a = gateAngle + off;
-    const x = O.x + Math.cos(a) * 6.2, z = O.z + Math.sin(a) * 6.2;
+    const x = O.x + Math.cos(a) * O.wall * 0.62, z = O.z + Math.sin(a) * O.wall * 0.62;
     const t = mesh(tentGeo, canvas, x, groundY(x, z) - 0.05, z);
     t.rotation.y = -a;
     g.add(t);
@@ -145,7 +241,7 @@ export function buildOutpost(world, scene, cfg) {
   }
   // The commander's tent: four posts and curtains with the clan crest, a stool and a war table.
   {
-    const a = gateAngle + Math.PI, x = O.x + Math.cos(a) * 3.2, z = O.z + Math.sin(a) * 3.2;
+    const a = gateAngle + Math.PI, x = O.x + Math.cos(a) * O.wall * 0.45, z = O.z + Math.sin(a) * O.wall * 0.45;
     const y = groundY(x, z);
     const ct = new THREE.Group();
     ct.position.set(x, y, z); ct.rotation.y = -a + Math.PI / 2;
@@ -178,11 +274,11 @@ export function buildOutpost(world, scene, cfg) {
     g.add(pole);
     flags.push({ mesh: f, base: flagGeo.attributes.position.array.slice(), phase: rnd() * 6 });
   };
-  for (let i = 0; i < 8; i++) {
-    const a = gateAngle + 0.5 + (i / 8) * (Math.PI * 2 - 1);
+  for (let i = 0; i < 12; i++) {
+    const a = gateAngle + 0.75 + (i / 11) * (Math.PI * 2 - 1.5);
     addBanner(O.x + Math.cos(a) * (O.wall - 0.7), O.z + Math.sin(a) * (O.wall - 0.7), i);
   }
-  for (const k of [-1, 1]) addBanner(gx + side.x * 2.6 * k + Math.cos(gateAngle) * 0.8, gz + side.z * 2.6 * k + Math.sin(gateAngle) * 0.8, k + 1);
+  for (const k of [-1, 1]) { const p = local(k * 3.6, 0.9); addBanner(p.x, p.z, k + 1); }   // either side of the gate, outside
 
   // --- torches and the campfire ---
   const addFlame = (parent, y, size) => {
@@ -194,7 +290,7 @@ export function buildOutpost(world, scene, cfg) {
     parent.add(f);
     flames.push({ mesh: f, phase: rnd() * 6, size });
   };
-  const torchSpots = [-0.5, 0.5, 2.8, 4.9];
+  const torchSpots = [-0.45, 0.45, 1.3, 2.0, 2.7, 3.6, 4.3, 5.0];
   for (const off of torchSpots) {
     const a = gateAngle + off;
     const x = O.x + Math.cos(a) * (O.wall - 0.6), z = O.z + Math.sin(a) * (O.wall - 0.6);
@@ -222,8 +318,8 @@ export function buildOutpost(world, scene, cfg) {
   O.fires = [{ x: O.x, z: O.z, r: 0.95, y: groundY(O.x, O.z) }];   // walkable, but it burns
 
   // --- a weapon rack with spears and a few supply barrels ---
-  {
-    const a = gateAngle + 1.2, x = O.x + Math.cos(a) * 6.5, z = O.z + Math.sin(a) * 6.5;
+  for (const off of [1.25, -1.25]) {
+    const a = gateAngle + off, x = O.x + Math.cos(a) * O.wall * 0.5, z = O.z + Math.sin(a) * O.wall * 0.5;
     const rack = new THREE.Group();
     rack.position.set(x, groundY(x, z), z); rack.rotation.y = -a;
     rack.add(mesh(new THREE.BoxGeometry(0.1, 0.1, 2.2), log, 0, 1.5, 0));
@@ -248,7 +344,7 @@ export function buildOutpost(world, scene, cfg) {
 
   // --- posts with red ribbons around the edge of samurai territory ---
   const ribbon = new THREE.MeshStandardMaterial({ color: 0xc4161c, roughness: 0.8, side: THREE.DoubleSide });
-  const posts = 28;
+  const posts = Math.round(O.r * 0.75);
   for (let i = 0; i < posts; i++) {
     const a = (i / posts) * Math.PI * 2;
     const x = O.x + Math.cos(a) * O.r, z = O.z + Math.sin(a) * O.r;
@@ -261,6 +357,17 @@ export function buildOutpost(world, scene, cfg) {
     g.add(post);
     flags.push({ mesh: strip, base: strip.geometry.attributes.position.array.slice(), phase: rnd() * 6, ribbon: true });
   }
+
+  // --- where the camp guards stand, and the spot each one walks to and from on patrol ---
+  const ring = O.wall * 0.8;
+  O.posts = [
+    { ...local(-1.8, -3.4), patrol: local(-1.8, -6.5) },          // either side of the gate
+    { ...local(1.8, -3.4), patrol: local(1.8, -6.5) },
+    { ...at(Math.PI / 2, 3.5), patrol: at(Math.PI / 2 + 0.8, 4.5) },   // by the campfire
+    { ...at(-Math.PI / 2, 3.5), patrol: at(-Math.PI / 2 - 0.8, 4.5) },
+    { ...at(Math.PI, O.wall * 0.45 - 2.8), patrol: at(Math.PI - 0.5, O.wall * 0.3) },   // in front of the commander
+  ];
+  for (const a of [1.3, -1.3, 2.0, -2.0, 2.7, -2.7, 3.4]) O.posts.push({ ...at(a, ring), patrol: at(a + (a > 0 ? 0.45 : -0.45), ring) });
 
   scene.add(g);
   world.reserved.push({ x: O.x, z: O.z, r: O.wall + 2.5 });

@@ -46,7 +46,7 @@ export class Combat {
     this.tmp2 = new THREE.Vector3();
   }
 
-  get samuraiLeft() { return this.samurai.filter(s => s.alive).length; }
+  get samuraiLeft() { return this.samurai.filter(s => s.alive && !s.guard).length; }   // camp guards don't count
 
   // ---------- levels ----------
 
@@ -59,6 +59,7 @@ export class Combat {
     this.waveSize = Math.max(3, Math.round((L.startSamurai + L.extraPerLevel * (n - 1)) * L.waveSizeFactor));
     // A quiet spell first: the first wave marches out when the countdown ends.
     this.quiet = n === 1 ? L.firstQuietSeconds : this.quietTime();
+    this.postGuards();
     hud.banner(`Level ${n}`, 2);
     const M = this.samuraiCfg.mix;
     if (n === M.archerFromLevel) hud.toast('Samurai archers (green)! Watch the red line and step out of the way.', 5);
@@ -114,6 +115,23 @@ export class Combat {
       }
     }
     if (marched) sfx.warHorn?.();
+  }
+
+  // Fill the camp's guard posts (more guards each level, up to a maximum).
+  postGuards() {
+    const O = this.world.outpost, L = this.levelsCfg;
+    if (!O || this.vs) return;
+    const want = Math.min(L.maxGuards, L.guards + L.guardsPerLevel * (this.level - 1), O.posts.length);
+    const taken = new Set(this.samurai.filter(s => s.alive && s.guard).map(s => s.guard.index));
+    for (let i = 0; i < want; i++) {
+      if (taken.has(i)) continue;
+      const post = O.posts[i];
+      const s = this.enlist(new Samurai(this.scene, this.world, this.samuraiCfg, post.x, post.z, this.toughness, 0, this.pickKind(), 5));
+      s.leash = { x: O.x, z: O.z, r: O.wall + L.guardRange, camp: 0 };
+      s.guard = { index: i, post, patrol: post.patrol, out: false, wait: Math.random() * 3 };
+      s.startOnGround(0);
+      s.facing = Math.atan2(post.patrol.x - post.x, post.patrol.z - post.z);
+    }
   }
 
   // What the bar at the top says.
