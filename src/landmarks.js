@@ -282,11 +282,13 @@ export function buildLandmarks(world, scene) {
   const rnd = makeRandom(world.cfg.seed + 5);
   const T = world.templeSpot;
   const spots = [
-    { build: buildPlane, x: -30, z: -18, yaw: 0.6 },
+    { build: buildPlane, x: -50, z: -12, yaw: 0.6 },
     { build: () => buildTemple(rnd), x: T.x, z: T.z, yaw: 0.3, flatTop: true },
-    { build: () => buildHut(rnd), x: -12, z: 38, yaw: 0.4 },
-    { build: () => buildHut(rnd), x: 38, z: 6, yaw: 2.1 },
-    { build: () => buildHut(rnd), x: -40, z: 18, yaw: 1.2 },
+    { build: () => buildHut(rnd), x: -18, z: 60, yaw: 0.4 },
+    { build: () => buildHut(rnd), x: 58, z: 12, yaw: 2.1 },
+    { build: () => buildHut(rnd), x: 42, z: 62, yaw: 2.8 },
+    { build: () => buildHut(rnd), x: -62, z: -62, yaw: 0.9 },
+    { build: () => buildHut(rnd), x: -62, z: 30, yaw: 1.2 },
   ];
   world.landmarks = [];
   world.hideouts = [];   // places to hide: samurai lose track of you in here (unless they're right next to you)

@@ -7,7 +7,7 @@ import { addCutaway } from './world.js';
 const HEIGHT = 4;      // platform height above the ground at the trunk
 const RADIUS = 2.4;    // how far from the trunk you can stand
 
-export function buildTreehouses(world, scene, count = 5) {
+export function buildTreehouses(world, scene, count = 7) {
   const wood = addCutaway(new THREE.MeshStandardMaterial({ color: 0x6b4a2a, roughness: 0.85 }));
   const darkWood = addCutaway(new THREE.MeshStandardMaterial({ color: 0x4a3018, roughness: 0.9 }));
   const rope = addCutaway(new THREE.MeshStandardMaterial({ color: 0xb59a68, roughness: 0.9 }));
@@ -21,7 +21,7 @@ export function buildTreehouses(world, scene, count = 5) {
   trees.sort((a, b) => (a.x * 7.13 + a.z * 3.71) % 1 - (b.x * 7.13 + b.z * 3.71) % 1);   // fixed shuffle
   for (const t of trees) {
     if (picks.length >= count) break;
-    if (picks.some(p => Math.hypot(p.x - t.x, p.z - t.z) < 22)) continue;
+    if (picks.some(p => Math.hypot(p.x - t.x, p.z - t.z) < 32)) continue;
     picks.push(t);
   }
 

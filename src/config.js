@@ -9,18 +9,18 @@ export const LOW_GRAPHICS = new URLSearchParams(location.search).has('low');
 export const CONFIG = {
   world: {
     seed: 7,              // change for a different jungle layout
-    size: 120,            // jungle width and depth in meters
-    giantTrees: 90,
-    palmTrees: 60,
-    brokenTrees: 24,      // dead leaning trees that can fall on you
-    fallenLogs: 16,
-    rocks: 50,
-    ferns: LOW_GRAPHICS ? 180 : 380,
-    bigLeafPlants: LOW_GRAPHICS ? 60 : 140,
-    puddles: 40,
+    size: 180,            // jungle width and depth in meters (landmarks are placed for 180; was 120)
+    giantTrees: 190,
+    palmTrees: 125,
+    brokenTrees: 44,      // dead leaning trees that can fall on you
+    fallenLogs: 32,
+    rocks: 100,
+    ferns: LOW_GRAPHICS ? 380 : 800,
+    bigLeafPlants: LOW_GRAPHICS ? 120 : 300,
+    puddles: 80,
     // The samurai camp. Waves march out of it; past the red-ribboned posts (territory meters
     // from the camp) no more samurai come, so you can explore.
-    outpost: { x: -6, z: -30, territory: 38, fireDamage: 25 },   // fireDamage: health per second standing in the campfire
+    outpost: { x: -10, z: -48, territory: 58, wall: 15, fireDamage: 25 },   // fireDamage: health per second standing in the campfire
   },
 
   weather: {

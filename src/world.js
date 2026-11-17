@@ -160,8 +160,9 @@ export class World {
     this.canopySpots = [];        // undersides of the big trees' leaves, where vines can hang from
     this.bigTrees = [];           // the giant trees (some get treehouses)
     this.rnd = makeRandom(cfg.seed);
-    this.templeSpot = { x: 30, z: -28 };
-    this.templeTop = this.baseHeight(30, -28) + 3.5;
+    this.k = cfg.size / 120;      // the land was first designed 120 m wide; everything is spread out by this much
+    this.templeSpot = { x: 45 * this.k / 1.5, z: -42 * this.k / 1.5 };
+    this.templeTop = this.baseHeight(this.templeSpot.x, this.templeSpot.z) + 3.5;
     this.reserved = [];           // areas kept clear for ruins and the plane wreck
     this.outpostSpot = cfg.outpost;
     this.outpostY = this.baseHeight(cfg.outpost.x, cfg.outpost.z);
@@ -171,14 +172,15 @@ export class World {
   // ---------- the shape of the land ----------
 
   // A stream winds across the jungle from west to east. This is its middle line.
-  streamZ(x) { return 16 + 11 * Math.sin(x * 0.05 + 0.4) + 4 * Math.sin(x * 0.13 + 1.3); }
+  streamZ(x) { const u = x / this.k; return this.k * (16 + 11 * Math.sin(u * 0.05 + 0.4) + 4 * Math.sin(u * 0.13 + 1.3)); }
 
   // Is this spot inside a hideout (temple ruins, collapsed hut)?
   inHideout(x, z) { return (this.hideouts || []).some(h => Math.hypot(h.x - x, h.z - z) < h.r); }
 
   // Distance from the middle of the stream.
   streamDist(x, z) {
-    const slope = 0.55 * Math.cos(x * 0.05 + 0.4) + 0.52 * Math.cos(x * 0.13 + 1.3);
+    const u = x / this.k;
+    const slope = 0.55 * Math.cos(u * 0.05 + 0.4) + 0.52 * Math.cos(u * 0.13 + 1.3);
     return Math.abs(z - this.streamZ(x)) / Math.sqrt(1 + slope * slope);
   }
 
@@ -261,7 +263,7 @@ export class World {
     const color = new THREE.Color();
 
     // --- ground ---
-    const seg = 160;
+    const seg = Math.round(this.size * 4 / 3);   // same ground detail per meter at any size
     const ground = new THREE.PlaneGeometry(this.size, this.size, seg, seg);
     ground.rotateX(-Math.PI / 2);
     const gp = ground.attributes.position;
