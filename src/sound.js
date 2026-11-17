@@ -170,6 +170,10 @@ export const sfx = {
     burst({ type: 'lowpass', freq: 600, q: 1, gain: 0.6, decay: 0.08 });
   },
   parry() { tone(2400, 2200, 0.05, 0.25, 'triangle'); tone(3600, 3300, 0.03, 0.18, 'sine', { delay: 0.01 }); },   // steel ringing on steel
+  warHorn() {   // a conch-shell horn from the camp: the next wave is coming
+    tone(155, 150, 0.16, 1.3, 'sawtooth', { attack: 0.25, verb: 0.5 });
+    tone(310, 300, 0.06, 1.2, 'triangle', { attack: 0.3, verb: 0.5 });
+  },
   swing() {   // samurai sword swing
     burst({ type: 'bandpass', freq: 600, freqEnd: 2800, q: 3, gain: 0.35, attack: 0.06, decay: 0.18 });
   },

@@ -63,6 +63,23 @@ export class Minimap {
       c.beginPath(); c.arc(px, py, Math.max(1.5, rad * scale), 0, Math.PI * 2); c.fill();
     }
 
+    // Samurai territory (dashed red ring) and their camp (red flag).
+    const O = this.world.outpost;
+    if (O && actors.territory !== false) {
+      const [ox, oy] = map(O.x, O.z);
+      c.save();
+      c.strokeStyle = 'rgba(255,70,60,0.75)'; c.lineWidth = 1.5; c.setLineDash([4, 4]);
+      c.beginPath(); c.arc(ox, oy, O.r * scale, 0, Math.PI * 2); c.stroke();
+      c.setLineDash([]);
+      c.fillStyle = 'rgba(160,30,25,0.35)';
+      c.beginPath(); c.arc(ox, oy, O.wall * scale, 0, Math.PI * 2); c.fill();
+      c.strokeStyle = '#3b281a'; c.lineWidth = 1.5;   // flag pole
+      c.beginPath(); c.moveTo(ox, oy + 6); c.lineTo(ox, oy - 7); c.stroke();
+      c.fillStyle = '#e8312a';
+      c.beginPath(); c.moveTo(ox, oy - 7); c.lineTo(ox + 8, oy - 4.5); c.lineTo(ox, oy - 2); c.closePath(); c.fill();
+      c.restore();
+    }
+
     // Hideouts (green rings) and treehouses (brown squares with a ladder dot).
     c.strokeStyle = 'rgba(125,255,154,0.7)'; c.lineWidth = 1.5;
     for (const h of this.world.hideouts || []) {

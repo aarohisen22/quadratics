@@ -101,7 +101,8 @@ export class Ronin extends Samurai {
     const D = this.cfg.attacks.dash;
     // From the middle distance, start a dash instead of walking up.
     if (this.state === 'chase' && this.dashCd <= 0) {
-      const t = players.filter(p => p.alive && !p.perch && !p.climb)
+      const t = players.filter(p => p.alive && !p.perch && !p.climb
+          && (!this.leash || Math.hypot(p.pos.x - this.leash.x, p.pos.z - this.leash.z) < this.leash.r))
         .map(p => ({ p, d: Math.hypot(p.pos.x - this.pos.x, p.pos.z - this.pos.z) }))
         .filter(o => o.d > D.minRange && o.d < D.maxRange && (o.p.revealed > 0 || !this.world.inHideout(o.p.pos.x, o.p.pos.z)))
         .sort((a, b) => a.d - b.d)[0];

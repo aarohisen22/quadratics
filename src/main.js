@@ -307,11 +307,11 @@ function step(dt) {
   effects.update(dt);
   foam.update(dt, [...players, ...combat.samurai]);
   const status = mode === 'vs' && state !== 'menu' ? versus.text
-    : combat.level > 0 ? `Level ${combat.level} · Wave ${combat.wave}/${combat.waveTotal} · Samurai left: ${combat.samuraiLeft}` : '';
+    : combat.statusText();
   hud.update(dt, players, status);
   minimap.show(state !== 'menu');
   pauseBtn.classList.toggle('hidden', state === 'menu');
-  minimap.update(dt, camera, { players, samurai: combat.samurai, crates: drops.crates, boss: combat.boss });
+  minimap.update(dt, camera, { players, samurai: combat.samurai, crates: drops.crates, boss: combat.boss, territory: mode !== 'vs' });
   hud.bossBar(state === 'menu' ? null : combat.boss);
   updatePadInfo(dt);
   renderer.render(scene, camera);

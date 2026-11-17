@@ -1,6 +1,7 @@
 // The jungle: ground, trees, plants, rocks, logs and puddles.
 import * as THREE from 'three';
 import { buildLandmarks } from './landmarks.js';
+import { buildOutpost } from './outpost.js';
 
 // ---------- small helpers ----------
 
@@ -162,6 +163,8 @@ export class World {
     this.templeSpot = { x: 30, z: -28 };
     this.templeTop = this.baseHeight(30, -28) + 3.5;
     this.reserved = [];           // areas kept clear for ruins and the plane wreck
+    this.outpostSpot = cfg.outpost;
+    this.outpostY = this.baseHeight(cfg.outpost.x, cfg.outpost.z);
     this.build(scene);
   }
 
@@ -211,6 +214,12 @@ export class World {
       h += 3.5 * (1 - smoothstep(7, 18, dt));
       h += (this.templeTop - h) * (1 - smoothstep(6.5, 9, dt));   // level the top
     }
+    // The samurai camp sits on a levelled clearing.
+    const O = this.outpostSpot;
+    if (O) {
+      const d = Math.hypot(x - O.x, z - O.z);
+      if (d < 16) h += (this.outpostY - h) * (1 - smoothstep(11, 16, d));
+    }
     return h;
   }
 
@@ -258,7 +267,7 @@ export class World {
     const gp = ground.attributes.position;
     const colors = new Float32Array(gp.count * 3);
     const mud = new THREE.Color(0x3a2c1f), moss = new THREE.Color(0x2c4a1f), litter = new THREE.Color(0x4f3c22);
-    const wetMud = new THREE.Color(0x261f16), pebbles = new THREE.Color(0x4a4639), stone = new THREE.Color(0x6d6b60);
+    const wetMud = new THREE.Color(0x261f16), pebbles = new THREE.Color(0x4a4639), stone = new THREE.Color(0x6d6b60), trampled = new THREE.Color(0x4a3a28);
     for (let i = 0; i < gp.count; i++) {
       const x = gp.getX(i), z = gp.getZ(i);
       gp.setY(i, this.heightAt(x, z));
@@ -269,6 +278,8 @@ export class World {
       if (sd < 7) color.lerp(sd < 4.5 ? pebbles : wetMud, (1 - smoothstep(3, 7, sd)) * 0.85);   // wet banks, pebbly bed
       const td = Math.hypot(x - this.templeSpot.x, z - this.templeSpot.z);
       if (td < 9) color.lerp(stone, (1 - smoothstep(6, 9, td)) * 0.9);                       // old stone floor
+      const od = Math.hypot(x - this.outpostSpot.x, z - this.outpostSpot.z);
+      if (od < 12) color.lerp(trampled, (1 - smoothstep(8, 12, od)) * 0.8);                  // trampled earth in the camp
       colors.set([color.r, color.g, color.b], i * 3);
     }
     ground.setAttribute('color', new THREE.BufferAttribute(colors, 3));
@@ -279,6 +290,7 @@ export class World {
 
     this.buildWater(scene);
     buildLandmarks(this, scene);   // ruins and the plane wreck (they reserve their space first)
+    buildOutpost(this, scene, cfg.outpost);
 
     // --- shared materials ---
     const barkMat = addCutaway(new THREE.MeshStandardMaterial({ roughness: 0.9 }));
@@ -580,6 +592,7 @@ export class World {
   }
 
   update(dt) {
+    this.outpost?.update(dt);
     if (this.waterTex) this.waterTex.offset.x -= dt * 0.25;   // the stream flows
     for (const s of this.mist) {
       s.position.x += s.userData.speed * dt;

@@ -292,6 +292,17 @@ export class Samurai {
     this.effects = null;                // set by combat, for the dust when he lands
   }
 
+  // Marching out of the camp instead of sliding down a vine: no vine, he waits his turn (holdSeconds)
+  // standing in the camp, then comes out of the gate.
+  startOnGround(holdSeconds = 0) {
+    if (this.vine) { this.scene.remove(this.vine); this.vine = null; }
+    this.state = 'chase';
+    this.timer = 0;
+    this.holdT = holdSeconds;
+    this.pos.y = this.world.heightAt(this.pos.x, this.pos.z);
+    this.root.position.copy(this.pos);
+  }
+
   // Sliding down the vine; can't be hit and doesn't attack until his feet touch the ground.
   updateDescend(dt) {
     this.timer += dt;
@@ -363,6 +374,12 @@ export class Samurai {
     this.updateVine(dt);
     if (this.state === 'dead') return this.updateDead(dt);
     if (this.state === 'descend') return this.updateDescend(dt);
+    if (this.holdT > 0) {   // waiting in the camp for his turn to march out
+      this.holdT -= dt;
+      this.root.position.copy(this.pos);
+      this.root.rotation.y = this.facing;
+      return;
+    }
 
     // Find the closest ninja who is still standing and not hidden in smoke.
     // A samurai inside smoke can't see anyone at all.
@@ -371,6 +388,8 @@ export class Samurai {
     let target = null, best = Infinity;
     for (const p of players) {
       if (!p.alive || blind) continue;
+      // Too far from the camp: he gives up on you.
+      if (this.leash && Math.hypot(p.pos.x - this.leash.x, p.pos.z - this.leash.z) > this.leash.r) continue;
       const spotted = p.revealed > 0;   // he just fired a gun: everyone knows where he is
       if (!spotted && inSmoke(p.pos.x, p.pos.z)) continue;
       const d = Math.hypot(p.pos.x - this.pos.x, p.pos.z - this.pos.z);
@@ -461,7 +480,14 @@ export class Samurai {
       }
     }
 
-    if (!target) {   // lost: wander about slowly
+    const L = this.leash;
+    const home = L && Math.hypot(this.pos.x - L.x, this.pos.z - L.z);
+    if (!target && L && home > L.camp) {   // nobody to fight: walk back to the camp
+      const hx = (L.x - this.pos.x) / home, hz = (L.z - this.pos.z) / home;
+      moveX = hx * 0.6; moveZ = hz * 0.6;
+      const want = Math.atan2(hx, hz);
+      this.facing += Math.atan2(Math.sin(want - this.facing), Math.cos(want - this.facing)) * (1 - Math.exp(-5 * dt));
+    } else if (!target) {   // lost: wander about slowly
       this.wanderT = (this.wanderT || 0) - dt;
       if (this.wanderT <= 0) { this.wanderT = 1 + Math.random() * 1.5; this.wanderDir = Math.random() * Math.PI * 2; }
       moveX = Math.sin(this.wanderDir) * 0.35;

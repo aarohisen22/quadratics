@@ -18,6 +18,9 @@ export const CONFIG = {
     ferns: LOW_GRAPHICS ? 180 : 380,
     bigLeafPlants: LOW_GRAPHICS ? 60 : 140,
     puddles: 40,
+    // The samurai camp. Waves march out of it; past the red-ribboned posts (territory meters
+    // from the camp) no more samurai come, so you can explore.
+    outpost: { x: -6, z: -30, territory: 38 },
   },
 
   weather: {
@@ -179,6 +182,12 @@ export const CONFIG = {
     waveSizeFactor: 0.75, // waves are a bit smaller than a whole level used to be
     toughnessPerLevel: 0.15, // +15% health and damage each level
     refillAmmoOnLevelUp: false, // supply crates bring ammo now
+    // Quiet time: after you beat a wave, nothing comes for a while (a countdown shows how long).
+    firstQuietSeconds: 15,  // before the very first wave
+    quietSeconds: [30, 40], // between waves (a random time in this range)
+    // The countdown only runs while someone is inside samurai territory.
+    fromCamp: 0.6,          // share of each wave that marches out of the camp gate (the rest slide down vines)
+    leashExtra: 8,          // samurai give up chasing you this far past the territory posts and go back to camp
   },
 
   fps: {

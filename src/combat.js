@@ -57,7 +57,8 @@ export class Combat {
     this.wave = 0;
     this.toughness = 1 + L.toughnessPerLevel * (n - 1);
     this.waveSize = Math.max(3, Math.round((L.startSamurai + L.extraPerLevel * (n - 1)) * L.waveSizeFactor));
-    this.spawnWave(players);
+    // A quiet spell first: the first wave marches out when the countdown ends.
+    this.quiet = n === 1 ? L.firstQuietSeconds : this.quietTime();
     hud.banner(`Level ${n}`, 2);
     const M = this.samuraiCfg.mix;
     if (n === M.archerFromLevel) hud.toast('Samurai archers (green)! Watch the red line and step out of the way.', 5);
@@ -65,18 +66,64 @@ export class Combat {
     this.onLevelStart?.(n, hud);
   }
 
+  quietTime() {
+    const [a, b] = this.levelsCfg.quietSeconds;
+    return a + Math.random() * (b - a);
+  }
+
+  // Is this spot inside samurai territory (inside the red-ribboned posts around the camp)?
+  inTerritory(pos) {
+    const O = this.world.outpost;
+    return !O || Math.hypot(pos.x - O.x, pos.z - O.z) < O.r;
+  }
+
+  // Every samurai belongs to the camp: he won't chase you far outside its territory.
+  enlist(s) {
+    const O = this.world.outpost;
+    if (O && !this.vs) s.leash = { x: O.x, z: O.z, r: O.r + this.levelsCfg.leashExtra, camp: O.wall * 0.6 };
+    s.effects = this.effects;
+    s.shoot = (from, dir, damage) => this.fireArrow(from, dir, damage);
+    this.samurai.push(s);
+    return s;
+  }
+
   spawnWave(players) {
     this.wave++;
-    this.waveTimer = 0;
+    this.quiet = null;
+    const O = this.world.outpost;
+    const fromCamp = O && !this.vs ? Math.round(this.waveSize * this.levelsCfg.fromCamp) : 0;
+    let marched = 0, dropped = 0;
     for (let i = 0; i < this.waveSize; i++) {
-      const spot = this.spawnSpot(players);
-      // They come down their vines one after another, not all at once.
-      const s = new Samurai(this.scene, this.world, this.samuraiCfg, spot.x, spot.z, this.toughness,
-        i * 0.45 + Math.random() * 0.3, this.pickKind(), spot.vineTop);
-      s.effects = this.effects;
-      s.shoot = (from, dir, damage) => this.fireArrow(from, dir, damage);
-      this.samurai.push(s);
+      if (i < fromCamp) {
+        // Lined up inside the gate, then they march out one after another.
+        const inward = Math.atan2(O.z - O.gate.z, O.x - O.gate.x);
+        const row = Math.floor(marched / 3), col = (marched % 3) - 1;
+        const x = O.gate.x + Math.cos(inward) * (1.5 + row * 1.3) - Math.sin(inward) * col * 1.2;
+        const z = O.gate.z + Math.sin(inward) * (1.5 + row * 1.3) + Math.cos(inward) * col * 1.2;
+        const s = this.enlist(new Samurai(this.scene, this.world, this.samuraiCfg, x, z, this.toughness, 0, this.pickKind(), 5));
+        s.facing = inward + Math.PI;   // facing out of the gate
+        s.startOnGround(marched * 0.5);
+        marched++;
+      } else {
+        // The rest come down their vines near you, one after another.
+        const spot = this.spawnSpot(players);
+        this.enlist(new Samurai(this.scene, this.world, this.samuraiCfg, spot.x, spot.z, this.toughness,
+          dropped * 0.45 + Math.random() * 0.3, this.pickKind(), spot.vineTop));
+        dropped++;
+      }
     }
+    if (marched) sfx.warHorn?.();
+  }
+
+  // What the bar at the top says.
+  statusText() {
+    if (this.level <= 0) return '';
+    const head = `Level ${this.level}`;
+    if (this.quiet != null) {
+      if (!this.someoneInside) return `${head} · Outside samurai territory: exploring`;
+      return `${head} · ${this.pendingBoss ? 'Boss' : `Wave ${this.wave + 1}/${this.waveTotal}`} coming in ${Math.ceil(this.quiet)}s`;
+    }
+    return `${head} · Wave ${this.wave}/${this.waveTotal} · Samurai left: ${this.samuraiLeft}`;
   }
 
   // Which boss comes after this level: the Ronin after 3, 8, 13..., the Oni Warlord after 5, 10, 15...
@@ -93,10 +140,8 @@ export class Combat {
     this.bossFor = this.level;
     const spot = this.spawnSpot(players);
     if (type === 'ronin') {
-      const ronin = new Ronin(this.scene, this.world, this.roninCfg, spot.x, spot.z,
-        Math.floor((this.level - B.roninAt) / B.every) + 1, spot.vineTop);
-      ronin.effects = this.effects;
-      this.samurai.push(ronin);
+      const ronin = this.enlist(new Ronin(this.scene, this.world, this.roninCfg, spot.x, spot.z,
+        Math.floor((this.level - B.roninAt) / B.every) + 1, spot.vineTop));
       this.bossName = ronin.bossName;
       hud.banner('The Twin-blade Ronin!', 3);
       hud.toast('He blocks and dodges! Hit him while he winds up an attack. Red streak = dash: step aside, a shuriken stops him.', 6);
@@ -109,14 +154,11 @@ export class Combat {
     boss.onSummon = b => {   // at half health he calls for help
       for (let i = 0; i < B.summon; i++) {
         const sp = this.spawnSpot(players, b.pos, 3, 14);
-        const s = new Samurai(this.scene, this.world, this.samuraiCfg, sp.x, sp.z, this.toughness, 0.3 + i * 0.4, this.pickKind(), sp.vineTop);
-        s.effects = this.effects;
-        s.shoot = (from, dir, damage) => this.fireArrow(from, dir, damage);
-        this.samurai.push(s);
+        this.enlist(new Samurai(this.scene, this.world, this.samuraiCfg, sp.x, sp.z, this.toughness, 0.3 + i * 0.4, this.pickKind(), sp.vineTop));
       }
       hud.toast('The Warlord calls for help! Samurai are coming down the vines!', 4);
     };
-    this.samurai.push(boss);
+    this.enlist(boss);
     hud.banner('The Oni Warlord!', 3);
     hud.toast('Big club swing: back off. Red ring on the ground: get out of it!', 5);
   }
@@ -230,6 +272,10 @@ export class Combat {
     this.effects.clearSmoke();
     this.betweenLevels = 0;
     this.bossFor = 0;
+    this.quiet = null;          // seconds of quiet left before the next wave (null = a wave is on)
+    this.pendingBoss = null;    // 'ronin' / 'warlord' waiting for the quiet spell to end
+    this.someoneInside = undefined;
+    this.toldReveal = false;
   }
 
   // ---------- each frame ----------
@@ -296,17 +342,41 @@ export class Combat {
     for (const s of this.samurai) s.update(dt, players, this.samurai, this.smokes);
     this.samurai = this.samurai.filter(s => !s.gone);
 
-    // Next wave: when this one is almost beaten, or after 35 seconds.
-    if (!this.vs && this.level > 0 && this.wave < this.waveTotal && players.some(p => p.alive)) {
-      this.waveTimer += dt;
-      if (this.samuraiLeft <= 1 || this.waveTimer > 35) {
-        this.spawnWave(players);
-        hud.toast(`Wave ${this.wave} of ${this.waveTotal}: more samurai coming!`);
+    // Samurai territory: tell them when they cross the red-ribboned posts.
+    const anyAlive = players.some(p => p.alive);
+    const inside = players.some(p => p.alive && this.inTerritory(p.pos));
+    if (!this.vs && this.level > 0 && anyAlive && this.world.outpost) {
+      if (this.someoneInside === true && !inside) hud.toast('You left samurai territory. No more samurai will come until you go back past the red ribbons.', 5);
+      if (this.someoneInside === false && inside) hud.toast('Back in samurai territory!', 3);
+    }
+    this.someoneInside = inside;
+
+    // Waves: when one is beaten there's a quiet spell, then the next marches out of the camp.
+    // The countdown only runs while someone is inside samurai territory.
+    if (!this.vs && this.level > 0 && anyAlive && this.betweenLevels === 0) {
+      const more = this.wave < this.waveTotal || this.pendingBoss;
+      if (more && this.samuraiLeft === 0) {
+        if (this.quiet == null) {
+          this.quiet = this.quietTime();
+          hud.toast(`Wave beaten! Quiet for a while: explore, find crates. The next ${this.pendingBoss ? 'fight' : 'wave'} comes when the countdown ends.`, 5);
+        }
+        if (inside) this.quiet -= dt;
+        if (this.quiet <= 0) {
+          if (this.pendingBoss) {
+            const type = this.pendingBoss;
+            this.pendingBoss = null;
+            this.quiet = null;
+            this.startBoss(players, hud, type);
+          } else {
+            this.spawnWave(players);
+            hud.toast(`Wave ${this.wave} of ${this.waveTotal}: samurai are marching out of their camp!`);
+          }
+        }
       }
     }
 
     // Level cleared? Short pause, then the next one.
-    if (!this.vs && this.level > 0 && this.wave >= this.waveTotal && this.samuraiLeft === 0 && players.some(p => p.alive)) {
+    if (!this.vs && this.level > 0 && this.wave >= this.waveTotal && !this.pendingBoss && this.samuraiLeft === 0 && anyAlive) {
       if (this.betweenLevels === 0) {
         this.betweenLevels = 3;
         hud.banner(this.bossFor === this.level ? `The ${this.bossName} is defeated!` : 'Level cleared!', 2.5);
@@ -321,8 +391,13 @@ export class Combat {
         for (const p of players) if (!p.alive) p.revive(this.coopCfg.reviveOnNewLevel);
         const B = this.bossCfg;
         const type = this.bossTypeFor(this.level);
-        if (type && this.bossFor !== this.level) this.startBoss(players, hud, type);
-        else this.startLevel(this.level + 1, players, hud);
+        if (type && this.bossFor !== this.level) {
+          // The boss comes after a quiet spell too.
+          this.bossFor = this.level;
+          this.pendingBoss = type;
+          this.quiet = this.quietTime();
+          hud.toast(`Something big is coming from the camp... get ready!`, 4);
+        } else this.startLevel(this.level + 1, players, hud);
       }
     }
   }
