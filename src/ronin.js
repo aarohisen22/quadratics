@@ -19,6 +19,9 @@ export class Ronin extends Samurai {
     this.radius = 0.6;
     this.root.scale.setScalar(1.5);
     this.dashCd = 2;
+    this.dodgeCd = 0;
+    this.dodge = null;   // leaping aside: { x, z, t, len }
+    this.blockT = 0;     // swords raised to block
 
     // Dark purple armor, and a wide straw hat over the helmet.
     this.mats[0].color.set(0x3a2450);
@@ -43,8 +46,54 @@ export class Ronin extends Samurai {
   }
 
   // Bullets barely push him; a shuriken can still stop him mid wind-up.
-  hit(amount, dirX, dirZ, interrupt = false) {
+  // When he isn't attacking he blocks with his swords, parries the katana, or leaps aside.
+  hit(amount, dirX, dirZ, interrupt = false, attacker = null) {
+    if (!this.alive || this.state === 'descend') return false;
+    if (this.dodge) return false;   // mid-leap: nothing touches him
+    const D = this.cfg.defense;
+    const busy = this.state === 'windup' || this.state === 'strike';   // the moment to hit him
+    if (D && !busy) {
+      const len = Math.hypot(dirX, dirZ) || 1;
+      const fx = Math.sin(this.facing), fz = Math.cos(this.facing);
+      const facing = (-dirX * fx - dirZ * fz) / len > Math.cos((D.blockArcDegrees / 2) * Math.PI / 180);
+      const close = attacker && Math.hypot(attacker.pos.x - this.pos.x, attacker.pos.z - this.pos.z) < 3.5;
+      const melee = interrupt && close, thrown = interrupt && !close;
+      const r = Math.random();
+      if (facing && (melee ? r < D.katanaParry : thrown ? r < D.shurikenBlock : r < D.blockChance)) {
+        this.block(melee);
+        return false;
+      }
+      if (this.dodgeCd <= 0 && Math.random() < D.dodgeChance) {
+        this.startDodge(dirX / len, dirZ / len);
+        return false;
+      }
+    }
     return super.hit(amount, dirX * 0.3, dirZ * 0.3, interrupt);
+  }
+
+  // Swords up: sparks, a ring of steel, and after a katana parry a quick counter-jab.
+  block(melee) {
+    this.blockT = 0.18;
+    sfx.parry();
+    if (this.effects) {
+      const fx = Math.sin(this.facing), fz = Math.cos(this.facing);
+      this.effects.burst(new THREE.Vector3(this.pos.x + fx * 0.9, this.pos.y + 1.9, this.pos.z + fz * 0.9), 'spark', 8, { x: fx, z: fz });
+    }
+    if (melee && this.state !== 'recover') {
+      this.attack = 'jab';
+      this.state = 'windup';
+      this.timer = this.cfg.attacks.jab.windup * 0.6;   // the counter comes fast
+    }
+  }
+
+  // Leap sideways out of the line of fire.
+  startDodge(dx, dz) {
+    const D = this.cfg.defense;
+    const side = Math.random() < 0.5 ? 1 : -1;
+    this.dodge = { x: -dz * side, z: dx * side, t: 0, len: D.dodgeDistance };
+    this.dodgeCd = D.dodgeCooldown;
+    this.dashCd = Math.min(this.dashCd, 0.4);   // and he may come straight back at you with a dash
+    sfx.swing();
   }
 
   update(dt, players, others, smokes) {
@@ -68,7 +117,32 @@ export class Ronin extends Samurai {
       }
     }
 
+    this.dodgeCd -= dt;
+    this.blockT -= dt;
     super.update(dt, players, others, smokes);
+
+    // Leaping aside: a fast low hop, body leaning away.
+    if (this.dodge && this.alive) {
+      const D = this.cfg.defense, d = this.dodge;
+      const step = (d.len / D.dodgeSeconds) * dt;
+      d.t += dt;
+      this.pos.x += d.x * step; this.pos.z += d.z * step;
+      this.world.resolveCollision(this.pos, this.radius, this.pos.y + 1);
+      const k = Math.min(1, d.t / D.dodgeSeconds);
+      this.pos.y = this.world.heightAt(this.pos.x, this.pos.z);
+      this.root.position.set(this.pos.x, this.pos.y + Math.sin(k * Math.PI) * 0.6, this.pos.z);
+      // lean away from the way he's going (sideways relative to his facing)
+      const fx = Math.sin(this.facing), fz = Math.cos(this.facing);
+      const side = d.x * fz - d.z * fx;
+      this.body.rotation.z = Math.sin(k * Math.PI) * 0.45 * Math.sign(side);
+      if (this.effects && Math.random() < 0.4) this.effects.burst(new THREE.Vector3(this.pos.x, this.pos.y + 0.1, this.pos.z), 'dirt', 2);
+      if (d.t >= D.dodgeSeconds) { this.dodge = null; this.body.rotation.z = 0; }
+    }
+    // Blocking: both swords crossed up in front.
+    if (this.blockT > 0 && this.alive && this.state !== 'windup' && this.state !== 'strike') {
+      this.sword.rotation.set(-1.9, 0, 0.7);
+      this.leftArm.rotation.set(-1.9, 0, -0.7);
+    }
 
     const dashing = this.attack === 'dash' && this.alive;
     if (dashing && (this.state === 'windup' || this.state === 'strike')) {

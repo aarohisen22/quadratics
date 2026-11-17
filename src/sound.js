@@ -169,6 +169,7 @@ export const sfx = {
     metal(900, 0.25, 0.35, { verb: 0.5 });                                                          // blade on armor
     burst({ type: 'lowpass', freq: 600, q: 1, gain: 0.6, decay: 0.08 });
   },
+  parry() { tone(2400, 2200, 0.05, 0.25, 'triangle'); tone(3600, 3300, 0.03, 0.18, 'sine', { delay: 0.01 }); },   // steel ringing on steel
   swing() {   // samurai sword swing
     burst({ type: 'bandpass', freq: 600, freqEnd: 2800, q: 3, gain: 0.35, attack: 0.06, decay: 0.18 });
   },

@@ -99,7 +99,7 @@ export class Combat {
       this.samurai.push(ronin);
       this.bossName = ronin.bossName;
       hud.banner('The Twin-blade Ronin!', 3);
-      hud.toast('Red streak on the ground = he is about to dash through it. Step aside! A shuriken stops him.', 5);
+      hud.toast('He blocks and dodges! Hit him while he winds up an attack. Red streak = dash: step aside, a shuriken stops him.', 6);
       return;
     }
     const boss = new Boss(this.scene, this.world, B, spot.x, spot.z, this.level / B.every, spot.vineTop);

@@ -133,7 +133,7 @@ export const CONFIG = {
 
   // Bosses: the Twin-blade Ronin after levels 3, 8, 13... and the Oni Warlord after 5, 10, 15...
   ronin: {
-    health: 450, healthPerAppearance: 0.5,
+    health: 650, healthPerAppearance: 0.5,
     damage: 14, damagePerAppearance: 0.25,
     speed: 4.2, attackRange: 2.0,
     attacks: {
@@ -142,6 +142,18 @@ export const CONFIG = {
       // The dash: from 5-13 m away a red streak shows his path, then he dashes through it. Step aside!
       dash:  { chance: 0, windup: 0.7, damage: 1.6, range: 0, arc: 1, recover: 0.8, dash: true,
                minRange: 5, maxRange: 13, speed: 22, cooldown: 3.5 },
+    },
+    // He's a master swordsman: when he isn't busy attacking he blocks and dodges.
+    // Hit him while he winds up an attack (or crouches for a dash): then he can't defend.
+    defense: {
+      blockChance: 0.6,      // bullets / pellets he knocks away with his swords when he's facing you
+      blockArcDegrees: 150,  // how wide in front of him he can block
+      shurikenBlock: 0.5,    // chance he swats a shuriken out of the air
+      katanaParry: 0.35,     // chance he parries your katana (then strikes back fast)
+      dodgeChance: 0.35,     // chance a hit makes him leap aside instead
+      dodgeCooldown: 1.6,    // seconds between dodges
+      dodgeDistance: 3.4,
+      dodgeSeconds: 0.3,
     },
   },
 
