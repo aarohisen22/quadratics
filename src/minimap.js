@@ -151,9 +151,9 @@ export class Minimap {
     }
 
     // Samurai: red dots.
-    c.fillStyle = '#ff3b30';
     for (const s of actors.samurai || []) {
       if (!s.alive || s.hiddenOnMap || s.isBoss) continue;
+      c.fillStyle = s.mapColor || '#ff3b30';   // each rank has its own color
       const [px, py] = map(s.pos.x, s.pos.z);
       c.beginPath(); c.arc(px, py, 3, 0, Math.PI * 2); c.fill();
     }

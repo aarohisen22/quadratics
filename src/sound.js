@@ -238,8 +238,21 @@ export const sfx = {
     burst({ type: 'highpass', freq: 2500, freqEnd: 900, q: 0.7, gain: 0.15, decay: 0.25 });
   },
   arrowThunk() { burst({ type: 'lowpass', freq: 700, q: 2, gain: 0.45, decay: 0.08 }); },
-  nunchuckWhirl() { burst({ type: 'bandpass', freq: 700, freqEnd: 1400, q: 5, gain: 0.18, decay: 0.25 }); },
-  roar() {   // the Oni Warlord's war cry
+  teppo() {   // matchlock gun: a crack, a deep boom rolling away through the forest
+    burst({ type: 'highpass', freq: 1500, q: 0.6, gain: 0.7, decay: 0.04, verb: 0.6 });
+    burst({ type: 'lowpass', freq: 900, q: 0.7, gain: 1.0, decay: 0.45, verb: 1.0 });
+    tone(90, 28, 0.9, 0.5, 'sine', { verb: 0.7 });
+  },
+  matchFizz() { burst({ type: 'highpass', freq: 5000, q: 1, gain: 0.08, attack: 0.1, decay: 0.5 }); },   // the slow-match fizzing
+  naginata() {   // a long heavy blade sweeping round
+    burst({ type: 'bandpass', freq: 400, freqEnd: 1800, q: 2, gain: 0.4, attack: 0.1, decay: 0.3 });
+  },
+  taiko() {   // war drum: boom... boom-boom
+    [0, 0.45, 0.62].forEach(d => { tone(70, 42, 0.6, 0.45, 'sine', { delay: d, verb: 0.6 }); burst({ type: 'lowpass', freq: 250, q: 1, gain: 0.35, decay: 0.12, delay: d }); });
+  },
+  fanSignal() { tone(880, 880, 0.08, 0.15, 'triangle'); tone(660, 660, 0.08, 0.2, 'triangle', { delay: 0.16 }); },   // the lord's signal
+  arrowRain() { burst({ type: 'bandpass', freq: 2200, freqEnd: 900, q: 1.5, gain: 0.3, attack: 0.15, decay: 0.6 }); },  // a hiss of many arrows
+  roar() {   // a boss's war cry
     tone(120, 55, 0.35, 1.0, 'sawtooth', { verb: 0.5 });
     tone(90, 45, 0.3, 1.1, 'square', { verb: 0.5, delay: 0.05 });
     burst({ type: 'lowpass', freq: 400, freqEnd: 150, q: 1, gain: 0.35, decay: 0.8, verb: 0.4 });

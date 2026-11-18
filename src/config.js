@@ -103,19 +103,42 @@ export const CONFIG = {
       jab:   { chance: 0.35, windup: 0.28, damage: 0.6, range: 2.3, arc: 0.85, recover: 0.35 }, // fast poke: step aside
       slash: { chance: 0.40, windup: 0.45, damage: 1.0, range: 2.0, arc: -0.2, recover: 0.55 }, // wide sweep from the side: back off
       chop:  { chance: 0.25, windup: 0.80, damage: 1.8, range: 1.9, arc: 0.35, recover: 0.85 }, // big overhead: long warning, hurts most
-      // Nunchuck fighters only: a quick spin, then 3 fast hits.
-      combo: { chance: 0, windup: 0.22, damage: 0.35, range: 1.8, arc: 0.2, recover: 0.5, hits: 3, interval: 0.14 },
     },
-    // Kinds of samurai: health and speed compared with a sword samurai.
-    kinds: {
-      sword:    { health: 1,    speed: 1 },
-      archer:   { health: 0.8,  speed: 0.95 },
-      nunchuck: { health: 0.85, speed: 1.3 },
+    // The six ranks (the Daimyo and Shogun are bosses, set below). Health, speed and damage are
+    // times a plain samurai's. weapon: which set of attacks below they use.
+    ranks: {
+      ronin:    { jp: '浪人', en: 'Ronin',              health: 0.8, speed: 1.25, damage: 0.9, weapon: 'katana', quick: 0.85, dodge: 0.3 },
+      yari:     { jp: '足軽', en: 'Ashigaru spearman',  health: 0.6, speed: 0.95, damage: 0.8, weapon: 'yari' },
+      yumi:     { jp: '弓足軽', en: 'Ashigaru archer',  health: 0.55, speed: 0.95, damage: 0.8, weapon: 'bow' },
+      teppo:    { jp: '鉄砲足軽', en: 'Ashigaru gunner', health: 0.55, speed: 0.9, damage: 1.0, weapon: 'gun' },
+      samurai:  { jp: '侍', en: 'Samurai',              health: 1,   speed: 1,    damage: 1,   weapon: 'katana' },
+      hatamoto: { jp: '旗本', en: 'Hatamoto',           health: 2.5, speed: 0.95, damage: 1.3, weapon: 'naginata', block: 0.3 },
+    },
+    // Attacks for each weapon (same three moves: jab, slash, chop; numbers as in `attacks` above).
+    weaponAttacks: {
+      yari: {      // spear: a long straight thrust, or a wide sweep with the shaft
+        jab:   { chance: 0.65, windup: 0.5, damage: 1.0, range: 3.3, arc: 0.88, recover: 0.5 },
+        slash: { chance: 0.35, windup: 0.55, damage: 0.7, range: 2.8, arc: -0.1, recover: 0.6 },
+      },
+      naginata: {  // long curved blade: huge sweeps and a heavy overhead chop
+        slash: { chance: 0.6, windup: 0.55, damage: 1.0, range: 3.0, arc: -0.35, recover: 0.6 },
+        chop:  { chance: 0.4, windup: 0.85, damage: 1.7, range: 3.1, arc: 0.3, recover: 0.9 },
+      },
     },
     // Archers keep their distance, draw (a red line shows where the arrow will go), then shoot.
     archer: { keepAway: 7, shootRange: 15, drawSeconds: 0.9, reloadSeconds: 1.6, damage: 0.8, arrowSpeed: 16 },
-    // How many of each wave are archers / nunchuck fighters: 20% from their first level, +3% a level, at most 35% each.
-    mix: { archerFromLevel: 3, nunchuckFromLevel: 4, startShare: 0.2, sharePerLevel: 0.03, maxShare: 0.35 },
+    // Gunners aim for longer (red line, his aim locks for the last lockSeconds), then BANG: the shot is instant,
+    // so get off the line before it locks. Then a long reload.
+    gunner: { keepAway: 9, shootRange: 19, aimSeconds: 1.5, lockSeconds: 0.45, reloadSeconds: 3.2, damage: 1.8 },
+    // Which ranks come in each level (shares). Level 6 starts again from the top, tougher.
+    // (Step E of the Japan makeover ties these to the map's areas instead.)
+    rankMix: [
+      { ronin: 1 },
+      { yari: 0.5, yumi: 0.3, teppo: 0.2 },
+      { samurai: 0.6, yumi: 0.2, teppo: 0.2 },
+      { hatamoto: 0.4, samurai: 0.4, teppo: 0.2 },
+      { hatamoto: 0.6, samurai: 0.2, yari: 0.2 },
+    ],
   },
 
   hiding: {
@@ -136,44 +159,39 @@ export const CONFIG = {
     reviveOnNewLevel: 0.5, // a downed brother comes back with 50% health when a level starts
   },
 
-  // Bosses: the Twin-blade Ronin after levels 3, 8, 13... and the Oni Warlord after 5, 10, 15...
-  ronin: {
-    health: 650, healthPerAppearance: 0.5,
-    damage: 14, damagePerAppearance: 0.25,
-    speed: 4.2, attackRange: 2.0,
+  // Bosses: the Daimyo (a lord) after level 4 and the Shogun (the supreme ruler) after level 5;
+  // then the ranks start again, tougher, with the bosses after levels 9 and 10, and so on.
+  bosses: { every: 5, daimyoAfter: 4, shogunAfter: 5, toughnessPerRound: 0.4 },
+
+  // The Daimyo: jinbaori surcoat, big gold crest, war fan. Waves his fan to call arrow volleys
+  // (red circles on the ground: get out!), slams the ground with his great sword, calls hatamoto at half health.
+  daimyo: {
+    health: 1100, damage: 20, speed: 2.6, attackRange: 2.6, summon: 2,
     attacks: {
-      jab:   { chance: 0.45, windup: 0.25, damage: 0.8, range: 2.3, arc: 0.8, recover: 0.3 },
-      slash: { chance: 0.55, windup: 0.4, damage: 1.0, range: 2.3, arc: -0.1, recover: 0.45 },   // both swords sweep across
-      // The dash: from 5-13 m away a red streak shows his path, then he dashes through it. Step aside!
-      dash:  { chance: 0, windup: 0.7, damage: 1.6, range: 0, arc: 1, recover: 0.8, dash: true,
-               minRange: 5, maxRange: 13, speed: 22, cooldown: 3.5 },
-    },
-    // He's a master swordsman: when he isn't busy attacking he blocks and dodges.
-    // Hit him while he winds up an attack (or crouches for a dash): then he can't defend.
-    defense: {
-      blockChance: 0.6,      // bullets / pellets he knocks away with his swords when he's facing you
-      blockArcDegrees: 150,  // how wide in front of him he can block
-      shurikenBlock: 0.5,    // chance he swats a shuriken out of the air
-      katanaParry: 0.35,     // chance he parries your katana (then strikes back fast)
-      dodgeChance: 0.35,     // chance a hit makes him leap aside instead
-      dodgeCooldown: 1.6,    // seconds between dodges
-      dodgeDistance: 3.4,
-      dodgeSeconds: 0.3,
+      slash: { chance: 0.55, windup: 0.6, damage: 1.0, range: 3.0, arc: -0.1, recover: 0.7 },
+      chop:  { chance: 0.45, windup: 1.1, damage: 1.5, range: 3.2, arc: -1, recover: 1.1, slam: true, radius: 3.8 },
+      volley: { windup: 1.0, cooldown: 7, circles: 4, radius: 2.4, delay: 1.3, damage: 0.9 },
     },
   },
 
-  // The Oni Warlord mini boss: comes after every 5th level (5, 10, 15...).
-  boss: {
-    every: 5,
-    roninAt: 3,                               // the Ronin comes when level % every == roninAt (3, 8, 13...)
-    health: 800, healthPerAppearance: 0.5,   // +50% health each time he comes back
-    damage: 20, damagePerAppearance: 0.25,
-    speed: 2.3, attackRange: 3.0,
-    summon: 2,                                // samurai he calls in when he's down to half health
+  // The Shogun, final boss. Phase 1: sword duel, blocks and leaps aside. Phase 2 (below 2/3 health):
+  // also dashes (red streak) and calls gunners (red lanes across the ground, then a volley).
+  // Phase 3 (below 1/3): enraged: faster and quicker to strike.
+  shogun: {
+    health: 1600, damage: 18, speed: 3.6, attackRange: 2.3,
     attacks: {
-      slash: { chance: 0.6, windup: 0.7, damage: 1.0, range: 3.4, arc: -0.1, recover: 0.8 },               // wide club swing
-      chop:  { chance: 0.4, windup: 1.2, damage: 1.6, range: 3.5, arc: -1, recover: 1.2, slam: true, radius: 4 }, // ground slam (red ring)
+      jab:   { chance: 0.4, windup: 0.3, damage: 0.8, range: 2.6, arc: 0.8, recover: 0.35 },
+      slash: { chance: 0.4, windup: 0.45, damage: 1.0, range: 2.8, arc: -0.15, recover: 0.5 },
+      chop:  { chance: 0.2, windup: 0.75, damage: 1.6, range: 2.7, arc: 0.3, recover: 0.8 },
+      dash:  { chance: 0, windup: 0.75, damage: 1.5, range: 0, arc: 1, recover: 0.8, dash: true,
+               minRange: 5, maxRange: 14, speed: 22, cooldown: 4 },
+      lanes: { windup: 1.4, cooldown: 9, count: 3, width: 2.2, length: 26, damage: 1.4 },
     },
+    defense: {
+      blockChance: 0.5, blockArcDegrees: 150, shurikenBlock: 0.4, katanaParry: 0.3,
+      dodgeChance: 0.3, dodgeCooldown: 1.8, dodgeDistance: 3.4, dodgeSeconds: 0.3,
+    },
+    enraged: { speed: 1.3, windup: 0.75 },
   },
 
   levels: {

@@ -1,10 +1,21 @@
 // Fighting: Uzi bullets, thrown shurikens, and levels of samurai.
 import * as THREE from 'three';
 import { Samurai, buildArrow } from './samurai.js';
-import { Boss } from './boss.js';
-import { Ronin } from './ronin.js';
+import { Daimyo } from './daimyo.js';
+import { Shogun } from './shogun.js';
+import { bilingual } from './jptext.js';
 import { makeShurikenGeometry } from './models.js';
 import { sfx } from './sound.js';
+
+// The first time you meet each rank: Japanese name, then how to fight it.
+const RANK_TIPS = {
+  ronin:    ['浪人', 'Ronin! Masterless swordsmen: fast, and they leap aside. Hit them as they attack.'],
+  yari:     ['足軽・槍', 'Ashigaru spearmen: long reach! Get in close past the spear, or keep away.'],
+  yumi:     ['足軽・弓', 'Ashigaru archers: red line = arrow coming. Step out of it.'],
+  teppo:    ['足軽・鉄砲', 'Ashigaru gunners! Red line = aiming. When it goes solid, get off it: BANG!'],
+  samurai:  ['侍', 'Samurai: quick jab, wide side slash, and the big red-glowing chop.'],
+  hatamoto: ['旗本', 'Hatamoto bodyguards: tough, wide naginata sweeps, and they block. Hit them mid-swing.'],
+};
 
 // Where does a ray (in 2D, seen from above) first touch a circle? Returns distance or null.
 function rayCircle(ox, oz, dx, dz, cx, cz, r) {
@@ -24,8 +35,10 @@ export class Combat {
     this.effects = effects;
     this.weapons = config.weapons;
     this.samuraiCfg = config.samurai;
-    this.bossCfg = config.boss;
-    this.roninCfg = config.ronin;
+    this.bossesCfg = config.bosses;
+    this.daimyoCfg = { ...config.samurai, ...config.daimyo };
+    this.shogunCfg = { ...config.samurai, ...config.shogun };
+    this.seenRanks = new Set();   // which ranks the players have met (first time: a tip)
     this.bossFor = 0;   // the level whose boss fight has started
     this.levelsCfg = config.levels;
     this.coopCfg = config.coop;
@@ -60,10 +73,8 @@ export class Combat {
     // A quiet spell first: the first wave marches out when the countdown ends.
     this.quiet = n === 1 ? L.firstQuietSeconds : this.quietTime();
     this.postGuards();
+    this.hud = hud;
     hud.banner(`Level ${n}`, 2);
-    const M = this.samuraiCfg.mix;
-    if (n === M.archerFromLevel) hud.toast('Samurai archers (green)! Watch the red line and step out of the way.', 5);
-    if (n === M.nunchuckFromLevel) hud.toast('Nunchuck fighters (blue)! Fast and hit 3 times. Keep your distance!', 5);
     this.onLevelStart?.(n, hud);
   }
 
@@ -84,7 +95,14 @@ export class Combat {
     if (O && !this.vs) s.leash = { x: O.x, z: O.z, r: O.r + this.levelsCfg.leashExtra, camp: O.wall * 0.6 };
     s.effects = this.effects;
     s.shoot = (from, dir, damage) => this.fireArrow(from, dir, damage);
+    s.fire = (from, dir, damage, range) => this.fireGun(from, dir, damage, range);
     this.samurai.push(s);
+    // The first time each rank turns up, a tip on how to fight it.
+    if (!s.isBoss && !this.seenRanks.has(s.kind) && !this.vs) {
+      this.seenRanks.add(s.kind);
+      const tip = RANK_TIPS[s.kind];
+      if (tip) this.hud?.toast(bilingual(tip[0], tip[1]), 6);
+    }
     return s;
   }
 
@@ -145,53 +163,76 @@ export class Combat {
     return `${head} · Wave ${this.wave}/${this.waveTotal} · Samurai left: ${this.samuraiLeft}`;
   }
 
-  // Which boss comes after this level: the Ronin after 3, 8, 13..., the Oni Warlord after 5, 10, 15...
+  // Which boss comes after this level: the Daimyo after level 4, the Shogun after level 5 (then 9 and 10...).
   bossTypeFor(level) {
-    const B = this.bossCfg;
+    const B = this.bossesCfg;
     if (!B) return null;
-    if (level % B.every === 0) return 'warlord';
-    if (level % B.every === B.roninAt) return 'ronin';
+    const r = ((level - 1) % B.every) + 1;
+    if (r === B.daimyoAfter) return 'daimyo';
+    if (r === B.shogunAfter) return 'shogun';
     return null;
   }
 
-  startBoss(players, hud, type = 'warlord') {
-    const B = this.bossCfg;
+  startBoss(players, hud, type = 'daimyo') {
     this.bossFor = this.level;
-    const spot = this.spawnSpot(players);
-    if (type === 'ronin') {
-      const ronin = this.enlist(new Ronin(this.scene, this.world, this.roninCfg, spot.x, spot.z,
-        Math.floor((this.level - B.roninAt) / B.every) + 1, spot.vineTop));
-      this.bossName = ronin.bossName;
-      hud.banner('The Twin-blade Ronin!', 3);
-      hud.toast('He blocks and dodges! Hit him while he winds up an attack. Red streak = dash: step aside, a shuriken stops him.', 6);
-      return;
-    }
-    const boss = new Boss(this.scene, this.world, B, spot.x, spot.z, this.level / B.every, spot.vineTop);
+    // A lord doesn't slide down a vine: he marches out of the camp gate (or comes down the vine if there's no camp).
+    const O = !this.vs && this.world.outpost;
+    const spot = O ? { x: O.gate.x - Math.cos(O.gateAngle) * 2, z: O.gate.z - Math.sin(O.gateAngle) * 2, vineTop: 13 } : this.spawnSpot(players);
+    const Cls = type === 'shogun' ? Shogun : Daimyo;
+    const boss = new Cls(this.scene, this.world, type === 'shogun' ? this.shogunCfg : this.daimyoCfg, spot.x, spot.z, this.toughness, spot.vineTop);
+    if (O) { boss.startOnGround(0); boss.facing = O.gateAngle; }
     this.bossName = boss.bossName;
-    boss.effects = this.effects;
     boss.onShake = v => this.onShake?.(v);
-    boss.onSummon = b => {   // at half health he calls for help
-      for (let i = 0; i < B.summon; i++) {
-        const sp = this.spawnSpot(players, b.pos, 3, 14);
-        this.enlist(new Samurai(this.scene, this.world, this.samuraiCfg, sp.x, sp.z, this.toughness, 0.3 + i * 0.4, this.pickKind(), sp.vineTop));
-      }
-      hud.toast('The Warlord calls for help! Samurai are coming down the vines!', 4);
-    };
     this.enlist(boss);
-    hud.banner('The Oni Warlord!', 3);
-    hud.toast('Big club swing: back off. Red ring on the ground: get out of it!', 5);
+    sfx.taiko();
+    if (type === 'daimyo') {
+      boss.onSummon = b => {   // at half health he calls his bodyguards
+        for (let i = 0; i < this.daimyoCfg.summon; i++) {
+          const sp = this.spawnSpot(players, b.pos, 3, 14);
+          this.enlist(new Samurai(this.scene, this.world, this.samuraiCfg, sp.x, sp.z, this.toughness, 0.3 + i * 0.4, 'hatamoto', sp.vineTop));
+        }
+        hud.toast(bilingual('旗本、来い！', 'The Daimyo calls his hatamoto bodyguards!'), 4);
+      };
+      hud.banner(bilingual('大名', 'The Daimyo!'), 3);
+      hud.toast(bilingual('赤い円から逃げろ！', 'Fan raised = arrows coming: get out of the red circles! Red ring = ground slam.'), 6);
+    } else {
+      boss.onPhase = n => {
+        if (n === 2) hud.toast(bilingual('鉄砲隊！', 'He calls his gunners: get out of the red lanes! Red streak = dash.'), 5);
+        if (n === 3) hud.toast(bilingual('将軍の怒り！', 'The Shogun is enraged: faster and quicker to strike!'), 4);
+      };
+      hud.banner(bilingual('将軍', 'The Shogun!'), 3);
+      hud.toast(bilingual('隙を狙え！', 'He blocks and leaps aside: hit him while he winds up an attack!'), 6);
+    }
   }
 
   get boss() { return this.samurai.find(s => s.isBoss && s.alive) || null; }
 
-  // Sword samurai, archer or nunchuck fighter: more of the special kinds in later levels.
+  // Which rank of warrior: from this level's mix (config samurai.rankMix).
   pickKind() {
-    const M = this.samuraiCfg.mix, n = this.level;
-    const share = from => n >= from ? Math.min(M.maxShare, M.startShare + M.sharePerLevel * (n - from)) : 0;
-    const r = Math.random(), a = share(M.archerFromLevel);
-    if (r < a) return 'archer';
-    if (r < a + share(M.nunchuckFromLevel)) return 'nunchuck';
-    return 'sword';
+    const mixes = this.samuraiCfg.rankMix;
+    const mix = mixes[(Math.max(1, this.level) - 1) % mixes.length];
+    let r = Math.random() * Object.values(mix).reduce((a, b) => a + b, 0);
+    for (const [k, w] of Object.entries(mix)) { if ((r -= w) <= 0) return k; }
+    return Object.keys(mix)[0];
+  }
+
+  // ---------- gunners ----------
+  // A matchlock shot: instant, along the aim line. Smoke and a flash at the muzzle.
+  fireGun(from, dir, damage, range) {
+    const ninjas = this.players.filter(p => p.alive);
+    const hit = this.castRay(from.x, from.y, from.z, dir.x, dir.z, range, null, ninjas);
+    const end = new THREE.Vector3(from.x + dir.x * hit.dist, from.y + (dir.slope || 0) * hit.dist, from.z + dir.z * hit.dist);
+    this.effects.tracer(from.clone(), end);
+    this.effects.burst(from.clone(), 'spark', 6, { x: dir.x, z: dir.z });
+    this.effects.smokeCloud(from.x, from.y - 1.2, from.z, 0.9, 1.6);
+    if (hit.target) {
+      hit.target.hurt(damage);
+      hit.target.justHurt = true;
+      hit.target.vel.x += dir.x * 4; hit.target.vel.z += dir.z * 4;
+      sfx.hurt();
+    } else if (hit.obstacle) {
+      this.effects.burst(end, 'chip', 6);
+    }
   }
 
   // ---------- arrows ----------
@@ -422,7 +463,7 @@ export class Combat {
     if (!this.vs && this.level > 0 && this.wave >= this.waveTotal && !this.pendingBoss && this.samuraiLeft === 0 && anyAlive) {
       if (this.betweenLevels === 0) {
         this.betweenLevels = 3;
-        hud.banner(this.bossFor === this.level ? `The ${this.bossName} is defeated!` : 'Level cleared!', 2.5);
+        hud.banner(this.bossFor === this.level ? bilingual('勝利！', `${this.bossName.split(' ').pop()} defeated!`) : 'Level cleared!', 2.5);
         sfx.levelUp();
       }
       this.betweenLevels -= dt;
@@ -432,7 +473,6 @@ export class Combat {
           for (const p of players) { p.ammo = this.weapons.uziAmmo; p.shurikens = this.weapons.shurikens; }
         }
         for (const p of players) if (!p.alive) p.revive(this.coopCfg.reviveOnNewLevel);
-        const B = this.bossCfg;
         const type = this.bossTypeFor(this.level);
         if (type && this.bossFor !== this.level) {
           // The boss comes after a quiet spell too.

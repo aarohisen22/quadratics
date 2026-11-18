@@ -1,7 +1,9 @@
-// Samurai enemies: they chase the nearest ninja, raise their katana, then strike.
+// The warriors: ronin, ashigaru (spear, bow, gun), samurai and hatamoto. They chase the nearest ninja,
+// wind up (you get a warning), then strike. The bosses (daimyo.js, shogun.js) are built on this too.
 import * as THREE from 'three';
 import { part, buildKatana } from './models.js';
 import { sfx } from './sound.js';
+import { defend, updateDefense } from './bossmoves.js';
 
 // ---------- armor textures (shared by every samurai; each gets its own tinted material) ----------
 // Kebiki-odoshi armor: rows of lacquered plates laced together with silk cords. Drawn in white
@@ -101,51 +103,6 @@ function buildMenpo(mats) {
   return g;
 }
 
-// An Oni (demon) face mask in carved, painted lacquer: deep red, heavy brows, dark eye holes,
-// gilded teeth and horns. Built around the head's center, facing +z. The Oni Warlord wears it.
-export function buildOniMask(mats) {
-  const g = new THREE.Group();
-  const face = part(new THREE.SphereGeometry(0.195, 20, 14, 0, Math.PI, 0.3 * Math.PI, 0.62 * Math.PI), mats.oni);
-  face.scale.set(1, 1.05, 1.1);
-  g.add(face);
-  for (const s of [-1, 1]) {
-    const cheek = part(new THREE.SphereGeometry(0.06, 10, 8), mats.oni, s * 0.095, -0.04, 0.155);
-    cheek.scale.set(1, 0.85, 0.6);
-    g.add(cheek);
-    // Heavy carved brows knotted toward the middle.
-    const brow = part(new THREE.CapsuleGeometry(0.022, 0.08, 3, 6), mats.oni, s * 0.065, 0.085, 0.18);
-    brow.rotation.z = Math.PI / 2 + s * 0.45; brow.rotation.y = s * -0.3;
-    g.add(brow);
-    // Deep dark eye holes (no glow).
-    const eye = part(new THREE.SphereGeometry(0.026, 10, 6), mats.dark, s * 0.064, 0.04, 0.178);
-    eye.scale.set(1.5, 0.7, 0.5);
-    eye.castShadow = false;
-    g.add(eye);
-    // Flared nostrils.
-    g.add(part(new THREE.SphereGeometry(0.02, 8, 6), mats.oni, s * 0.025, -0.01, 0.205));
-  }
-  const nose = part(new THREE.ConeGeometry(0.035, 0.08, 6), mats.oni, 0, 0.0, 0.21);
-  nose.rotation.x = Math.PI / 2 + 0.5;
-  g.add(nose);
-  // Snarling mouth with gilded teeth and fangs.
-  g.add(part(new THREE.BoxGeometry(0.13, 0.045, 0.04), mats.dark, 0, -0.1, 0.175));
-  g.add(part(new THREE.BoxGeometry(0.11, 0.014, 0.02), mats.gold, 0, -0.085, 0.19));
-  for (const s of [-1, 1]) {
-    g.add(part(new THREE.ConeGeometry(0.014, 0.06, 5), mats.gold, s * 0.05, -0.095, 0.195));
-    const down = part(new THREE.ConeGeometry(0.011, 0.045, 5), mats.gold, s * 0.025, -0.09, 0.197);
-    down.rotation.z = Math.PI;
-    g.add(down);
-  }
-  // Two gilded horns sweeping up and out from the forehead.
-  for (const s of [-1, 1]) {
-    const horn = part(new THREE.ConeGeometry(0.035, 0.3, 8), mats.gold, s * 0.21, 0.26, 0.05);
-    horn.rotation.z = -s * 0.6;
-    horn.rotation.x = -0.2;
-    g.add(horn);
-  }
-  return g;
-}
-
 // ---------- weapons for the other kinds of samurai ----------
 const woodMat = new THREE.MeshStandardMaterial({ color: 0x5a3a1e, roughness: 0.6 });
 const darkWoodMat = new THREE.MeshStandardMaterial({ color: 0x2a1a10, roughness: 0.5 });
@@ -213,88 +170,151 @@ function buildQuiver() {
   return g;
 }
 
-// Nunchucks for the right hand: one stick held, a short chain, and a second stick that whirls.
-function buildNunchucks() {
+// A yari (spear): a long straight shaft with a narrow steel blade. Built along +y, the hand grips
+// a third of the way up from the butt (at the origin).
+function buildYari(steel) {
   const g = new THREE.Group();
-  g.add(part(new THREE.CylinderGeometry(0.022, 0.022, 0.3, 8), darkWoodMat, 0, -0.1, 0));
-  const pivot = new THREE.Group();
-  pivot.position.y = -0.26;
-  g.add(pivot);
-  for (let i = 0; i < 3; i++) pivot.add(part(new THREE.TorusGeometry(0.012, 0.004, 4, 8), chainMat, 0, -0.012 - i * 0.02, 0));
-  pivot.add(part(new THREE.CylinderGeometry(0.022, 0.022, 0.3, 8), darkWoodMat, 0, -0.21, 0));
-  g.userData.pivot = pivot;
+  g.add(part(new THREE.CylinderGeometry(0.02, 0.022, 3.0, 6), darkWoodMat, 0, 0.55, 0));
+  g.add(part(new THREE.CylinderGeometry(0.026, 0.026, 0.12, 6), tipMat, 0, 2.02, 0));            // collar
+  const blade = part(new THREE.ConeGeometry(0.03, 0.42, 4), steel, 0, 2.28, 0);
+  blade.scale.set(1, 1, 0.35);
+  g.add(blade);
+  g.add(part(new THREE.SphereGeometry(0.03, 6, 4), tipMat, 0, -0.95, 0));                       // butt cap
   return g;
 }
 
-const ARMOR = { sword: 0x8f1d1a, archer: 0x2f5a26, nunchuck: 0x2c3a8a };   // lacing colors: easy to tell apart from above
+// A naginata: a long pole with a curved blade on the end. Built along +y, gripped near the middle.
+function buildNaginata(steel) {
+  const g = new THREE.Group();
+  g.add(part(new THREE.CylinderGeometry(0.022, 0.024, 2.0, 6), darkWoodMat, 0, 0.35, 0));
+  g.add(part(new THREE.CylinderGeometry(0.03, 0.03, 0.08, 6), tipMat, 0, 1.36, 0));
+  const blade = buildKatana(0.62);
+  blade.position.y = 1.32;
+  blade.children[0].material = steel;
+  g.add(blade);
+  return g;
+}
 
-function buildSamurai(kind = 'sword') {
-  // Each samurai gets its own materials so it can flash and fade on its own.
+// A teppō (matchlock gun): long iron barrel on a dark wooden stock, with the match cord.
+// Built along +y: muzzle up the +y end, butt below the hand.
+function buildTeppo() {
+  const g = new THREE.Group();
+  g.add(part(new THREE.BoxGeometry(0.06, 0.62, 0.08), woodMat, 0, -0.08, 0));                  // stock
+  g.add(part(new THREE.CylinderGeometry(0.018, 0.022, 1.0, 8), chainMat, 0, 0.62, 0.02));      // barrel
+  g.add(part(new THREE.BoxGeometry(0.05, 0.08, 0.06), tipMat, 0.04, 0.05, 0.03));               // lock
+  const match = part(new THREE.SphereGeometry(0.012, 5, 4), new THREE.MeshBasicMaterial({ color: 0xff6a20 }), 0.06, 0.12, 0.06);
+  g.add(match);                                                                                // glowing match cord
+  g.userData.muzzleY = 1.12;
+  return g;
+}
+
+// What each rank looks like. lace: color of the armor lacing / main color seen from above.
+//  armor: 'laced' (samurai lamellar), 'plate' (ashigaru simple plates), null (ronin: no armor)
+//  helmet: 'kabuto', 'jingasa' (ashigaru cone hat), 'kasa' (ronin's deep straw hat)
+//  banner: null, 'small', 'normal', 'tall'
+const LOOKS = {
+  ronin:    { lace: 0x6e5a44, armor: null,     helmet: 'kasa',    mask: false, banner: null,     cloth: 0x4e4338, hakama: 0x39342e },
+  yari:     { lace: 0x3b3f46, armor: 'plate',  helmet: 'jingasa', mask: false, banner: 'small',  cloth: 0x2e3442, hakama: 0x2a2e38 },
+  yumi:     { lace: 0x3b3f46, armor: 'plate',  helmet: 'jingasa', mask: false, banner: 'small',  cloth: 0x2e3442, hakama: 0x2a2e38 },
+  teppo:    { lace: 0x3b3f46, armor: 'plate',  helmet: 'jingasa', mask: false, banner: 'small',  cloth: 0x2e3442, hakama: 0x2a2e38 },
+  samurai:  { lace: 0x8f1d1a, armor: 'laced',  helmet: 'kabuto',  mask: true,  banner: 'normal', cloth: 0x24212a, hakama: 0x2d2a33 },
+  hatamoto: { lace: 0xc9a040, armor: 'laced',  helmet: 'kabuto',  mask: true,  banner: 'tall',   cloth: 0x15141a, hakama: 0x1c1a22, gold: 0xe8bb4a, bigCrest: true },
+};
+// Dots on the minimap.
+export const MAP_COLORS = { ronin: '#d9a35a', yari: '#ff8a3a', yumi: '#ff8a3a', teppo: '#ff8a3a', samurai: '#ff3b30', hatamoto: '#ff2fb0' };
+
+function buildSamurai(kind = 'samurai') {
+  // Each warrior gets his own materials so he can flash and fade on his own.
   // (mats[0] = armor, [1] = dark, [2] = gold: the bosses recolor these.)
-  const tint = ARMOR[kind];
+  const L = LOOKS[kind] || LOOKS.samurai;
+  const tint = L.lace;
   const laced = (rows, cols) => new THREE.MeshStandardMaterial({ color: tint, map: lamellarTex(rows, cols), roughness: 0.45, metalness: 0.15, side: THREE.DoubleSide });
   const mats = {
-    armor: laced(5, 3),
+    armor: L.armor === 'plate' ? new THREE.MeshStandardMaterial({ color: 0x2c2a2a, roughness: 0.35, metalness: 0.35, side: THREE.DoubleSide }) : laced(5, 3),
     dark: new THREE.MeshStandardMaterial({ color: 0x17161a, roughness: 0.35, metalness: 0.3 }),
-    gold: new THREE.MeshStandardMaterial({ color: 0xb08a3a, roughness: 0.3, metalness: 0.85 }),
-    cloth: new THREE.MeshStandardMaterial({ color: 0x24212a, roughness: 0.9 }),
+    gold: new THREE.MeshStandardMaterial({ color: L.gold ?? 0xb08a3a, roughness: 0.3, metalness: 0.85 }),
+    cloth: new THREE.MeshStandardMaterial({ color: L.cloth, roughness: 0.9 }),
     steel: new THREE.MeshStandardMaterial({ color: 0xd0d6dc, roughness: 0.15, metalness: 0.95 }),
     iron: new THREE.MeshStandardMaterial({ color: 0x2b2522, roughness: 0.4, metalness: 0.55 }),
     hair: new THREE.MeshStandardMaterial({ color: 0x5b5148, roughness: 0.9 }),   // grey-brown horsehair
     skin: new THREE.MeshStandardMaterial({ color: 0xa8775a, roughness: 0.7 }),
     eye: new THREE.MeshStandardMaterial({ color: 0x0c0a09, roughness: 0.3 }),
-    hakama: new THREE.MeshStandardMaterial({ color: 0x2d2a33, roughness: 0.95 }),
+    hakama: new THREE.MeshStandardMaterial({ color: L.hakama, roughness: 0.95 }),
     lacquer: new THREE.MeshStandardMaterial({ color: 0xffffff, map: helmetTex(), roughness: 0.3, metalness: 0.3 }),
-    skirt: laced(4, 1),
+    skirt: L.armor === 'plate' ? null : laced(4, 1),
     sode: laced(6, 1),
     laceSmall: laced(3, 2),
-    banner: new THREE.MeshStandardMaterial({ color: tint, map: bannerTex(), roughness: 0.85, side: THREE.DoubleSide }),
+    banner: new THREE.MeshStandardMaterial({ color: kind === 'hatamoto' ? 0xf2e2b0 : tint, map: bannerTex(), roughness: 0.85, side: THREE.DoubleSide }),
+    straw: new THREE.MeshStandardMaterial({ color: 0xc4a35e, roughness: 0.95, side: THREE.DoubleSide }),
   };
-  mats.banner.color.lerp(new THREE.Color(0xffffff), 0.25);
+  if (!mats.skirt) mats.skirt = mats.armor;
+  if (kind !== 'hatamoto') mats.banner.color.lerp(new THREE.Color(0xffffff), 0.25);
   const root = new THREE.Group();
   const body = new THREE.Group();
   root.add(body);
   const small = m => { m.castShadow = false; return m; };
 
-  // --- torso: a dark undercoat, the laced cuirass (do) and a lacquered chest plate ---
+  // --- torso: a dark undercoat (a kimono for the ronin) ---
   const core = part(new THREE.CapsuleGeometry(0.22, 0.36, 4, 10), mats.cloth, 0, 1.32, 0);
   core.scale.set(1.2, 1, 0.82);
   body.add(core);
-  const dou = part(new THREE.CylinderGeometry(0.28, 0.255, 0.4, 18, 1, true), mats.armor, 0, 1.24, 0);
-  dou.scale.set(1, 1, 0.8);
-  body.add(dou);
-  const muna = part(new THREE.CylinderGeometry(0.25, 0.28, 0.08, 18, 1, false, -1.1, 2.2), mats.dark, 0, 1.475, 0);
-  muna.scale.set(1, 1, 0.8);
-  body.add(muna);
-  // Silk obi sash and the cords tying the cuirass.
-  const obi = part(new THREE.CylinderGeometry(0.265, 0.265, 0.07, 18), mats.cloth, 0, 1.06, 0);
+  if (L.armor) {
+    // Cuirass (do): laced plates for samurai, plain lacquered iron for ashigaru.
+    const dou = part(new THREE.CylinderGeometry(0.28, 0.255, 0.4, 18, 1, true), mats.armor, 0, 1.24, 0);
+    dou.scale.set(1, 1, 0.8);
+    body.add(dou);
+    const muna = part(new THREE.CylinderGeometry(0.25, 0.28, 0.08, 18, 1, false, -1.1, 2.2), mats.dark, 0, 1.475, 0);
+    muna.scale.set(1, 1, 0.8);
+    body.add(muna);
+    if (L.armor === 'plate') {   // a painted crest on the ashigaru's chest: his lord's mon
+      body.add(small(part(new THREE.CircleGeometry(0.07, 16), new THREE.MeshStandardMaterial({ color: 0xb22a20, roughness: 0.6 }), 0, 1.3, 0.231)));
+    }
+  } else {
+    // Ronin: a worn kimono, crossed at the front, tied with a sash.
+    for (const s of [-1, 1]) {
+      const lapel = small(part(new THREE.BoxGeometry(0.05, 0.42, 0.02), mats.hakama, s * 0.06, 1.38, 0.2));
+      lapel.rotation.z = s * 0.35;
+      body.add(lapel);
+    }
+  }
+  const obi = part(new THREE.CylinderGeometry(0.265, 0.265, 0.07, 18), L.armor ? mats.cloth : mats.straw, 0, 1.06, 0);
   obi.scale.set(1, 1, 0.82);
   body.add(obi);
-  const knot = small(part(new THREE.BoxGeometry(0.08, 0.06, 0.04), mats.gold, 0.1, 1.06, 0.21));
-  body.add(knot);
-  // Short sword (wakizashi) in its scabbard through the sash on the left.
-  const saya = small(part(new THREE.CylinderGeometry(0.02, 0.017, 0.55, 6), mats.dark, -0.24, 1.02, 0.1));
-  saya.rotation.set(1.2, 0, 0.25);
-  body.add(saya);
-  body.add(small(part(new THREE.CylinderGeometry(0.018, 0.018, 0.14, 6), mats.hair, -0.2, 1.1, 0.3).rotateX(1.2)));
-
-  // --- skirt: six laced panels (kusazuri) hanging from the waist ---
-  for (let i = 0; i < 6; i++) {
-    const a = (i / 6) * Math.PI * 2 + Math.PI / 6;
-    const panel = part(new THREE.CylinderGeometry(0.3, 0.41, 0.4, 4, 1, true, a - 0.46, 0.92), mats.skirt, 0, 0.84, 0);
-    panel.scale.set(1, 1, 0.85);
-    body.add(panel);
+  if (kind !== 'ronin') body.add(small(part(new THREE.BoxGeometry(0.08, 0.06, 0.04), mats.gold, 0.1, 1.06, 0.21)));
+  // Short sword (wakizashi) through the sash; ronin carry only one sword.
+  if (kind !== 'ronin') {
+    const saya = small(part(new THREE.CylinderGeometry(0.02, 0.017, 0.55, 6), mats.dark, -0.24, 1.02, 0.1));
+    saya.rotation.set(1.2, 0, 0.25);
+    body.add(saya);
   }
 
-  // --- shoulder guards (sode): big laced panels hanging off each shoulder ---
-  for (const side of [-1, 1]) {
-    const sode = part(new THREE.BoxGeometry(0.04, 0.32, 0.3), mats.sode, side * 0.41, 1.39, 0);
-    sode.rotation.z = side * 0.3;
-    body.add(sode);
-    body.add(small(part(new THREE.BoxGeometry(0.05, 0.03, 0.31), mats.dark, side * 0.37, 1.545, 0).rotateZ(side * 0.3)));
+  // --- skirt: laced or plate panels (kusazuri); the ronin's kimono hangs loose instead ---
+  if (L.armor) {
+    const n = L.armor === 'plate' ? 4 : 6;
+    for (let i = 0; i < n; i++) {
+      const a = (i / n) * Math.PI * 2 + Math.PI / n;
+      const panel = part(new THREE.CylinderGeometry(0.3, 0.41, L.armor === 'plate' ? 0.3 : 0.4, 4, 1, true, a - 0.46 * 6 / n, 0.92 * 6 / n), mats.skirt, 0, L.armor === 'plate' ? 0.88 : 0.84, 0);
+      panel.scale.set(1, 1, 0.85);
+      body.add(panel);
+    }
+  } else {
+    const skirt = part(new THREE.CylinderGeometry(0.27, 0.36, 0.5, 14, 1, true), mats.cloth, 0, 0.8, 0);
+    skirt.material.side = THREE.DoubleSide;
+    body.add(skirt);
   }
 
-  // --- head: face, the menpo, eyes in the shadow of the helmet ---
+  // --- shoulder guards (sode): big for samurai and hatamoto, none for ashigaru and ronin ---
+  if (L.armor === 'laced') {
+    const big = kind === 'hatamoto' ? 1.2 : 1;
+    for (const side of [-1, 1]) {
+      const sode = part(new THREE.BoxGeometry(0.04, 0.32 * big, 0.3 * big), mats.sode, side * 0.41, 1.39, 0);
+      sode.rotation.z = side * 0.3;
+      body.add(sode);
+      body.add(small(part(new THREE.BoxGeometry(0.05, 0.03, 0.31 * big), mats.dark, side * 0.37, 1.545, 0).rotateZ(side * 0.3)));
+    }
+  }
+
+  // --- head ---
   const head = part(new THREE.SphereGeometry(0.175, 16, 12), mats.skin, 0, 1.73, 0);
   body.add(head);
   for (const s of [-1, 1]) {
@@ -305,96 +325,134 @@ function buildSamurai(kind = 'sword') {
     brow.rotation.z = s * 0.25;
     body.add(brow);
   }
-  const mask = buildMenpo(mats);
-  mask.position.set(0, 1.71, 0.005);
-  body.add(mask);
+  let mask = null;
+  if (L.mask) {
+    mask = buildMenpo(mats);
+    mask.position.set(0, 1.71, 0.005);
+    body.add(mask);
+  }
 
-  // --- helmet (kabuto): ribbed bowl, visor, neck guard, turned-back side flaps and a golden crest ---
+  // --- headgear ---
   const helmet = new THREE.Group();
   helmet.position.set(0, 1.79, -0.01);
   body.add(helmet);
-  const bowl = part(new THREE.SphereGeometry(0.21, 20, 8, 0, Math.PI * 2, 0, Math.PI / 2), mats.lacquer);
-  bowl.scale.set(1, 0.9, 1.05);
-  helmet.add(bowl);
-  helmet.add(small(part(new THREE.TorusGeometry(0.035, 0.012, 5, 12), mats.gold, 0, 0.185, 0).rotateX(Math.PI / 2)));   // top ring
-  const visor = part(new THREE.CylinderGeometry(0.24, 0.255, 0.025, 20, 1, false, -1.2, 2.4), mats.dark, 0, 0.005, 0.02);
-  visor.rotation.x = -0.12;
-  helmet.add(visor);
-  // Neck guard: three flaring laced rows around the back and sides.
-  for (let r = 0; r < 3; r++) {
-    const ring = part(new THREE.CylinderGeometry(0.21 + r * 0.03, 0.235 + r * 0.03, 0.07, 20, 1, true, 1.1, Math.PI * 2 - 2.2),
-      mats.laceSmall, 0, -0.025 - r * 0.06, -0.015);
-    helmet.add(ring);
+  let crest = new THREE.Group();
+  if (L.helmet === 'kabuto') {
+    // Ribbed bowl, visor, neck guard, turned-back side flaps and a golden crest.
+    const bowl = part(new THREE.SphereGeometry(0.21, 20, 8, 0, Math.PI * 2, 0, Math.PI / 2), mats.lacquer);
+    bowl.scale.set(1, 0.9, 1.05);
+    helmet.add(bowl);
+    helmet.add(small(part(new THREE.TorusGeometry(0.035, 0.012, 5, 12), mats.gold, 0, 0.185, 0).rotateX(Math.PI / 2)));
+    const visor = part(new THREE.CylinderGeometry(0.24, 0.255, 0.025, 20, 1, false, -1.2, 2.4), mats.dark, 0, 0.005, 0.02);
+    visor.rotation.x = -0.12;
+    helmet.add(visor);
+    for (let r = 0; r < 3; r++) {
+      helmet.add(part(new THREE.CylinderGeometry(0.21 + r * 0.03, 0.235 + r * 0.03, 0.07, 20, 1, true, 1.1, Math.PI * 2 - 2.2),
+        mats.laceSmall, 0, -0.025 - r * 0.06, -0.015));
+    }
+    for (const s of [-1, 1]) {
+      const flap = part(new THREE.BoxGeometry(0.08, 0.1, 0.02), mats.armor, s * 0.215, -0.04, 0.1);
+      flap.rotation.y = s * 1.0;
+      helmet.add(flap);
+      helmet.add(small(part(new THREE.CylinderGeometry(0.022, 0.022, 0.01, 10), mats.gold, s * 0.225, -0.04, 0.115).rotateX(Math.PI / 2)));
+    }
+    // Crest (maedate): two golden horn blades in a V and a disc. The hatamoto's are much bigger.
+    crest.position.set(0, 0.06, 0.2);
+    for (const s of [-1, 1]) {
+      const horn = small(part(new THREE.ConeGeometry(0.03, 0.42, 4), mats.gold, s * 0.08, 0.19, 0));
+      horn.scale.set(1, 1, 0.25);
+      horn.rotation.z = -s * 0.42;
+      crest.add(horn);
+    }
+    crest.add(small(part(new THREE.CylinderGeometry(0.045, 0.045, 0.012, 14), mats.gold, 0, 0.03, 0.01).rotateX(Math.PI / 2)));
+    if (L.bigCrest) crest.scale.setScalar(1.7);
+    helmet.add(crest);
+  } else if (L.helmet === 'jingasa') {
+    // Ashigaru's jingasa: a shallow lacquered iron cone with the lord's mon on the front.
+    const hat = part(new THREE.ConeGeometry(0.36, 0.17, 18, 1, true), mats.armor, 0, 0.03, 0);
+    hat.material.side = THREE.DoubleSide;
+    helmet.add(hat);
+    helmet.add(small(part(new THREE.CircleGeometry(0.05, 14), new THREE.MeshStandardMaterial({ color: 0xc8a040, metalness: 0.6, roughness: 0.4 }), 0, 0.02, 0.17).rotateX(-0.5)));
+    for (const s of [-1, 1]) helmet.add(small(part(new THREE.BoxGeometry(0.012, 0.2, 0.012), mats.cloth, s * 0.15, -0.1, 0.02)));   // chin cords
+  } else if (L.helmet === 'kasa') {
+    // The ronin's deep woven straw hat, pulled down so you can hardly see his face.
+    const hat = part(new THREE.ConeGeometry(0.46, 0.34, 20, 2, true), mats.straw, 0, 0.0, 0);
+    helmet.add(hat);
+    helmet.add(small(part(new THREE.TorusGeometry(0.45, 0.015, 4, 24), mats.straw, 0, -0.16, 0).rotateX(Math.PI / 2)));
+    helmet.position.y = 1.86;
   }
-  // Fukigaeshi: the flaps at the front of the neck guard, folded back, with a gilt crest each.
-  for (const s of [-1, 1]) {
-    const flap = part(new THREE.BoxGeometry(0.08, 0.1, 0.02), mats.armor, s * 0.215, -0.04, 0.1);
-    flap.rotation.y = s * 1.0;
-    helmet.add(flap);
-    helmet.add(small(part(new THREE.CylinderGeometry(0.022, 0.022, 0.01, 10), mats.gold, s * 0.225, -0.04, 0.115).rotateX(Math.PI / 2).rotateZ(0)));
-  }
-  // Crest (maedate): two tall golden horn blades in a V and a crest disc between them.
-  const crest = new THREE.Group();
-  crest.position.set(0, 0.06, 0.2);
-  for (const s of [-1, 1]) {
-    const horn = small(part(new THREE.ConeGeometry(0.03, 0.42, 4), mats.gold, s * 0.08, 0.19, 0));
-    horn.scale.set(1, 1, 0.25);
-    horn.rotation.z = -s * 0.42;
-    crest.add(horn);
-  }
-  crest.add(small(part(new THREE.CylinderGeometry(0.045, 0.045, 0.012, 14), mats.gold, 0, 0.03, 0.01).rotateX(Math.PI / 2)));
-  helmet.add(crest);
 
-  // --- banner on his back (sashimono) in his color ---
+  // --- banner on his back (sashimono) ---
   const banner = new THREE.Group();
-  banner.position.set(-0.1, 1.45, -0.26);
-  banner.add(small(part(new THREE.CylinderGeometry(0.012, 0.012, 1.25, 5), mats.dark, 0, 0.55, 0)));
-  const flag = small(part(new THREE.PlaneGeometry(0.24, 0.5), mats.banner, 0.12, 0.88, 0));
-  banner.add(flag);
-  banner.add(small(part(new THREE.CylinderGeometry(0.008, 0.008, 0.26, 4), mats.dark, 0.12, 1.13, 0).rotateZ(Math.PI / 2)));
-  body.add(banner);
+  if (L.banner) {
+    const tall = L.banner === 'tall' ? 1.45 : L.banner === 'small' ? 0.75 : 1;
+    banner.position.set(-0.1, 1.45, -0.26);
+    banner.add(small(part(new THREE.CylinderGeometry(0.012, 0.012, 1.25 * tall, 5), mats.dark, 0, 0.55 * tall, 0)));
+    const flag = small(part(new THREE.PlaneGeometry(0.24 * tall, 0.5 * tall), mats.banner, 0.12 * tall, 0.88 * tall, 0));
+    banner.add(flag);
+    banner.add(small(part(new THREE.CylinderGeometry(0.008, 0.008, 0.26 * tall, 4), mats.dark, 0.12 * tall, 1.13 * tall, 0).rotateZ(Math.PI / 2)));
+    if (L.banner === 'tall') {   // a gold border down the hatamoto's banner
+      banner.add(small(part(new THREE.BoxGeometry(0.02, 0.73, 0.01), mats.gold, 0.35, 1.28, 0)));
+    }
+    body.add(banner);
+  }
 
-  // --- legs: wide pleated hakama, laced thigh guards, iron shin guards, sandals ---
+  // --- legs: hakama, thigh guards, shin guards, sandals ---
   const legs = [];
   for (const side of [-1, 1]) {
     const hip = new THREE.Group(); hip.position.set(side * 0.14, 0.95, 0);
-    const trouser = part(new THREE.CylinderGeometry(0.11, 0.16, 0.6, 10), mats.hakama, 0, -0.33, 0);
-    hip.add(trouser);
-    const thigh = part(new THREE.BoxGeometry(0.2, 0.26, 0.035), mats.laceSmall, 0, -0.2, 0.14);
-    thigh.rotation.x = -0.12;
-    hip.add(thigh);
-    const shin = part(new THREE.CylinderGeometry(0.085, 0.075, 0.3, 10, 1, true, -1.3, 2.6), mats.iron, 0, -0.74, 0.01);
-    hip.add(shin);
-    for (const y of [-0.64, -0.84]) hip.add(small(part(new THREE.TorusGeometry(0.08, 0.008, 4, 12), mats.gold, 0, y, 0.01).rotateX(Math.PI / 2)));
-    hip.add(part(new THREE.BoxGeometry(0.12, 0.07, 0.24), mats.cloth, 0, -0.91, 0.05));       // tabi socks
-    hip.add(small(part(new THREE.BoxGeometry(0.13, 0.025, 0.27), mats.gold, 0, -0.955, 0.05))); // straw sandal
+    hip.add(part(new THREE.CylinderGeometry(0.11, 0.16, 0.6, 10), mats.hakama, 0, -0.33, 0));
+    if (L.armor === 'laced') {
+      const thigh = part(new THREE.BoxGeometry(0.2, 0.26, 0.035), mats.laceSmall, 0, -0.2, 0.14);
+      thigh.rotation.x = -0.12;
+      hip.add(thigh);
+    }
+    if (L.armor) {
+      hip.add(part(new THREE.CylinderGeometry(0.085, 0.075, 0.3, 10, 1, true, -1.3, 2.6), mats.iron, 0, -0.74, 0.01));
+      for (const y of [-0.64, -0.84]) hip.add(small(part(new THREE.TorusGeometry(0.08, 0.008, 4, 12), mats.gold, 0, y, 0.01).rotateX(Math.PI / 2)));
+    }
+    hip.add(part(new THREE.BoxGeometry(0.12, 0.07, 0.24), mats.cloth, 0, -0.91, 0.05));
+    hip.add(small(part(new THREE.BoxGeometry(0.13, 0.025, 0.27), mats.straw, 0, -0.955, 0.05)));
     body.add(hip); legs.push(hip);
   }
 
-  // --- arms: dark sleeves with iron forearm plates (kote) and gloved hands ---
+  // --- arms ---
   const buildArm = () => {
     const a = new THREE.Group();
     a.add(part(new THREE.CapsuleGeometry(0.075, 0.42, 4, 8), mats.cloth, 0, -0.26, 0));
-    const kote = part(new THREE.CylinderGeometry(0.07, 0.06, 0.24, 8, 1, true), mats.iron, 0, -0.4, 0);
-    a.add(kote);
-    a.add(small(part(new THREE.TorusGeometry(0.07, 0.007, 4, 10), mats.gold, 0, -0.29, 0).rotateX(Math.PI / 2)));
-    a.add(part(new THREE.SphereGeometry(0.06, 8, 6), mats.dark, 0, -0.54, 0));   // gauntlet
+    if (L.armor) {
+      a.add(part(new THREE.CylinderGeometry(0.07, 0.06, 0.24, 8, 1, true), mats.iron, 0, -0.4, 0));
+      a.add(small(part(new THREE.TorusGeometry(0.07, 0.007, 4, 10), mats.gold, 0, -0.29, 0).rotateX(Math.PI / 2)));
+    }
+    a.add(part(new THREE.SphereGeometry(0.06, 8, 6), L.armor ? mats.dark : mats.skin, 0, -0.54, 0));
     return a;
   };
-  // Right arm holds the katana.
   const shoulder = buildArm(); shoulder.position.set(0.3, 1.48, 0);
-  const katana = buildKatana(0.85);
-  katana.position.set(0, -0.56, 0.02);
-  katana.rotation.x = Math.PI / 2;
-  katana.children[0].material = mats.steel;   // his own blade material, so it can glow before a big chop
-  shoulder.add(katana);
   body.add(shoulder);
   const leftArm = buildArm(); leftArm.position.set(-0.3, 1.48, 0);
   body.add(leftArm);
 
-  let bow = null, nunchucks = null;
-  if (kind === 'archer') {
-    katana.visible = false;
+  // --- weapon in the right hand ---
+  const weapon = { ronin: 'katana', yari: 'yari', yumi: 'bow', teppo: 'gun', samurai: 'katana', hatamoto: 'naginata' }[kind] || 'katana';
+  let blade, bow = null, gun = null;
+  if (weapon === 'yari') {
+    blade = buildYari(mats.steel);
+    blade.rotation.x = 2.47;                // shaft points forward in the ready stance
+  } else if (weapon === 'naginata') {
+    blade = buildNaginata(mats.steel);
+    blade.rotation.x = Math.PI / 2;
+  } else if (weapon === 'gun') {
+    blade = gun = buildTeppo();
+    blade.rotation.x = 3.02;                // barrel forward when the arm is raised to aim
+  } else {
+    blade = buildKatana(0.85);
+    blade.rotation.x = Math.PI / 2;
+    blade.children[0].material = mats.steel;   // his own blade material, so it can glow before a big chop
+  }
+  blade.position.set(0, -0.56, 0.02);
+  shoulder.add(blade);
+  if (weapon === 'bow') {
+    blade.visible = false;
     bow = buildBow();
     bow.position.set(0, -0.56, 0);
     leftArm.add(bow);
@@ -402,15 +460,10 @@ function buildSamurai(kind = 'sword') {
     quiver.position.set(0.16, 1.35, -0.3);
     quiver.rotation.z = -0.35;
     body.add(quiver);
-  } else if (kind === 'nunchuck') {
-    katana.visible = false;
-    nunchucks = buildNunchucks();
-    nunchucks.position.set(0, -0.56, 0);
-    shoulder.add(nunchucks);
   }
 
-  return { root, body, legs, sword: shoulder, blade: katana, leftArm, bow, nunchucks, steel: mats.steel,
-           mask, helmet, crest, banner, mats: Object.values(mats) };
+  return { root, body, legs, sword: shoulder, blade, leftArm, bow, gun, weapon, steel: mats.steel,
+           mask, helmet, crest, banner, mats: Object.values(mats).filter((m, i, a) => m && a.indexOf(m) === i) };
 }
 
 // The vine a samurai slides down on: a thin green rope hanging from the canopy, with a few leaves.
@@ -436,20 +489,33 @@ function buildVine(length) {
 
 export class Samurai {
   // vineTop: the height (above the ground here) of the leaves his vine hangs from.
-  constructor(scene, world, cfg, x, z, toughness = 1, dropDelay = 0, kind = 'sword', vineTop = VINE_TOP) {
+  constructor(scene, world, cfg, x, z, toughness = 1, dropDelay = 0, kind = 'samurai', vineTop = VINE_TOP) {
     this.scene = scene;
     this.world = world;
     this.cfg = cfg;
     this.radius = 0.45;
+    if (kind === 'sword') kind = 'samurai';
     this.kind = kind;
-    const K = cfg.kinds?.[kind] ?? { health: 1, speed: 1 };
-    this.maxHealth = cfg.health * toughness * K.health;
+    const R = cfg.ranks?.[kind] ?? { health: 1, speed: 1, damage: 1, weapon: 'katana' };
+    this.rank = R;
+    this.maxHealth = cfg.health * toughness * R.health;
     this.health = this.maxHealth;
-    this.damage = cfg.damage * toughness;
-    this.speed = cfg.speed * K.speed * (0.9 + Math.random() * 0.2);
-    this.reload = 0.5 + Math.random();   // archers: time until the next arrow
+    this.damage = cfg.damage * toughness * (R.damage ?? 1);
+    this.speed = cfg.speed * R.speed * (0.9 + Math.random() * 0.2);
+    this.ranged = R.weapon === 'bow' || R.weapon === 'gun';
+    // His attacks: the katana set, or the spear / naginata set. Ronin wind up a little faster.
+    const base = cfg.weaponAttacks?.[R.weapon] ?? cfg.attacks;
+    this.attacks = {};
+    for (const [k, a] of Object.entries(base)) this.attacks[k] = { ...a, windup: a.windup * (R.quick ?? 1) };
+    this.attackRange = R.weapon === 'yari' ? 2.9 : R.weapon === 'naginata' ? 2.6 : cfg.attackRange;
+    // Ronin leap aside, hatamoto block with the naginata shaft (only while they aren't attacking).
+    if (R.dodge) this.defense = { dodgeChance: R.dodge, dodgeCooldown: 2.2, dodgeDistance: 2.8, dodgeSeconds: 0.28 };
+    if (R.block) this.defense = { blockChance: R.block, blockArcDegrees: 140, shurikenBlock: R.block * 0.8, katanaParry: R.block * 0.8 };
+    this.mapColor = MAP_COLORS[kind] || '#ff3b30';
+    this.reload = 0.5 + Math.random();   // archers / gunners: time until the next shot
     this.strafeSide = Math.random() < 0.5 ? 1 : -1;
     this.shoot = null;                   // set by combat: fires an arrow
+    this.fire = null;                    // set by combat: fires a gun
     this.pos = new THREE.Vector3(x, world.heightAt(x, z), z);
     this.knock = new THREE.Vector2();
     this.jumpY = 0;     // height of a jump over a log
@@ -468,7 +534,7 @@ export class Samurai {
     this.walkPhase = Math.random() * 6;
     this.gone = false;
     Object.assign(this, buildSamurai(kind));
-    if (kind === 'archer') {   // red line on the ground showing where the arrow will fly
+    if (this.ranged) {   // red line on the ground showing where the arrow / bullet will fly
       this.aimLine = new THREE.Mesh(
         new THREE.PlaneGeometry(0.3, 1).rotateX(-Math.PI / 2).translate(0, 0, 0.5),
         new THREE.MeshBasicMaterial({ color: 0xff2a1a, transparent: true, opacity: 0, depthWrite: false }));
@@ -562,8 +628,9 @@ export class Samurai {
   get hiddenOnMap() { return this.state === 'descend' && this.timer < 0; }   // still hidden up in the trees
 
   // Returns true if this hit defeated him.
-  hit(amount, dirX, dirZ, interrupt = false) {
+  hit(amount, dirX, dirZ, interrupt = false, attacker = null) {
     if (!this.alive || this.state === 'descend') return false;
+    if (this.defense && defend(this, this.defense, dirX, dirZ, interrupt, attacker)) return false;   // blocked or leapt aside
     this.health -= amount;
     this.flash = 0.08;
     this.knock.x += dirX * (interrupt ? 6 : 1.5);
@@ -613,20 +680,23 @@ export class Samurai {
 
     let moveX = 0, moveZ = 0;
     this.reload -= dt;
-    if (target && this.kind === 'archer') {
-      // Archer: stay at shooting distance, draw the bow, shoot, reload.
-      const A = this.cfg.archer;
+    if (target && this.ranged) {
+      // Archer / gunner: stay at shooting distance, draw (or aim), shoot, reload.
+      const gun = this.rank.weapon === 'gun';
+      const A = gun ? this.cfg.gunner : this.cfg.archer;
       const dx = target.pos.x - this.pos.x, dz = target.pos.z - this.pos.z;
       const want = Math.atan2(dx, dz);
       const diff = Math.atan2(Math.sin(want - this.facing), Math.cos(want - this.facing));
-      this.facing += diff * (1 - Math.exp(-(this.state === 'windup' ? 6 : 10) * dt));
+      // A gunner's aim locks for the last moment before he fires: that's your chance to step off the line.
+      const locked = gun && this.state === 'windup' && this.timer < A.lockSeconds;
+      if (!locked) this.facing += diff * (1 - Math.exp(-(this.state === 'windup' ? 6 : 10) * dt));
       this.timer -= dt;
       if (this.state === 'chase') {
         if (best < A.keepAway) { moveX = -dx / best; moveZ = -dz / best; }        // too close: back off
         else if (best > A.shootRange) { moveX = dx / best; moveZ = dz / best; }  // too far: come closer
         else if (this.reload <= 0) {
-          this.state = 'windup'; this.attack = 'bow'; this.timer = A.drawSeconds;
-          sfx.bowDraw();
+          this.state = 'windup'; this.attack = 'bow'; this.timer = gun ? A.aimSeconds : A.drawSeconds;
+          if (gun) sfx.matchFizz(); else sfx.bowDraw();
         } else {                                                                 // waiting to shoot: sidestep
           moveX = (-dz / best) * 0.45 * this.strafeSide; moveZ = (dx / best) * 0.45 * this.strafeSide;
         }
@@ -637,8 +707,8 @@ export class Samurai {
         // Aim up (or down) at his chest, so arrows reach someone up a tree too.
         const dist = Math.max(1, Math.hypot(target.pos.x - from.x, target.pos.z - from.z));
         const slope = (target.pos.y + 1.2 - from.y) / dist;
-        this.shoot?.(from, { x: fx, z: fz, slope }, this.damage * A.damage, this);
-        sfx.bowShot();
+        if (gun) { this.fire?.(from, { x: fx, z: fz, slope }, this.damage * A.damage, A.shootRange + 4, this); sfx.teppo(); }
+        else { this.shoot?.(from, { x: fx, z: fz, slope }, this.damage * A.damage, this); sfx.bowShot(); }
         this.state = 'strike'; this.timer = 0.2;
         this.reload = A.reloadSeconds * (0.8 + Math.random() * 0.4);
         this.strafeSide = -this.strafeSide;
@@ -658,37 +728,37 @@ export class Samurai {
       if (this.state === 'chase') {
         if (target.perch || target.climb) {   // he's up a tree: wait underneath, a little way out
           if (best > 3) { moveX = dx / best; moveZ = dz / best; }
-        } else if (best > this.cfg.attackRange) { moveX = dx / best; moveZ = dz / best; }
+        } else if (best > this.attackRange) { moveX = dx / best; moveZ = dz / best; }
         else {
           // Pick an attack: quick jab, side slash (from the left or right) or big overhead chop.
-          const A = this.cfg.attacks;
+          const A = this.attacks;
           let r = Math.random(), name = 'chop';
-          for (const k of Object.keys(A)) { if (r < A[k].chance) { name = k; break; } r -= A[k].chance; }
-          if (this.kind === 'nunchuck') { name = 'combo'; sfx.nunchuckWhirl(); }
+          name = Object.keys(A).find(k => A[k].chance > 0);
+          for (const k of Object.keys(A)) { if (!A[k].chance) continue; if (r < A[k].chance) { name = k; break; } r -= A[k].chance; }
           this.attack = name;
           this.slashSide = Math.random() < 0.5 ? 1 : -1;
           this.state = 'windup'; this.timer = A[name].windup;
         }
       } else if (this.state === 'windup' && this.timer <= 0) {
-        const a = this.cfg.attacks[this.attack];
+        const a = this.attacks[this.attack];
         this.state = 'strike'; this.timer = a.hits ? a.hits * a.interval + 0.05 : 0.18;
         this.hitsDone = 1; this.nextHit = a.interval || 0;
-        sfx.swing();
+        if (this.rank.weapon === 'naginata') sfx.naginata(); else sfx.swing();
         if (this.attack === 'chop') sfx.thud();
         if (this.attack === 'jab') {   // lunges forward with the poke
           this.knock.x += Math.sin(this.facing) * 5;
           this.knock.y += Math.cos(this.facing) * 5;
         }
         this.strikeHit(players, a);
-      } else if (this.state === 'strike' && this.hitsDone < (this.cfg.attacks[this.attack].hits || 1)
+      } else if (this.state === 'strike' && this.hitsDone < (this.attacks[this.attack]?.hits || 1)
                  && (this.nextHit -= dt) <= 0) {
         // The next hit of a combo.
-        const a = this.cfg.attacks[this.attack];
+        const a = this.attacks[this.attack];
         this.hitsDone++; this.nextHit = a.interval;
         sfx.swing();
         this.strikeHit(players, a);
       } else if (this.state === 'strike' && this.timer <= 0) {
-        this.state = 'recover'; this.timer = this.cfg.attacks[this.attack].recover;
+        this.state = 'recover'; this.timer = this.attacks[this.attack]?.recover ?? 0.6;
       } else if (this.state === 'recover' && this.timer <= 0) {
         this.state = 'chase';
       }
@@ -776,6 +846,7 @@ export class Samurai {
 
     this.animate(dt, Math.hypot(moveX, moveZ) > 0.1);
     this.root.position.y += this.jumpY;
+    if (this.defense) updateDefense(this, dt);   // leaping aside / blocking
   }
 
   // Look ahead along the way he wants to walk: jump over anything low (logs, low walls),
@@ -839,7 +910,10 @@ export class Samurai {
 
     // Sword arm and body twist for each attack: [shoulder x, shoulder z, body twist, body lean].
     const s = this.slashSide || 1;
-    const POSES = {
+    const POSES = this.rank.weapon === 'yari' ? {
+      jab:   { windup: [-0.55, 0.0, -0.45, -0.1], strike: [-0.98, 0.0, 0.2, 0.25] },          // spear drawn back, then thrust
+      slash: { windup: [-0.9, 0.0, -1.3 * s, 0], strike: [-0.9, 0.0, 1.1 * s, 0.1] },       // swing the shaft round
+    } : {
       jab:   { windup: [-1.25, 0.15, -0.55, -0.05], strike: [-1.62, 0.0, 0.25, 0.2] },        // pull back, then thrust
       slash: { windup: [-1.5, 0.25 * s, -1.4 * s, 0],         // twists right round with the sword out to one side...
                strike: [-1.5, 0.25 * s, 1.1 * s, 0.1] },       // ...then sweeps it flat across in front
@@ -852,22 +926,24 @@ export class Samurai {
     else if (this.state === 'recover') pose = [-0.7, 0.1, 0, 0];
     const speed = this.state === 'strike' ? 30 : this.state === 'windup' ? 9 : 8;
     const b = 1 - Math.exp(-speed * dt);
-    if (this.kind !== 'archer') {   // archers pose their own arms (animateArcher)
+    if (!this.ranged) {   // archers and gunners pose their own arms
       this.sword.rotation.x += (pose[0] - this.sword.rotation.x) * b;
       this.sword.rotation.z += (pose[1] - this.sword.rotation.z) * b;
       this.body.rotation.y += (pose[2] - this.body.rotation.y) * b;
     }
     this.body.rotation.x += (pose[3] - this.body.rotation.x) * b;
     // For the side slash the blade sticks straight out from his arm, so it sweeps wide and flat.
-    const flat = this.attack === 'slash' && (this.state === 'windup' || this.state === 'strike');
-    const bladeWant = flat ? Math.PI * 0.95 : Math.PI / 2;
-    this.blade.rotation.x += (bladeWant - this.blade.rotation.x) * b;
+    if (this.rank.weapon === 'katana' || this.rank.weapon === 'naginata') {
+      const flat = this.attack === 'slash' && (this.state === 'windup' || this.state === 'strike');
+      const bladeWant = flat ? Math.PI * 0.95 : Math.PI / 2;
+      this.blade.rotation.x += (bladeWant - this.blade.rotation.x) * b;
+    }
+    if (this.rank.weapon === 'yari') this.leftArm.rotation.x = this.sword.rotation.x * 0.8;   // both hands on the shaft
     // The big chop's blade glows red while he winds up: get out of the way!
     const glowing = this.state === 'windup' && this.attack === 'chop';
     if (glowing) this.steel.emissive.setRGB(1.0, 0.12, 0.05).multiplyScalar(0.6 + Math.sin(performance.now() / 60) * 0.4);
 
-    if (this.kind === 'archer') this.animateArcher(dt, b);
-    if (this.kind === 'nunchuck') this.animateNunchucks(dt);
+    if (this.ranged) this.animateArcher(dt, b);
 
     this.root.position.copy(this.pos);
     this.root.rotation.y = this.facing;
@@ -876,39 +952,29 @@ export class Samurai {
   // Bow arm out at the target, string hand pulling back, and the red aim line on the ground.
   animateArcher(dt, b) {
     const drawing = this.state === 'windup';
-    const k = drawing ? 1 - Math.max(0, this.timer) / this.cfg.archer.drawSeconds : 0;
+    const gun = this.rank.weapon === 'gun';
+    const A = gun ? this.cfg.gunner : this.cfg.archer;
+    const k = drawing ? 1 - Math.max(0, this.timer) / (gun ? A.aimSeconds : A.drawSeconds) : 0;
     const aiming = drawing || this.state === 'strike';
     // Right (string) arm: forward and pulled in to the chest while drawing.
-    const rx = aiming ? -1.45 : -0.35, rz = aiming ? -0.25 - k * 0.2 : 0.05;
+    const rx = aiming ? -1.45 : gun ? -1.05 : -0.35, rz = aiming ? -0.25 - k * 0.2 : 0.05;   // gunners carry the gun pointing forward and down
     this.sword.rotation.x += (rx - this.sword.rotation.x) * b;
     this.sword.rotation.z += (rz - this.sword.rotation.z) * b;
     this.body.rotation.y += ((aiming ? -0.35 : 0) - this.body.rotation.y) * b;
-    if (aiming) { this.leftArm.rotation.x = -1.55; this.leftArm.rotation.z = -0.15; }
+    if (aiming) { this.leftArm.rotation.x = -1.55; this.leftArm.rotation.z = gun ? 0.35 : -0.15; }
     else { this.leftArm.rotation.z = 0; }
-    drawBow(this.bow, drawing ? k : 0, drawing);
+    if (this.bow) drawBow(this.bow, drawing ? k : 0, drawing);
     // The red line grows stronger as he gets ready to let go.
     const line = this.aimLine;
     line.visible = drawing;
     if (drawing) {
       line.position.set(this.pos.x, this.pos.y + 0.12, this.pos.z);
       line.rotation.y = this.facing;
-      line.scale.z = this.cfg.archer.shootRange + 2;
-      line.material.opacity = 0.12 + k * 0.4;
-    }
-  }
-
-  // The free stick whirls while winding up and during the combo, and hangs down otherwise.
-  animateNunchucks(dt) {
-    const pivot = this.nunchucks.userData.pivot;
-    const spinning = this.state === 'windup' || this.state === 'strike';
-    if (spinning) pivot.rotation.x -= dt * 28;
-    else pivot.rotation.x += (Math.round(pivot.rotation.x / (Math.PI * 2)) * Math.PI * 2 - pivot.rotation.x) * (1 - Math.exp(-6 * dt));
-    if (this.state === 'strike') {   // quick hits swinging back and forth
-      this.body.rotation.y = Math.sin(this.timer * 45) * 0.6;
-      this.sword.rotation.x = -1.6;
-      this.sword.rotation.z = 0.2;
-    } else if (this.state === 'windup') {
-      this.sword.rotation.x += (-2.3 - this.sword.rotation.x) * (1 - Math.exp(-14 * dt));
+      line.scale.z = A.shootRange + 2;
+      // A gunner's line turns solid red when his aim locks: move NOW.
+      const lockedIn = gun && this.timer < A.lockSeconds;
+      line.scale.x = gun ? 1.6 : 1;
+      line.material.opacity = lockedIn ? 0.55 + Math.sin(performance.now() / 40) * 0.15 : 0.12 + k * 0.4;
     }
   }
 

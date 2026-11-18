@@ -1,5 +1,5 @@
 // Lookout towers (monomi-yagura; the code still calls them "treehouses"): a wooden platform on four posts
-// with a railing and a little roof, and a ladder. Stand at the ladder and press jump to climb up. Up there sword and nunchuck samurai can't reach you
+// with a railing and a little roof, and a ladder. Stand at the ladder and press jump to climb up. Up there swordsmen and spearmen can't reach you
 // (archers can still shoot up at you), and you can shoot down. Walk off the edge to drop back down.
 import * as THREE from 'three';
 import { addCutaway } from './world.js';
