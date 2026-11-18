@@ -788,7 +788,7 @@ export class Samurai {
     const feet = this.pos.y + this.jumpY;
     const look = 1.4 + this.radius;
     let block = null, blockT = Infinity, cross = 0;
-    for (const o of this.world.obstacles) {
+    for (const o of this.world.obstaclesAlong(this.pos.x, this.pos.z, this.pos.x + dx * (look + 3), this.pos.z + dz * (look + 3), this.radius + 0.5)) {
       const ox = o.x - this.pos.x, oz = o.z - this.pos.z;
       const t = ox * dx + oz * dz;                       // how far ahead
       if (t < -0.2 || t > look + o.r) continue;

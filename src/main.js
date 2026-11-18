@@ -40,7 +40,7 @@ const rig = new CameraRig(camera, CONFIG.camera);
 const effects = new Effects(scene);
 effects.world = world;
 const foam = new Foam(scene, world, effects);
-buildTreehouses(world, scene);
+buildTreehouses(world, scene, CONFIG.world.lookouts);
 const combat = new Combat(scene, world, effects, CONFIG);
 
 // Both brothers are built up front; 1-player mode only uses the first.
@@ -264,6 +264,7 @@ function step(dt) {
     if (menu.confirm) beginGame();
   } else if (state === 'playing') {
     if (menu.pause) { pauseGame(); return; }
+    if (menu.map) minimap.toggleFull();
     combat.update(dt, players, ctrls, hud);
     drops.update(dt, players, hud);
     trees.update(dt, players, combat.samurai, hud);

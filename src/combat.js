@@ -249,7 +249,7 @@ export class Combat {
     const center = near ?? alive[0]?.pos ?? new THREE.Vector3();
     const lim = this.world.limit - 1;
     const free = (x, z) => Math.abs(x) < lim && Math.abs(z) < lim
-      && !this.world.obstacles.some(o => Math.hypot(o.x - x, o.z - z) < o.r + 0.8)
+      && !this.world.blocked(x, z, 0.8)
       && !alive.some(p => Math.hypot(p.pos.x - x, p.pos.z - z) < 10)
       && !this.samurai.some(s => s.state === 'descend' && Math.hypot(s.pos.x - x, s.pos.z - z) < 1.5);
     const spots = this.world.canopySpots.filter(c => {
@@ -271,7 +271,7 @@ export class Combat {
       const a = Math.random() * Math.PI * 2, d = 14 + Math.random() * 12;
       const x = center.x + Math.cos(a) * d, z = center.z + Math.sin(a) * d;
       if (Math.abs(x) > lim || Math.abs(z) > lim) continue;
-      if (this.world.obstacles.some(o => Math.hypot(o.x - x, o.z - z) < o.r + 1)) continue;
+      if (this.world.blocked(x, z, 1)) continue;
       if (alive.some(p => Math.hypot(p.pos.x - x, p.pos.z - z) < 12)) continue;
       return { x, z };
     }
@@ -629,7 +629,7 @@ export class Combat {
       const t = rayCircle(ox, oz, dx, dz, s.pos.x, s.pos.z, s.radius + 0.1);
       if (t !== null && t < dist) { dist = t; target = s; }
     }
-    for (const o of this.world.obstacles) {
+    for (const o of this.world.obstaclesIn(ox, oz, ox + dx * dist, oz + dz * dist)) {
       if (oy > o.base + o.h) continue; // shot passes over low logs and rocks
       const t = rayCircle(ox, oz, dx, dz, o.x, o.z, o.r - 0.2);
       if (t !== null && t < dist) { dist = t; target = null; obstacle = o; }

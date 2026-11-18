@@ -18,7 +18,7 @@ export class Versus {
     for (let tries = 0; tries < 40; tries++) {
       const x = (Math.random() * 2 - 1) * Math.min(lim, 22);
       const z = (Math.random() * 2 - 1) * Math.min(lim, 22);
-      if (this.world.obstacles.some(o => Math.hypot(o.x - x, o.z - z) < o.r + 1)) continue;
+      if (this.world.blocked(x, z, 1)) continue;
       const d = awayFrom ? Math.hypot(awayFrom.x - x, awayFrom.z - z) : 0;
       // Not too close, not so far the shared camera has to zoom way out.
       if (awayFrom && (d < 12 || d > this.cfg.spawnApart + 4)) continue;
@@ -33,7 +33,7 @@ export class Versus {
     const half = this.cfg.spawnApart / 2;
     const spots = [{ x: -half, z: 0 }, { x: half, z: 0 }].map(s => {
       // nudge out of any tree or rock
-      for (let i = 0; i < 20 && this.world.obstacles.some(o => Math.hypot(o.x - s.x, o.z - s.z) < o.r + 1); i++) s.z += 1;
+      for (let i = 0; i < 20 && this.world.blocked(s.x, s.z, 1); i++) s.z += 1;
       return s;
     });
     players.forEach((p, i) => { p.reset(spots[i].x, spots[i].z); p.facing = i ? -Math.PI / 2 : Math.PI / 2; });

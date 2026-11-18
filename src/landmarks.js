@@ -281,6 +281,7 @@ export function buildLandmarks(world, scene) {
   materials();
   const rnd = makeRandom(world.cfg.seed + 5);
   const T = world.templeSpot;
+  const m = world.size / 180;   // these spots were picked on the 180 m map; spread them out on a bigger one
   const spots = [
     { build: buildPlane, x: -50, z: -12, yaw: 0.6 },
     { build: () => buildTemple(rnd), x: T.x, z: T.z, yaw: 0.3, flatTop: true },
@@ -290,6 +291,7 @@ export function buildLandmarks(world, scene) {
     { build: () => buildHut(rnd), x: -62, z: -62, yaw: 0.9 },
     { build: () => buildHut(rnd), x: -62, z: 30, yaw: 1.2 },
   ];
+  for (const s of spots) if (!s.flatTop) { s.x *= m; s.z *= m; }
   world.landmarks = [];
   world.hideouts = [];   // places to hide: samurai lose track of you in here (unless they're right next to you)
   for (const s of spots) {

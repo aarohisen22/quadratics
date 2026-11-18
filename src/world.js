@@ -3,6 +3,7 @@ import * as THREE from 'three';
 import { buildLandmarks } from './landmarks.js';
 import { buildOutpost } from './outpost.js';
 import { pixelTexture } from './pixeltex.js';
+import { Areas } from './areas.js';
 
 // ---------- small helpers ----------
 
@@ -119,8 +120,11 @@ export function makeLumpyGeometry(radius, detail, amount, rnd) {
   return g;
 }
 
-// Collects positions for many copies of one shape, then makes one InstancedMesh.
-class Batch {
+// Collects positions for many copies of one shape, then makes InstancedMeshes: one per
+// TILE x TILE meter square of the map, so squares that are off screen aren't drawn at all.
+export const TILE = 60;
+const tileKey = (x, z) => `${Math.floor(x / TILE)},${Math.floor(z / TILE)}`;
+export class Batch {
   constructor(geometry, material, { shadow = true, receive = true, shade = 1 } = {}) {
     this.geometry = geometry;
     this.material = material;
@@ -129,22 +133,35 @@ class Batch {
     this.shadow = shadow;
     this.receive = receive;
     this.shade = shade; // below 1 = darker colors
+    this.meshes = [];
+    this.refs = [];     // for each copy added: { mesh, index } once built
   }
   add(matrix, color) {
     this.matrices.push(matrix.clone());
     this.colors.push(color.clone().multiplyScalar(this.shade));
+    return this.matrices.length - 1;
   }
   build(scene) {
-    const mesh = new THREE.InstancedMesh(this.geometry, this.material, this.matrices.length);
+    const groups = new Map();
     this.matrices.forEach((m, i) => {
-      mesh.setMatrixAt(i, m);
-      mesh.setColorAt(i, this.colors[i]);
+      const key = tileKey(m.elements[12], m.elements[14]);
+      if (!groups.has(key)) groups.set(key, []);
+      groups.get(key).push(i);
     });
-    mesh.castShadow = this.shadow;
-    mesh.receiveShadow = this.receive;
-    scene.add(mesh);
-    this.mesh = mesh;
-    return mesh;
+    for (const list of groups.values()) {
+      const mesh = new THREE.InstancedMesh(this.geometry, this.material, list.length);
+      list.forEach((i, j) => {
+        mesh.setMatrixAt(j, this.matrices[i]);
+        mesh.setColorAt(j, this.colors[i]);
+        this.refs[i] = { mesh, index: j };
+      });
+      mesh.castShadow = this.shadow;
+      mesh.receiveShadow = this.receive;
+      mesh.computeBoundingSphere();
+      scene.add(mesh);
+      this.meshes.push(mesh);
+    }
+    return this.meshes;
   }
 }
 
@@ -161,6 +178,7 @@ export class World {
     this.canopySpots = [];        // undersides of the big trees' leaves, where vines can hang from
     this.bigTrees = [];           // the giant trees (some get treehouses)
     this.rnd = makeRandom(cfg.seed);
+    this.areas = new Areas(cfg.size);   // bamboo grove, cedar forest, village... (areas.js)
     this.k = cfg.size / 120;      // the land was first designed 120 m wide; everything is spread out by this much
     this.templeSpot = { x: 45 * this.k / 1.5, z: -42 * this.k / 1.5 };
     this.templeTop = this.baseHeight(this.templeSpot.x, this.templeSpot.z) + 3.5;
@@ -227,9 +245,52 @@ export class World {
     return h;
   }
 
+  // ---------- obstacle grid ----------
+  // The map has thousands of trees, rocks and logs. Instead of checking every one, they're sorted
+  // into 8 m squares and only the squares near a spot are checked. The grid rebuilds itself
+  // whenever obstacles are added or removed (call obstaclesChanged() after changing the list).
+  obstaclesChanged() { this._grid = null; }
+  obstacleGrid() {
+    if (this._grid && this._gridLen === this.obstacles.length) return this._grid;
+    const C = 8, g = new Map();
+    for (const o of this.obstacles) {
+      for (let cx = Math.floor((o.x - o.r) / C); cx <= Math.floor((o.x + o.r) / C); cx++) {
+        for (let cz = Math.floor((o.z - o.r) / C); cz <= Math.floor((o.z + o.r) / C); cz++) {
+          const key = cx * 100003 + cz;
+          let list = g.get(key);
+          if (!list) g.set(key, list = []);
+          list.push(o);
+        }
+      }
+    }
+    this._grid = g;
+    this._gridLen = this.obstacles.length;
+    return g;
+  }
+  // Obstacles that might touch the box from (x0, z0) to (x1, z1). Returns a NEW array each time.
+  obstaclesIn(x0, z0, x1, z1) {
+    const C = 8, g = this.obstacleGrid(), out = [];
+    const stamp = this._stamp = (this._stamp || 0) + 1;
+    for (let cx = Math.floor(Math.min(x0, x1) / C); cx <= Math.floor(Math.max(x0, x1) / C); cx++) {
+      for (let cz = Math.floor(Math.min(z0, z1) / C); cz <= Math.floor(Math.max(z0, z1) / C); cz++) {
+        const list = g.get(cx * 100003 + cz);
+        if (!list) continue;
+        for (const o of list) if (o._stamp !== stamp) { o._stamp = stamp; out.push(o); }
+      }
+    }
+    return out;
+  }
+  // Obstacles near the line from (x0, z0) to (x1, z1), up to `pad` meters to its sides.
+  obstaclesAlong(x0, z0, x1, z1, pad) {
+    return this.obstaclesIn(Math.min(x0, x1) - pad, Math.min(z0, z1) - pad, Math.max(x0, x1) + pad, Math.max(z0, z1) + pad);
+  }
+  obstaclesNear(x, z, r) { return this.obstaclesIn(x - r, z - r, x + r, z + r); }
+  // Is anything solid within `pad` meters of this spot?
+  blocked(x, z, pad) { return this.obstaclesNear(x, z, pad).some(o => Math.hypot(o.x - x, o.z - z) < o.r + pad); }
+
   // Push a circle (a ninja) out of trees, rocks and logs.
   resolveCollision(pos, radius, feetY) {
-    for (const o of this.obstacles) {
+    for (const o of this.obstaclesNear(pos.x, pos.z, radius)) {
       const dx = pos.x - o.x, dz = pos.z - o.z;
       const min = o.r + radius;
       const d2 = dx * dx + dz * dz;
@@ -264,33 +325,45 @@ export class World {
     const dummy = new THREE.Object3D();
     const color = new THREE.Color();
 
-    // --- ground ---
-    const seg = Math.round(this.size * 4 / 3);   // same ground detail per meter at any size
-    const ground = new THREE.PlaneGeometry(this.size, this.size, seg, seg);
-    ground.rotateX(-Math.PI / 2);
-    const gp = ground.attributes.position;
-    const colors = new Float32Array(gp.count * 3);
+    // --- ground: TILE x TILE meter pieces, so pieces off screen aren't drawn ---
     const mud = new THREE.Color(0x3a2c1f), moss = new THREE.Color(0x2c4a1f), litter = new THREE.Color(0x4f3c22);
     const wetMud = new THREE.Color(0x261f16), pebbles = new THREE.Color(0x4a4639), stone = new THREE.Color(0x6d6b60), trampled = new THREE.Color(0x4a3a28);
-    for (let i = 0; i < gp.count; i++) {
-      const x = gp.getX(i), z = gp.getZ(i);
-      gp.setY(i, this.heightAt(x, z));
-      const m = noise2(x * 0.08 + 50, z * 0.08);
-      const l = noise2(x * 0.3, z * 0.3 + 20);
-      color.copy(mud).lerp(moss, smoothstep(0.35, 0.65, m)).lerp(litter, smoothstep(0.6, 0.9, l) * 0.6);
-      const sd = this.streamDist(x, z);
-      if (sd < 7) color.lerp(sd < 4.5 ? pebbles : wetMud, (1 - smoothstep(3, 7, sd)) * 0.85);   // wet banks, pebbly bed
-      const td = Math.hypot(x - this.templeSpot.x, z - this.templeSpot.z);
-      if (td < 9) color.lerp(stone, (1 - smoothstep(6, 9, td)) * 0.9);                       // old stone floor
-      const od = Math.hypot(x - this.outpostSpot.x, z - this.outpostSpot.z);
-      if (od < this.outpostSpot.wall + 3) color.lerp(trampled, (1 - smoothstep(this.outpostSpot.wall - 2, this.outpostSpot.wall + 3, od)) * 0.8);                  // trampled earth in the camp
-      colors.set([color.r, color.g, color.b], i * 3);
+    const groundMat = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.62 });
+    const tiles = Math.ceil(this.size / TILE), seg = Math.round(TILE * 4 / 3);   // same ground detail per meter at any size
+    const n = new THREE.Vector3();
+    this.groundTiles = [];
+    for (let tx = 0; tx < tiles; tx++) for (let tz = 0; tz < tiles; tz++) {
+      const x0 = -this.half + tx * TILE, z0 = -this.half + tz * TILE;
+      const w = Math.min(TILE, this.half - x0), d = Math.min(TILE, this.half - z0);
+      const ground = new THREE.PlaneGeometry(w, d, Math.max(1, Math.round(seg * w / TILE)), Math.max(1, Math.round(seg * d / TILE)));
+      ground.rotateX(-Math.PI / 2);
+      ground.translate(x0 + w / 2, 0, z0 + d / 2);
+      const gp = ground.attributes.position, gn = ground.attributes.normal;
+      const colors = new Float32Array(gp.count * 3);
+      for (let i = 0; i < gp.count; i++) {
+        const x = gp.getX(i), z = gp.getZ(i);
+        gp.setY(i, this.heightAt(x, z));
+        // Normals from the height of the land around this point, so the tiles' edges match.
+        n.set(this.heightAt(x - 0.4, z) - this.heightAt(x + 0.4, z), 0.8, this.heightAt(x, z - 0.4) - this.heightAt(x, z + 0.4)).normalize();
+        gn.setXYZ(i, n.x, n.y, n.z);
+        const m = noise2(x * 0.08 + 50, z * 0.08);
+        const l = noise2(x * 0.3, z * 0.3 + 20);
+        color.copy(mud).lerp(moss, smoothstep(0.35, 0.65, m)).lerp(litter, smoothstep(0.6, 0.9, l) * 0.6);
+        const sd = this.streamDist(x, z);
+        if (sd < 7) color.lerp(sd < 4.5 ? pebbles : wetMud, (1 - smoothstep(3, 7, sd)) * 0.85);   // wet banks, pebbly bed
+        const td = Math.hypot(x - this.templeSpot.x, z - this.templeSpot.z);
+        if (td < 9) color.lerp(stone, (1 - smoothstep(6, 9, td)) * 0.9);                       // old stone floor
+        const od = Math.hypot(x - this.outpostSpot.x, z - this.outpostSpot.z);
+        if (od < this.outpostSpot.wall + 3) color.lerp(trampled, (1 - smoothstep(this.outpostSpot.wall - 2, this.outpostSpot.wall + 3, od)) * 0.8);                  // trampled earth in the camp
+        colors.set([color.r, color.g, color.b], i * 3);
+      }
+      ground.setAttribute('color', new THREE.BufferAttribute(colors, 3));
+      ground.computeBoundingSphere();
+      const groundMesh = new THREE.Mesh(ground, groundMat);
+      groundMesh.receiveShadow = true;
+      scene.add(groundMesh);
+      this.groundTiles.push(groundMesh);
     }
-    ground.setAttribute('color', new THREE.BufferAttribute(colors, 3));
-    ground.computeVertexNormals();
-    const groundMesh = new THREE.Mesh(ground, new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.62 }));
-    groundMesh.receiveShadow = true;
-    scene.add(groundMesh);
 
     this.buildWater(scene);
     buildLandmarks(this, scene);   // ruins and the plane wreck (they reserve their space first)
@@ -502,11 +575,11 @@ export class World {
     for (const b of [trunks, roots, canopy, fronds, vines, logs, rocks, ferns, bigLeaves, puddles, brokenCrowns]) {
       if (b.matrices.length) b.build(scene);
     }
-    this.trunkMesh = trunks.mesh;
-    this.crownMesh = brokenCrowns.mesh;
-    // The instances move when trees fall, so don't let three.js cull them using their starting spots.
-    if (this.trunkMesh) this.trunkMesh.frustumCulled = false;
-    if (this.crownMesh) this.crownMesh.frustumCulled = false;
+    // Falling trees move their trunk and crown copies: point each tree at the mesh + slot they ended up in.
+    for (const t of this.brokenTrees) {
+      t.trunkRef = trunks.refs[t.index];
+      for (const c of t.crown) c.ref = brokenCrowns.refs[c.index];
+    }
 
     this.buildMist(scene);
   }
@@ -534,7 +607,8 @@ export class World {
     let row = 0;
     for (let x = -this.half; x <= this.half; x += step, row++) {
       const z = this.streamZ(x), y = this.waterLevel(x);
-      const slope = 0.55 * Math.cos(x * 0.05 + 0.4) + 0.52 * Math.cos(x * 0.13 + 1.3);
+      const u = x / this.k;
+      const slope = 0.55 * Math.cos(u * 0.05 + 0.4) + 0.52 * Math.cos(u * 0.13 + 1.3);
       const n = Math.sqrt(1 + slope * slope);
       const nx = -slope / n, nz = 1 / n;   // sideways across the stream
       pos.push(x - nx * width, y, z - nz * width, x + nx * width, y, z + nz * width);
@@ -556,7 +630,7 @@ export class World {
     // Stepping stones to cross without getting your feet wet.
     const stoneMat = new THREE.MeshStandardMaterial({ color: 0x5d5a50, roughness: 0.35, flatShading: true });
     const stoneGeo = makeLumpyGeometry(1, 1, 0.3, this.rnd);
-    for (const cx of [-34, -6, 22, 44]) {
+    for (const cx of [-34, -6, 22, 44, -70, 70].map(v => v * this.size / 180).filter(v => Math.abs(v) < this.half - 8)) {
       for (let k = -2; k <= 2; k++) {
         const z = this.streamZ(cx) + k * 1.4 + (this.rnd() - 0.5) * 0.4;
         const x = cx + (this.rnd() - 0.5) * 0.6;
@@ -576,7 +650,8 @@ export class World {
     const mat = new THREE.SpriteMaterial({ map: tex, color: 0xc8d4cc, opacity: 0.14, transparent: true, depthWrite: false });
     this.mist = [];
     const r = this.rnd;
-    for (let i = 0; i < 45; i++) {
+    const count = Math.round(45 * (this.size / 180) ** 2);   // same amount of mist per square meter at any size
+    for (let i = 0; i < count; i++) {
       const s = new THREE.Sprite(mat);
       const x = (r() * 2 - 1) * this.half, z = (r() * 2 - 1) * this.half;
       s.position.set(x, this.heightAt(x, z) + 1 + r() * 2, z);

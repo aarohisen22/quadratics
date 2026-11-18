@@ -147,6 +147,7 @@ export class Input {
       right: k.has('ArrowRight') || k.has('KeyD') || any(p => p.buttons[15]?.pressed || p.axes[0] > 0.5),
       confirm: k.has('Enter') || any(p => p.buttons[0]?.pressed || p.buttons[9]?.pressed),
       back: k.has('Escape') || any(p => p.buttons[1]?.pressed),
+      map: k.has('KeyM') || any(p => p.buttons[8]?.pressed),   // full map (controller: Back / View / Select)
     };
     const out = {};
     for (const key in now) { out[key] = now[key] && !this.prevMenu[key]; }

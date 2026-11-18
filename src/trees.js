@@ -39,6 +39,7 @@ export class FallingTrees {
       if (i >= 0) this.world.obstacles.splice(i, 1);
     }
     this.fallenObstacles = [];
+    this.world.obstaclesChanged();
     for (const t of this.world.brokenTrees) {
       t.state = 'standing';
       t.angle = t.lean;
@@ -73,18 +74,24 @@ export class FallingTrees {
     d.rotation.set(0, t.yaw, t.angle + shake);
     d.scale.set(t.radius, t.height, t.radius);
     d.updateMatrix();
-    this.world.trunkMesh.setMatrixAt(t.index, d.matrix);
-    this.world.trunkMesh.instanceMatrix.needsUpdate = true;
+    const T = t.trunkRef;
+    T.mesh.setMatrixAt(T.index, d.matrix);
+    T.mesh.instanceMatrix.needsUpdate = true;
 
     // The leafy crown rides along on top of the trunk.
-    const crownMesh = this.world.crownMesh;
-    if (!crownMesh || !t.crown) return;
-    const f = this.frame;
-    f.position.copy(d.position);
-    f.rotation.copy(d.rotation);
-    f.updateMatrix();
-    for (const c of t.crown) crownMesh.setMatrixAt(c.index, this.tmp.multiplyMatrices(f.matrix, c.local));
-    crownMesh.instanceMatrix.needsUpdate = true;
+    if (t.crown.length) {
+      const f = this.frame;
+      f.position.copy(d.position);
+      f.rotation.copy(d.rotation);
+      f.updateMatrix();
+      for (const c of t.crown) {
+        c.ref.mesh.setMatrixAt(c.ref.index, this.tmp.multiplyMatrices(f.matrix, c.local));
+        c.ref.mesh.instanceMatrix.needsUpdate = true;
+      }
+    }
+    // A leaning or fallen tree can stick out of its map square: keep it from being skipped when drawing.
+    T.mesh.computeBoundingSphere();
+    for (const c of t.crown) c.ref.mesh.computeBoundingSphere();
   }
 
   warn(t, seconds) {

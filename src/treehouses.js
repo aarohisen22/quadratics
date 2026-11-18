@@ -32,8 +32,8 @@ export function buildTreehouses(world, scene, count = 7) {
     for (let i = 0; i < 12; i++) {
       const a = (i / 12) * Math.PI * 2;
       const lx = t.x + Math.cos(a) * (RADIUS - 0.2), lz = t.z + Math.sin(a) * (RADIUS - 0.2);
-      const score = Math.min(...world.obstacles.filter(o => o.h < 50 || Math.hypot(o.x - t.x, o.z - t.z) > 0.1)
-        .map(o => Math.hypot(o.x - lx, o.z - lz) - o.r));
+      const score = Math.min(...world.obstaclesNear(lx, lz, 8).filter(o => o.h < 50 || Math.hypot(o.x - t.x, o.z - t.z) > 0.1)
+        .map(o => Math.hypot(o.x - lx, o.z - lz) - o.r), 8);
       if (score > bestScore) { bestScore = score; best = a; }
     }
     const lx = t.x + Math.cos(best) * (RADIUS - 0.2), lz = t.z + Math.sin(best) * (RADIUS - 0.2);
