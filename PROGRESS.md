@@ -110,8 +110,12 @@ Then open http://localhost:8080 (this server turns off browser caching so refres
 - Treetops dissolve near the ninjas so the overhead camera can see them (`cutaway` in world.js).
 - Files: src/config.js (settings to tune), world.js (land, tiles, obstacle grid), areas.js, flora.js (trees), landmarks.js (buildings), jptext.js (Japanese text), outpost.js (samurai camp + territory), weather.js (light, rain), sound.js, effects.js, combat.js (weapons + levels + arrows + gunners + boss fights), samurai.js (the six ranks, vines, attacks, obstacle steering), daimyo.js, shogun.js, bossmoves.js (shared boss moves), treehouses.js, foam.js (water foam), minimap.js, hud.js, ninja.js, input.js, camera.js, main.js.
 
-## Where we left off (2026-11-17, after feedback round 5, before Phase 7)
-Everything through Phase 6 and feedback rounds 2–5 is committed. To resume, open this folder and say "continue the game from PROGRESS.md".
+## Where we left off (2026-11-18, Japan makeover steps A–D done, paused for the kids' playtest)
+Steps A–D of `PLAN-japan.md` are committed: 420 m map, Japanese forest, Japanese buildings, the six ranks and the Daimyo/Shogun bosses. Paused so the family can test. To resume, say "continue the Japan makeover from PROGRESS.md": next is **step E** (a camp per area, leaders, next-camp marker, victory + Round 2), then F (seasons), then G (title: the kids pick; ideas 静寂の森 Seijaku no Mori, 森林浴 Shinrin-yoku, 森の心 Mori no Kokoro).
+
+**Until step E:** there's still one camp (in the cedar forest at -130, -55) and the ranks come by level (config `samurai.rankMix`): 1 ronin, 2 ashigaru, 3 samurai + archers/gunners, 4 hatamoto then the Daimyo, 5 hatamoto then the Shogun, then it repeats tougher. Walk out from the start (shrine hill) to the camp to start the waves.
+
+**Ask the kids about:** is the bigger map fun to walk or too far; which ranks are too easy or too hard (numbers in `src/config.js`: `samurai.ranks`, `gunner`, `daimyo`, `shogun`); can they read the Japanese signs (fonts) on their computer; anything that looks wrong.
 
 **Phase 7 to-do (menus, polish, publish):**
 - Settings screen: volume, mouse sensitivity, low graphics toggle (currently `?low` in the URL)
