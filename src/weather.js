@@ -87,9 +87,13 @@ export class Rain {
       const k = i * 3;
       // Drops live around the focus point; wrap them when it moves.
       let x = d[k] + wind * dt, y = d[k + 1] - rainSpeed * dt, z = d[k + 2];
-      if (x - fx > box) x -= box * 2; else if (x - fx < -box) x += box * 2;
-      if (z - fz > box) z -= box * 2; else if (z - fz < -box) z += box * 2;
-      const ground = this.world.heightAt(x, z);
+      let moved = false;
+      if (x - fx > box) { x -= box * 2; moved = true; } else if (x - fx < -box) { x += box * 2; moved = true; }
+      if (z - fz > box) { z -= box * 2; moved = true; } else if (z - fz < -box) { z += box * 2; moved = true; }
+      // The ground under each drop is looked up once and remembered (drops hardly move sideways).
+      const gy = this.groundY || (this.groundY = new Float32Array(this.count).fill(NaN));
+      if (moved || Number.isNaN(gy[i])) gy[i] = this.world.heightAt(x, z);
+      const ground = gy[i];
       if (y < ground) {
         if (Math.random() < 0.25) {
           const s = this.splashNext; this.splashNext = (s + 1) % this.splashCount;
@@ -98,7 +102,8 @@ export class Rain {
         }
         x = fx + (Math.random() * 2 - 1) * box;
         z = fz + (Math.random() * 2 - 1) * box;
-        y = this.world.heightAt(x, z) + this.top * (0.7 + Math.random() * 0.3);
+        gy[i] = this.world.heightAt(x, z);
+        y = gy[i] + this.top * (0.7 + Math.random() * 0.3);
       }
       d[k] = x; d[k + 1] = y; d[k + 2] = z;
       const o = i * 6;

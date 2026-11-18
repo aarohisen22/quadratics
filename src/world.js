@@ -202,11 +202,16 @@ export class World {
     this.rnd = makeRandom(cfg.seed);
     this.areas = new Areas(cfg.size);   // bamboo grove, cedar forest, village... (areas.js)
     this.k = cfg.size / 120;      // the land was first designed 120 m wide; everything is spread out by this much
-    this.templeSpot = { x: 45 * this.k / 1.5, z: -42 * this.k / 1.5 };
-    this.templeTop = this.baseHeight(this.templeSpot.x, this.templeSpot.z) + 3.5;
-    this.reserved = [];           // areas kept clear for ruins and the plane wreck
+    // Shrine hill: the shrine stands on a little hill just north of where the brothers start.
+    const S = this.areas.byId.shrine;
+    this.templeSpot = { x: S.x - 2, z: S.z - 30 };
+    this.templeTop = this.baseHeight(this.templeSpot.x, this.templeSpot.z) + 4;
+    this.reserved = [];           // places kept clear of trees for buildings
     this.outpostSpot = cfg.outpost;
     this.outpostY = this.baseHeight(cfg.outpost.x, cfg.outpost.z);
+    this.planCastle();
+    this.planVillage();
+    this.planPaths();
     this.build(scene);
   }
 
@@ -230,9 +235,12 @@ export class World {
 
   // How deep the water is here (0 = dry land).
   waterDepthAt(x, z) {
+    if (this.inMoat(x, z)) return Math.max(0, this.castle.moatLevel - this.heightAt(x, z));
     if (this.streamDist(x, z) > 6) return 0;
     return Math.max(0, this.waterLevel(x) - this.heightAt(x, z));
   }
+  // Height of the water surface here (stream or castle moat).
+  waterSurfaceAt(x, z) { return this.inMoat(x, z) ? this.castle.moatLevel : this.waterLevel(x); }
 
   // Bumpy jungle floor before the valley and hill are added.
   baseHeight(x, z) {
@@ -245,7 +253,151 @@ export class World {
     return h;
   }
 
+  // ---------- plans for the castle hill, the village and the paths (made before the land is built) ----------
+
+  // The castle stands on a raised platform with sloping stone walls (ishigaki), ringed by a moat.
+  // An earth causeway (dobashi) leads up to the gate on the side facing the shrine.
+  planCastle() {
+    const A = this.areas.byId.castle;
+    if (!A) return;
+    const C = { x: A.x, z: A.z, rTop: 22, rWall: 26.5, moatIn: 29.5, moatOut: 34.5, flat: 46 };
+    C.ground = this.baseHeight(C.x, C.z);
+    C.top = C.ground + 6;
+    C.moatLevel = C.ground - 1.1;
+    const a = Math.atan2(-C.z, -C.x);          // the gate faces the middle of the map
+    C.gateDir = { x: Math.cos(a), z: Math.sin(a) };
+    C.gateAngle = a;
+    C.rampEnd = C.rTop + 6 / 0.42;             // the causeway slopes down to the ground here
+    this.castle = C;
+    this.reserved.push({ x: C.x, z: C.z, r: C.moatOut + 3 });
+  }
+  // How the castle hill changes the land (h is the land before).
+  castleHeight(x, z, h) {
+    const C = this.castle;
+    const dx = x - C.x, dz = z - C.z, d = Math.hypot(dx, dz);
+    if (d > C.flat) return h;
+    h += (C.ground - h) * (1 - smoothstep(C.flat - 10, C.flat, d));          // levelled ground all round
+    const along = dx * C.gateDir.x + dz * C.gateDir.z, side = Math.abs(dx * C.gateDir.z - dz * C.gateDir.x);
+    const ramp = along > 0 && side < 3.2;
+    if (d < C.rTop) return C.top;
+    if (ramp && d < C.rampEnd) return Math.max(h, C.top - Math.max(0, along - C.rTop) * 0.42);
+    if (d < C.rWall) return C.top + (C.ground - C.top) * smoothstep(C.rTop, C.rWall, d);   // steep stone wall
+    if (d > C.moatIn - 1.5 && d < C.moatOut + 1.5 && !(along > 0 && side < 4)) {
+      h -= 2 * (1 - smoothstep(0, 2.5, Math.abs(d - (C.moatIn + C.moatOut) / 2) - 1));   // the moat
+    }
+    return h;
+  }
+  inMoat(x, z) {
+    const C = this.castle;
+    if (!C) return false;
+    const dx = x - C.x, dz = z - C.z, d = Math.hypot(dx, dz);
+    const along = dx * C.gateDir.x + dz * C.gateDir.z, side = Math.abs(dx * C.gateDir.z - dz * C.gateDir.x);
+    return d > C.moatIn - 1.5 && d < C.moatOut + 1.5 && !(along > 0 && side < 4);
+  }
+
+  // The village: a red arched bridge over the stream and rice paddies on the far bank.
+  planVillage() {
+    const V = this.areas.byId.village;
+    if (!V) return;
+    const bx = V.x, sz = this.streamZ(bx);
+    this.village = { x: V.x, z: V.z, bridgeX: bx };
+    this.bridges = this.bridges || [];
+    this.bridges.push(this.makeBridge(bx, sz - 8.5, bx, sz + 8.5, 1.5, 2.4, 'taiko'));
+    // Six paddies in two rows, on the south side of the stream.
+    this.paddies = [];
+    for (let i = 0; i < 3; i++) for (let j = 0; j < 2; j++) {
+      const px = bx - 22 + i * 13, pz = this.streamZ(px) + 16 + j * 10;
+      this.paddies.push({ x: px, z: pz, w: 11.5, d: 8.5, y: this.baseHeight(px, pz) - 0.6 + j * 0.45 });   // stepped slightly
+    }
+    for (const p of this.paddies) this.reserved.push({ x: p.x, z: p.z, r: 7.5 });
+    this.reserved.push({ x: bx, z: sz, r: 10 });
+  }
+  paddyAt(x, z) { return (this.paddies || []).find(p => Math.abs(x - p.x) < p.w / 2 && Math.abs(z - p.z) < p.d / 2); }
+
+  // A walkable bridge from (x0, z0) to (x1, z1), `w` meters wide, arching `arch` meters above the ends.
+  makeBridge(x0, z0, x1, z1, w, arch, style) {
+    const len = Math.hypot(x1 - x0, z1 - z0);
+    return { x0, z0, x1, z1, len, w, arch, style, dx: (x1 - x0) / len, dz: (z1 - z0) / len,
+      h0: this.terrainAt(x0, z0), h1: this.terrainAt(x1, z1) };
+  }
+  // Height of a bridge's deck at this spot, or -Infinity if not on a bridge.
+  deckAt(x, z) {
+    let best = -Infinity;
+    for (const b of this.bridges || []) {
+      const ox = x - b.x0, oz = z - b.z0;
+      const t = (ox * b.dx + oz * b.dz) / b.len;
+      if (t < 0 || t > 1) continue;
+      if (Math.abs(ox * b.dz - oz * b.dx) > b.w / 2) continue;
+      best = Math.max(best, b.h0 + (b.h1 - b.h0) * t + b.arch * Math.sin(Math.PI * t) + 0.1);
+    }
+    return best;
+  }
+
+  // Stone-edged earth paths from shrine hill out to every area. Trees keep off them.
+  planPaths() {
+    const S = this.areas.byId.shrine;
+    this.paths = [];
+    this.pathCells = new Map();
+    this.bridges = this.bridges || [];
+    let flip = 1;
+    for (const A of this.areas.list) {
+      if (A === S) continue;
+      let end = { x: A.x, z: A.z };
+      if (A.id === 'castle' && this.castle) {   // to the foot of the causeway
+        const C = this.castle;
+        end = { x: C.x + C.gateDir.x * (C.rampEnd + 2), z: C.z + C.gateDir.z * (C.rampEnd + 2) };
+      }
+      const sx = S.x + (end.x - S.x) * 0.06, sz = S.z + (end.z - S.z) * 0.06;
+      const len = Math.hypot(end.x - sx, end.z - sz);
+      const nx = -(end.z - sz) / len, nz = (end.x - sx) / len;
+      const bend = len * 0.12 * (flip = -flip);
+      const cx = (sx + end.x) / 2 + nx * bend, cz = (sz + end.z) / 2 + nz * bend;
+      const pts = [];
+      for (let i = 0; i <= 60; i++) {
+        const t = i / 60, u = 1 - t;
+        pts.push({ x: u * u * sx + 2 * u * t * cx + t * t * end.x, z: u * u * sz + 2 * u * t * cz + t * t * end.z });
+      }
+      const path = { area: A.id, pts };
+      this.paths.push(path);
+      // Where a path crosses the stream it gets a wooden bridge.
+      for (let i = 1; i < pts.length; i++) {
+        const a = pts[i - 1], b = pts[i];
+        const sa = a.z - this.streamZ(a.x), sb = b.z - this.streamZ(b.x);
+        if (sa * sb <= 0) {
+          const t = sa / (sa - sb), mx = a.x + (b.x - a.x) * t, mz = a.z + (b.z - a.z) * t;
+          const dx = b.x - a.x, dz = b.z - a.z, l = Math.hypot(dx, dz);
+          if (Math.abs(mx - (this.village?.bridgeX ?? 1e9)) < 12) continue;
+          this.bridges.push(this.makeBridge(mx - dx / l * 9, mz - dz / l * 9, mx + dx / l * 9, mz + dz / l * 9, 2.2, 1.2, 'plank'));
+          path.bridge = this.bridges[this.bridges.length - 1];
+        }
+      }
+      // Remember how far every square meter near the path is from it.
+      for (let i = 1; i < pts.length; i++) {
+        const a = pts[i - 1], b = pts[i];
+        const x0 = Math.floor(Math.min(a.x, b.x) - 5), x1 = Math.ceil(Math.max(a.x, b.x) + 5);
+        const z0 = Math.floor(Math.min(a.z, b.z) - 5), z1 = Math.ceil(Math.max(a.z, b.z) + 5);
+        const dx = b.x - a.x, dz = b.z - a.z, l2 = dx * dx + dz * dz;
+        for (let x = x0; x <= x1; x++) for (let z = z0; z <= z1; z++) {
+          const t = Math.max(0, Math.min(1, ((x + 0.5 - a.x) * dx + (z + 0.5 - a.z) * dz) / l2));
+          const d = Math.hypot(x + 0.5 - a.x - dx * t, z + 0.5 - a.z - dz * t);
+          if (d > 5) continue;
+          const key = x * 100003 + z, old = this.pathCells.get(key);
+          if (old === undefined || d < old) this.pathCells.set(key, d);
+        }
+      }
+    }
+  }
+  // Distance to the nearest path (up to 5 m; further away = Infinity).
+  pathDist(x, z) { return this.pathCells?.get(Math.floor(x) * 100003 + Math.floor(z)) ?? Infinity; }
+
+  // Where you walk: the land, or a bridge deck if you're on one.
   heightAt(x, z) {
+    const h = this.terrainAt(x, z);
+    return this.bridges?.length ? Math.max(h, this.deckAt(x, z)) : h;
+  }
+
+  // The shape of the land itself.
+  terrainAt(x, z) {
     let h = this.baseHeight(x, z);
     // The stream valley: a wide gentle dip with a deeper stream bed in the middle.
     const d = this.streamDist(x, z);
@@ -253,9 +405,9 @@ export class World {
     // A hill with a flat top where the old temple stands.
     const T = this.templeSpot;
     const dt = Math.hypot(x - T.x, z - T.z);
-    if (dt < 18) {
-      h += 3.5 * (1 - smoothstep(7, 18, dt));
-      h += (this.templeTop - h) * (1 - smoothstep(6.5, 9, dt));   // level the top
+    if (dt < 22) {
+      h += 4 * (1 - smoothstep(9, 22, dt));
+      h += (this.templeTop - h) * (1 - smoothstep(9, 11.5, dt));   // level the top
     }
     // The samurai camp sits on a levelled clearing.
     const O = this.outpostSpot;
@@ -264,6 +416,13 @@ export class World {
       const w = O.wall || 15;
       if (d < w + 7) h += (this.outpostY - h) * (1 - smoothstep(w + 2, w + 7, d));
     }
+    // Rice paddies: flat, a little below their low earth banks.
+    for (const p of this.paddies || []) {
+      const ex = Math.abs(x - p.x) - p.w / 2, ez = Math.abs(z - p.z) - p.d / 2;
+      const e = Math.max(ex, ez);
+      if (e < 3) h += (p.y + (e < 0 ? -0.15 : 0.05) - h) * (1 - smoothstep(0.6, 3, e));
+    }
+    if (this.castle) h = this.castleHeight(x, z, h);
     return h;
   }
 
@@ -336,6 +495,7 @@ export class World {
       if (placed && (placed.tooClose ? placed.tooClose(x, z, spacing) : placed.some(p => (p.x - x) ** 2 + (p.z - z) ** 2 < spacing * spacing))) continue;
       if (this.streamDist(x, z) < 6) continue;                                   // not in the stream
       if (this.reserved.some(a => Math.hypot(a.x - x, a.z - z) < a.r)) continue; // not inside a ruin
+      if (this.pathDist(x, z) < 3.2) continue;                                  // not on a path
       return { x, z };
     }
     return null;
@@ -350,6 +510,7 @@ export class World {
     // --- ground: TILE x TILE meter pieces, so pieces off screen aren't drawn ---
     const mud = new THREE.Color(0x3a2c1f), moss = new THREE.Color(0x2c4a1f), litter = new THREE.Color(0x4f3c22);
     const needles = new THREE.Color(0x3d2617), bambooLitter = new THREE.Color(0x6f5d3b), redLeaves = new THREE.Color(0x6a2a16);
+    const pathDirt = new THREE.Color(0x6b5638), paddyMud = new THREE.Color(0x3a3020);
     const grass = new THREE.Color(0x4a5a28), gravel = new THREE.Color(0x7d786c), shrineMoss = new THREE.Color(0x35552a);
     const wetMud = new THREE.Color(0x261f16), pebbles = new THREE.Color(0x4a4639), stone = new THREE.Color(0x6d6b60), trampled = new THREE.Color(0x4a3a28);
     const groundMat = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.62 });
@@ -366,9 +527,9 @@ export class World {
       const colors = new Float32Array(gp.count * 3);
       for (let i = 0; i < gp.count; i++) {
         const x = gp.getX(i), z = gp.getZ(i);
-        gp.setY(i, this.heightAt(x, z));
+        gp.setY(i, this.terrainAt(x, z));
         // Normals from the height of the land around this point, so the tiles' edges match.
-        n.set(this.heightAt(x - 0.4, z) - this.heightAt(x + 0.4, z), 0.8, this.heightAt(x, z - 0.4) - this.heightAt(x, z + 0.4)).normalize();
+        n.set(this.terrainAt(x - 0.4, z) - this.terrainAt(x + 0.4, z), 0.8, this.terrainAt(x, z - 0.4) - this.terrainAt(x, z + 0.4)).normalize();
         gn.setXYZ(i, n.x, n.y, n.z);
         const m = noise2(x * 0.08 + 50, z * 0.08);
         const l = noise2(x * 0.3, z * 0.3 + 20);
@@ -381,10 +542,18 @@ export class World {
         color.lerp(grass, A.weight('village', x, z) * 0.6);                                              // fields round the village
         color.lerp(gravel, A.weight('castle', x, z) * smoothstep(0.3, 0.6, m) * 0.6);                   // gravel up by the castle
         color.lerp(shrineMoss, A.weight('shrine', x, z) * smoothstep(0.4, 0.7, m) * 0.6);               // soft moss on shrine hill
+        const pd = this.pathDist(x, z);
+        if (pd < 2.6) color.lerp(pathDirt, (1 - smoothstep(1.3, 2.6, pd)) * 0.85);                       // packed-earth paths
+        const pad = this.paddyAt(x, z);
+        if (pad) color.lerp(paddyMud, 0.9);
+        if (this.castle) {
+          const cd = Math.hypot(x - this.castle.x, z - this.castle.z);
+          if (cd < this.castle.rTop) color.lerp(gravel, 0.8);                                             // castle courtyard gravel
+        }
         const sd = this.streamDist(x, z);
         if (sd < 7) color.lerp(sd < 4.5 ? pebbles : wetMud, (1 - smoothstep(3, 7, sd)) * 0.85);   // wet banks, pebbly bed
         const td = Math.hypot(x - this.templeSpot.x, z - this.templeSpot.z);
-        if (td < 9) color.lerp(stone, (1 - smoothstep(6, 9, td)) * 0.9);                       // old stone floor
+        if (td < 11) color.lerp(stone, (1 - smoothstep(8, 11, td)) * 0.9);                       // old stone floor
         const od = Math.hypot(x - this.outpostSpot.x, z - this.outpostSpot.z);
         if (od < this.outpostSpot.wall + 3) color.lerp(trampled, (1 - smoothstep(this.outpostSpot.wall - 2, this.outpostSpot.wall + 3, od)) * 0.8);                  // trampled earth in the camp
         colors.set([color.r, color.g, color.b], i * 3);
@@ -415,7 +584,7 @@ export class World {
     const roots = new Batch(rootGeo, barkMat, { shade: 0.6 });
     const deadCrowns = new Batch(makeTierGeometry(r), leafMat, { shade: 0.8 });
     const placed = new Placed();
-    const plantOK = (x, z) => this.streamDist(x, z) > 3.8 && !this.reserved.some(a => Math.hypot(a.x - x, a.z - z) < a.r * 0.6);
+    const plantOK = (x, z) => this.streamDist(x, z) > 3.8 && this.pathDist(x, z) > 1.6 && !this.reserved.some(a => Math.hypot(a.x - x, a.z - z) < a.r * 0.6);
 
     // --- the Japanese forest: cedars, cypress, red pines, maples, cherries, bamboo, bamboo grass (flora.js) ---
     buildForest(this, scene, cfg, { barkMat, leafMat, frondMat, plantMat, trunkGeo, trunks, roots, placed, plantOK });
@@ -625,6 +794,7 @@ export class World {
 
   update(dt) {
     this.outpost?.update(dt);
+    for (const sp of this.spinners || []) sp.obj.rotation.z += sp.speed * dt;   // the watermill wheel
     if (this.waterTex) this.waterTex.offset.x -= dt * 0.25;   // the stream flows
     for (const s of this.mist) {
       s.position.x += s.userData.speed * dt;

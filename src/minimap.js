@@ -87,6 +87,23 @@ export class Minimap {
     this.stream.forEach(([x, z], i) => { const [px, py] = map(x, z); i ? c.lineTo(px, py) : c.moveTo(px, py); });
     c.stroke();
 
+    // Paths from shrine hill to every area.
+    c.strokeStyle = 'rgba(200,170,120,0.55)'; c.lineWidth = this.full ? 2 : 2.5;
+    for (const path of this.world.paths || []) {
+      c.beginPath();
+      path.pts.forEach((p, i) => { const [px, py] = map(p.x, p.z); i ? c.lineTo(px, py) : c.moveTo(px, py); });
+      c.stroke();
+    }
+    // The castle walls and moat.
+    const CA = this.world.castle;
+    if (CA) {
+      const [cx2, cy2] = map(CA.x, CA.z);
+      c.strokeStyle = 'rgba(90,150,170,0.7)'; c.lineWidth = Math.max(1.5, (CA.moatOut - CA.moatIn) * scale);
+      c.beginPath(); c.arc(cx2, cy2, (CA.moatIn + CA.moatOut) / 2 * scale, 0, Math.PI * 2); c.stroke();
+      c.fillStyle = 'rgba(190,185,170,0.5)';
+      c.beginPath(); c.arc(cx2, cy2, CA.rWall * scale, 0, Math.PI * 2); c.fill();
+    }
+
     // Landmarks and boulders.
     c.fillStyle = 'rgba(150,150,135,0.55)';
     for (const [x, z, rad] of this.solids) {

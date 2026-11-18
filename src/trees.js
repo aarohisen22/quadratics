@@ -2,6 +2,7 @@
 // You can also shoot one enough times to knock it over onto the samurai!
 import * as THREE from 'three';
 import { sfx } from './sound.js';
+import { bilingual } from './jptext.js';
 
 export class FallingTrees {
   constructor(scene, world, effects, rig, cfg) {
@@ -119,7 +120,7 @@ export class FallingTrees {
         players.some(p => p.alive && Math.hypot(p.pos.x - t.x, p.pos.z - t.z) < 18 && Math.hypot(p.pos.x - t.x, p.pos.z - t.z) > 3));
       if (near.length) {
         this.warn(near[Math.floor(Math.random() * near.length)], this.cfg.warningSeconds);
-        hud.toast('Timber! A tree is coming down!');
+        hud.toast(bilingual('危険！木が倒れる', 'Danger! A tree is coming down!'));
       }
     }
 

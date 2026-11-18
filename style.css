@@ -116,3 +116,9 @@ canvas { display: block; }
 
 /* Hiding in the ruins / up a tree */
 .pcard.hiding .status { display: block; color: #7dff9a; font-weight: 800; letter-spacing: .08em; }
+
+/* ---------- Japanese + English messages (jptext.js bilingual) ---------- */
+#toast .jp, #banner .jp { display: block; font-family: "Hiragino Mincho ProN", "Yu Mincho", "YuMincho", "Noto Serif JP", serif; }
+#toast .jp { font-size: 20px; }
+#toast .en { display: block; font-size: 13px; font-weight: 600; opacity: .85; }
+#banner .en { display: block; font-size: .38em; font-weight: 600; opacity: .85; margin-top: .15em; }

@@ -69,7 +69,7 @@ export class Foam {
       t.x = a.pos.x; t.z = a.pos.z;
       if (depth < 0.12) continue;
 
-      const y = this.world.waterLevel(a.pos.x) + 0.03;
+      const y = this.world.waterSurfaceAt(a.pos.x, a.pos.z) + 0.03;
       const flow = this.flowAt(a.pos.x);
       const r = (a.radius || 0.4) + 0.15;
       // Foam rings: faster when moving, a gentle trickle when standing still.
@@ -102,7 +102,7 @@ export class Foam {
       const k = u.age / u.life;
       m.position.x += u.vx * dt;
       m.position.z += u.vz * dt;
-      m.position.y = this.world.waterLevel(m.position.x) + 0.03;
+      m.position.y = this.world.waterSurfaceAt(m.position.x, m.position.z) + 0.03;
       m.rotation.y += dt * 0.3;
       m.scale.setScalar(u.size * (0.6 + k * 0.9));          // spreads out as it drifts
       m.material.opacity = Math.min(1, u.age * 8) * (1 - k) * 0.85;

@@ -1,5 +1,7 @@
 // On-screen info: health bar with a number, ammo, level, messages.
 const $ = id => document.getElementById(id);
+// Our own bilingual messages are built from <span class="jp"> / <span class="en">; anything else is plain text.
+const setText = (el, text) => { if (text.startsWith('<span class="jp">')) el.innerHTML = text; else el.textContent = text; };
 
 export class Hud {
   constructor(players) {
@@ -100,15 +102,16 @@ export class Hud {
 
   showCrosshair(on) { $('crosshair').classList.toggle('hidden', !on); }
 
+  // text can be plain words, or bilingual(jp, en) from jptext.js (Japanese big, English small).
   toast(text, seconds = 3) {
-    $('toast').textContent = text;
+    setText($('toast'), text);
     $('toast').classList.add('show');
     clearTimeout(this.toastTimer);
     this.toastTimer = setTimeout(() => $('toast').classList.remove('show'), seconds * 1000);
   }
 
   banner(text, seconds = 2) {
-    $('banner').textContent = text;
+    setText($('banner'), text);
     $('banner').classList.add('show');
     this.bannerTimer = seconds;
   }
