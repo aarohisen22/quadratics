@@ -567,7 +567,7 @@ export class World {
     }
 
     this.buildWater(scene);
-    buildLandmarks(this, scene);   // ruins and the plane wreck (they reserve their space first)
+    buildLandmarks(this, scene);   // shrine, pagoda, village, castle... (they reserve their space before the trees)
     buildOutpost(this, scene, cfg.outpost);
 
     // --- shared materials ---
