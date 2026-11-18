@@ -94,7 +94,15 @@ Then open http://localhost:8080 (this server turns off browser caching so refres
   - [x] Jungle 120 m → 180 m (about 2x area): stream and landmarks spread out, twice the trees/plants, 6 huts, 7 treehouses 32 m+ apart. Same frame rate in the preview pane
   - [x] Camp at (-10, -48), wall 15 m, territory 58 m: gatehouse (pillars, curved top beam, roof, crest plaque, lanterns, open studded doors), two watchtowers, 6 tents, 8 torches, 14 banners, 2 weapon racks. Camp guards: 4 + 1 per level (max 12) at posts with patrols, attack within 12 m of the wall, don't count toward waves, replaced each level (`levels.guards` etc.). Samurai route round the wall and through the gate to get in or out (samurai.js `routeVia`)
   - [x] Smoke "colourful particles": the kids' screenshot showed coloured speckle noise over the cloud. That's the browser's anti-fingerprinting noise (Safari Advanced Fingerprinting Protection / Brave / privacy add-ons) added to canvas-drawn pictures. Soft see-through textures (smoke, mist, sunbeams, muzzle flash, foam) are now computed pixel by pixel (src/pixeltex.js), not drawn on a canvas. Solid canvas textures (armor, crates, stone, flags) still use canvas: the noise is hard to see on them, but if speckles show up there, convert them the same way
-- [ ] Phase 7: Menus, polish, publish  ← next (pause menu already done in round 3)
+- [ ] Japan makeover (plan in `PLAN-japan.md`, approved 2026-11-18)  ← next
+  - [ ] A. Big-world foundations: 420 m map (5.4x area), ground tiles + tiled instancing, obstacle grid, areas.js, minimap zoom + full map
+  - [ ] B. Japanese forest: sugi/hinoki/red pine, bamboo groves, maples/sakura, sasa, moss
+  - [ ] C. Japanese places: shrine + pagoda, minka, lookouts, paths/jizo/signs, village, castle; kanji text (jptext.js)
+  - [ ] D. 6 ranks: ronin, ashigaru (yari/yumi/teppo), samurai, hatamoto, Daimyo boss, Shogun boss (old bosses + nunchucks removed)
+  - [ ] E. Area campaign: a camp per area, leaders, next-camp marker, victory + Round 2
+  - [ ] F. Seasons: spring petals, summer rain, autumn maples, winter snow
+  - [ ] G. Title chosen by the kids (ideas: 静寂の森 Seijaku no Mori, 森林浴 Shinrin-yoku, 森の心 Mori no Kokoro)
+- [ ] Phase 7: Menus, polish, publish (after the Japan makeover; pause menu already done in round 3)
 
 ## Notes and decisions made while building
 - Three.js r170 loads from the jsDelivr CDN through an import map, so there's nothing to install.
