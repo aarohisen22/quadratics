@@ -10,13 +10,14 @@ export const CONFIG = {
   world: {
     seed: 7,              // change for a different jungle layout
     size: 420,            // map width and depth in meters (was 180: now 5.4x the area). Areas are in areas.js
-    giantTrees: 1000,
-    palmTrees: 650,
-    brokenTrees: 210,     // dead leaning trees that can fall on you
+    trees: 1150,          // cedars, cypress, red pines, maples, cherries (which kind depends on the area: flora.js)
+    bambooClumps: LOW_GRAPHICS ? 420 : 650,
+    spraysPerStalk: LOW_GRAPHICS ? 3 : 5,
+    brokenTrees: 210,     // dead snapped cedars that can fall on you
     fallenLogs: 170,
     rocks: 520,
     ferns: LOW_GRAPHICS ? 1800 : 4200,
-    bigLeafPlants: LOW_GRAPHICS ? 600 : 1500,
+    sasa: LOW_GRAPHICS ? 900 : 2200,   // clumps of bamboo grass
     puddles: 400,
     lookouts: 15,         // treehouses / lookout towers you can climb
     // The samurai camp. Waves march out of it; past the red-ribboned posts (territory meters

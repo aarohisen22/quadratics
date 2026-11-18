@@ -4,6 +4,7 @@ import { buildLandmarks } from './landmarks.js';
 import { buildOutpost } from './outpost.js';
 import { pixelTexture } from './pixeltex.js';
 import { Areas } from './areas.js';
+import { buildForest, makeTierGeometry } from './flora.js';
 
 // ---------- small helpers ----------
 
@@ -87,8 +88,8 @@ export function addCutaway(material) {
 // ---------- shapes ----------
 
 // A long leaf (palm frond / fern leaf) lying along +x that droops at the tip.
-function makeFrondGeometry(length, width, droop) {
-  const g = new THREE.PlaneGeometry(length, width, 10, 2);
+export function makeFrondGeometry(length, width, droop, lengthSegments = 10, widthSegments = 2) {
+  const g = new THREE.PlaneGeometry(length, width, lengthSegments, widthSegments);
   g.translate(length / 2, 0, 0);
   g.rotateX(-Math.PI / 2);
   const p = g.attributes.position;
@@ -162,6 +163,27 @@ export class Batch {
       this.meshes.push(mesh);
     }
     return this.meshes;
+  }
+}
+
+// Spots already taken by trees, rocks and logs, sorted into 10 m squares so "is anything
+// too close?" only looks at the squares nearby.
+class Placed {
+  constructor() { this.cells = new Map(); }
+  key(cx, cz) { return cx * 100003 + cz; }
+  push(p) {
+    const k = this.key(Math.floor(p.x / 10), Math.floor(p.z / 10));
+    if (!this.cells.has(k)) this.cells.set(k, []);
+    this.cells.get(k).push(p);
+  }
+  some(fn) { for (const list of this.cells.values()) if (list.some(fn)) return true; return false; }
+  tooClose(x, z, d) {
+    const cx = Math.floor(x / 10), cz = Math.floor(z / 10), n = Math.ceil(d / 10);
+    for (let i = -n; i <= n; i++) for (let j = -n; j <= n; j++) {
+      const list = this.cells.get(this.key(cx + i, cz + j));
+      if (list && list.some(p => (p.x - x) ** 2 + (p.z - z) ** 2 < d * d)) return true;
+    }
+    return false;
   }
 }
 
@@ -311,7 +333,7 @@ export class World {
       const x = (r() * 2 - 1) * (this.half - 2);
       const z = (r() * 2 - 1) * (this.half - 2);
       if (Math.hypot(x, z) < minDistFromCenter) continue;
-      if (placed && placed.some(p => (p.x - x) ** 2 + (p.z - z) ** 2 < spacing * spacing)) continue;
+      if (placed && (placed.tooClose ? placed.tooClose(x, z, spacing) : placed.some(p => (p.x - x) ** 2 + (p.z - z) ** 2 < spacing * spacing))) continue;
       if (this.streamDist(x, z) < 6) continue;                                   // not in the stream
       if (this.reserved.some(a => Math.hypot(a.x - x, a.z - z) < a.r)) continue; // not inside a ruin
       return { x, z };
@@ -327,6 +349,8 @@ export class World {
 
     // --- ground: TILE x TILE meter pieces, so pieces off screen aren't drawn ---
     const mud = new THREE.Color(0x3a2c1f), moss = new THREE.Color(0x2c4a1f), litter = new THREE.Color(0x4f3c22);
+    const needles = new THREE.Color(0x3d2617), bambooLitter = new THREE.Color(0x6f5d3b), redLeaves = new THREE.Color(0x6a2a16);
+    const grass = new THREE.Color(0x4a5a28), gravel = new THREE.Color(0x7d786c), shrineMoss = new THREE.Color(0x35552a);
     const wetMud = new THREE.Color(0x261f16), pebbles = new THREE.Color(0x4a4639), stone = new THREE.Color(0x6d6b60), trampled = new THREE.Color(0x4a3a28);
     const groundMat = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.62 });
     const tiles = Math.ceil(this.size / TILE), seg = Math.round(TILE * 4 / 3);   // same ground detail per meter at any size
@@ -349,6 +373,14 @@ export class World {
         const m = noise2(x * 0.08 + 50, z * 0.08);
         const l = noise2(x * 0.3, z * 0.3 + 20);
         color.copy(mud).lerp(moss, smoothstep(0.35, 0.65, m)).lerp(litter, smoothstep(0.6, 0.9, l) * 0.6);
+        // Each area has its own forest floor.
+        const A = this.areas;
+        color.lerp(needles, A.weight('cedar', x, z) * (0.75 - smoothstep(0.55, 0.8, m) * 0.45));          // cedar needles, moss in between
+        color.lerp(bambooLitter, A.weight('bamboo', x, z) * (0.55 + l * 0.3));                         // pale bamboo leaves
+        color.lerp(redLeaves, A.weight('maple', x, z) * smoothstep(0.35, 0.7, l) * 0.7);                // fallen maple leaves
+        color.lerp(grass, A.weight('village', x, z) * 0.6);                                              // fields round the village
+        color.lerp(gravel, A.weight('castle', x, z) * smoothstep(0.3, 0.6, m) * 0.6);                   // gravel up by the castle
+        color.lerp(shrineMoss, A.weight('shrine', x, z) * smoothstep(0.4, 0.7, m) * 0.6);               // soft moss on shrine hill
         const sd = this.streamDist(x, z);
         if (sd < 7) color.lerp(sd < 4.5 ? pebbles : wetMud, (1 - smoothstep(3, 7, sd)) * 0.85);   // wet banks, pebbly bed
         const td = Math.hypot(x - this.templeSpot.x, z - this.templeSpot.z);
@@ -378,76 +410,17 @@ export class World {
 
     const trunkGeo = new THREE.CylinderGeometry(0.65, 1, 1, 9, 4).translate(0, 0.5, 0);
     const rootGeo = new THREE.ConeGeometry(1, 1, 7, 1, true).translate(0, 0.5, 0);
-    const vineGeo = new THREE.CylinderGeometry(0.035, 0.035, 1, 4).translate(0, -0.5, 0);
 
     const trunks = new Batch(trunkGeo, barkMat, { shade: 0.6 });
     const roots = new Batch(rootGeo, barkMat, { shade: 0.6 });
-    const canopy = new Batch(makeLumpyGeometry(1, 1, 0.35, r), leafMat, { shade: 0.7 });
-    const fronds = new Batch(makeFrondGeometry(4.2, 0.9, 0.35), frondMat, { shade: 0.5 });
-    const vines = new Batch(vineGeo, frondMat, { shadow: false, shade: 0.6 });
-    const brokenCrowns = new Batch(makeLumpyGeometry(1, 1, 0.45, r), leafMat, { shade: 0.8 });
-    const placed = [];
+    const deadCrowns = new Batch(makeTierGeometry(r), leafMat, { shade: 0.8 });
+    const placed = new Placed();
+    const plantOK = (x, z) => this.streamDist(x, z) > 3.8 && !this.reserved.some(a => Math.hypot(a.x - x, a.z - z) < a.r * 0.6);
 
-    // --- giant rainforest trees ---
-    for (let i = 0; i < cfg.giantTrees; i++) {
-      const s = this.freeSpot(7, 5, placed); if (!s) continue;
-      placed.push(s);
-      const y = this.heightAt(s.x, s.z);
-      const rad = 0.3 + r() * 0.35, h = 7 + r() * 4;
-      dummy.position.set(s.x, y - 0.3, s.z); dummy.rotation.set((r() - .5) * .06, r() * 6.28, (r() - .5) * .06);
-      dummy.scale.set(rad, h, rad); dummy.updateMatrix();
-      trunks.add(dummy.matrix, color.setHSL(0.07 + r() * 0.03, 0.3, 0.17 + r() * 0.08));
-      dummy.scale.set(rad * 2.6, 1.6 + r(), rad * 2.6); dummy.updateMatrix();
-      roots.add(dummy.matrix, color.setHSL(0.08, 0.28, 0.16));
-      this.obstacles.push({ x: s.x, z: s.z, r: rad + 0.25, base: y, h: 99 });
-      this.bigTrees.push({ x: s.x, z: s.z, y, h, rad });
-      const blobs = 4 + Math.floor(r() * 4);
-      for (let b = 0; b < blobs; b++) {
-        const a = r() * 6.28, d = r() * 2.6;
-        const br = 1.8 + r() * 1.6;
-        dummy.position.set(s.x + Math.cos(a) * d, y + h - 0.5 + (r() - 0.3) * 2, s.z + Math.sin(a) * d);
-        dummy.rotation.set(r() * 3, r() * 3, r() * 3);
-        const sy = br * (0.55 + r() * 0.2);
-        dummy.scale.set(br, sy, br); dummy.updateMatrix();
-        canopy.add(dummy.matrix, color.setHSL(0.26 + r() * 0.08, 0.45 + r() * 0.2, 0.16 + r() * 0.1));
-        // A vine can hang from under this clump of leaves (a bit out from the trunk).
-        if (d > 1.2) this.canopySpots.push({ x: dummy.position.x, z: dummy.position.z, top: dummy.position.y - sy * 0.6, tx: s.x, tz: s.z });
-      }
-      const vineCount = Math.floor(r() * 5);
-      for (let v = 0; v < vineCount; v++) {
-        const a = r() * 6.28, d = 1.5 + r() * 2;
-        dummy.position.set(s.x + Math.cos(a) * d, y + h - 1.5, s.z + Math.sin(a) * d);
-        dummy.rotation.set((r() - .5) * .1, 0, (r() - .5) * .1);
-        dummy.scale.set(1, 3 + r() * 6, 1); dummy.updateMatrix();
-        vines.add(dummy.matrix, color.setHSL(0.25, 0.4, 0.14));
-      }
-    }
+    // --- the Japanese forest: cedars, cypress, red pines, maples, cherries, bamboo, bamboo grass (flora.js) ---
+    buildForest(this, scene, cfg, { barkMat, leafMat, frondMat, plantMat, trunkGeo, trunks, roots, placed, plantOK });
 
-    // --- palm trees ---
-    dummy.rotation.order = 'YZX';
-    const top = new THREE.Vector3();
-    for (let i = 0; i < cfg.palmTrees; i++) {
-      const s = this.freeSpot(6, 3.5, placed); if (!s) continue;
-      placed.push(s);
-      const y = this.heightAt(s.x, s.z);
-      const h = 5 + r() * 3, rad = 0.18 + r() * 0.08;
-      dummy.position.set(s.x, y - 0.2, s.z);
-      dummy.rotation.set(0, r() * 6.28, (r() - 0.5) * 0.35);
-      dummy.scale.set(rad, h, rad); dummy.updateMatrix();
-      trunks.add(dummy.matrix, color.setHSL(0.09, 0.25, 0.3 + r() * 0.08));
-      top.set(0, 1, 0).applyMatrix4(dummy.matrix);
-      this.obstacles.push({ x: s.x, z: s.z, r: rad + 0.25, base: y, h: 99 });
-      const n = 8 + Math.floor(r() * 4);
-      for (let f = 0; f < n; f++) {
-        dummy.position.copy(top);
-        dummy.rotation.set(0, (f / n) * 6.28 + r() * 0.4, 0.25 + r() * 0.35);
-        const sc = 0.8 + r() * 0.4;
-        dummy.scale.set(sc, sc, sc); dummy.updateMatrix();
-        fronds.add(dummy.matrix, color.setHSL(0.24 + r() * 0.06, 0.5, 0.22 + r() * 0.08));
-      }
-    }
-
-    // --- broken trees (may fall in Phase 4) ---
+    // --- dead cedars, half snapped in a storm (they can fall on you) ---
     for (let i = 0; i < cfg.brokenTrees; i++) {
       const s = this.freeSpot(10, 5, placed); if (!s) continue;
       placed.push(s);
@@ -459,23 +432,23 @@ export class World {
       dummy.rotation.set(0, yaw, lean);
       dummy.scale.set(rad, h, rad); dummy.updateMatrix();
       const index = trunks.matrices.length;   // remember which trunk, so it can fall later
-      trunks.add(dummy.matrix, color.setHSL(0.08, 0.12, 0.22 + r() * 0.05));
+      trunks.add(dummy.matrix, color.setHSL(0.07, 0.08, 0.3 + r() * 0.06));   // grey, dead wood
       dummy.rotation.set(0, 0, 0);
       dummy.scale.set(rad * 2.2, 1.2, rad * 2.2); dummy.updateMatrix();
       roots.add(dummy.matrix, color.setHSL(0.08, 0.15, 0.18));
       const obstacle = { x: s.x, z: s.z, r: rad + 0.25, base: y, h: 99 };
       this.obstacles.push(obstacle);
-      // A crown of dying yellow-green leaves, so you can see from above which tree it is.
+      // A crown of dead rust-brown needles, so you can see from above which tree it is.
       // Stored relative to the trunk top so it can fall together with the trunk.
       const crown = [];
-      const lumps = 3 + Math.floor(r() * 2);
-      for (let b = 0; b < lumps; b++) {
-        const a = r() * 6.28, d = r() * 1.2, br = 1.1 + r() * 0.7;
-        dummy.rotation.set(r() * 3, r() * 3, r() * 3);
-        dummy.position.set(Math.cos(a) * d, h - 0.2 + (r() - 0.4) * 1.2, Math.sin(a) * d);
-        dummy.scale.set(br, br * 0.6, br); dummy.updateMatrix();
-        crown.push({ local: dummy.matrix.clone(), index: brokenCrowns.matrices.length });
-        brokenCrowns.add(dummy.matrix, color.setHSL(0.13 + r() * 0.05, 0.45, 0.24 + r() * 0.06));
+      const tiers = 4;   // thin layers of dead needles, like a cedar that died standing
+      for (let b = 0; b < tiers; b++) {
+        const R = 1.5 - b * 0.3;
+        dummy.rotation.set((r() - 0.5) * 0.2, r() * 6.28, (r() - 0.5) * 0.2);
+        dummy.position.set((r() - 0.5) * 0.3, h * 0.45 + b * (h * 0.55 / tiers), (r() - 0.5) * 0.3);
+        dummy.scale.set(R, 2.1, R); dummy.updateMatrix();
+        crown.push({ local: dummy.matrix.clone(), index: deadCrowns.matrices.length });
+        deadCrowns.add(dummy.matrix, color.setHSL(0.06 + r() * 0.03, 0.5, 0.25 + r() * 0.06));
       }
       dummy.rotation.order = 'YZX';
       const tree = { x: s.x, z: s.z, y, height: h, lean, yaw, radius: rad, index, obstacle, crown };
@@ -495,7 +468,7 @@ export class World {
       dummy.position.set(s.x, y + rad * 0.6, s.z);
       dummy.rotation.set(0, yaw, (r() - 0.5) * 0.1);
       dummy.scale.set(len, rad, rad); dummy.updateMatrix();
-      logs.add(dummy.matrix, color.setHSL(0.15 + r() * 0.1, 0.35, 0.18 + r() * 0.05));
+      logs.add(dummy.matrix, color.setHSL(0.17 + r() * 0.1, 0.38, 0.17 + r() * 0.05));   // mossy
       const dx = Math.cos(yaw), dz = -Math.sin(yaw);
       for (let t = -len / 2; t <= len / 2; t += 0.7) {
         const ox = s.x + dx * t, oz = s.z + dz * t;
@@ -505,6 +478,7 @@ export class World {
 
     // --- rocks (wet and shiny) ---
     const rocks = new Batch(makeLumpyGeometry(1, 1, 0.45, r), rockMat, { shade: 0.6 });
+    const mossCaps = new Batch(makeLumpyGeometry(1, 1, 0.3, r), new THREE.MeshStandardMaterial({ roughness: 0.95, flatShading: true }), { shade: 0.9 });
     for (let i = 0; i < cfg.rocks; i++) {
       const s = this.freeSpot(5, 2, placed); if (!s) continue;
       const sc = 0.4 + r() * r() * 2.2;
@@ -513,13 +487,18 @@ export class World {
       dummy.rotation.set(r() * 3, r() * 3, r() * 3);
       dummy.scale.set(sc, sc * (0.6 + r() * 0.3), sc * (0.8 + r() * 0.4)); dummy.updateMatrix();
       rocks.add(dummy.matrix, color.setHSL(0.2 + r() * 0.1, 0.12, 0.22 + r() * 0.1));
+      if (sc > 0.5 && r() < 0.7) {   // a cushion of moss on top, like the old forests of Yakushima
+        dummy.position.y = y + sc * 0.22;
+        dummy.rotation.set(0, r() * 6, 0);
+        dummy.scale.set(sc * 0.85, sc * 0.32, sc * 0.8); dummy.updateMatrix();
+        mossCaps.add(dummy.matrix, color.setHSL(0.24 + r() * 0.04, 0.5, 0.17 + r() * 0.05));
+      }
       if (sc > 0.6) this.obstacles.push({ x: s.x, z: s.z, r: sc * 0.85, base: y, h: sc * 0.7 });
     }
 
-    // --- ferns and big-leaf plants (walk through them) ---
+    // --- ferns (walk through them) ---
     dummy.rotation.order = 'YZX';
     const ferns = new Batch(makeFrondGeometry(1.4, 0.38, 0.45), plantMat, { shadow: false, shade: 0.42 });
-    const plantOK = (x, z) => this.streamDist(x, z) > 3.8 && !this.reserved.some(a => Math.hypot(a.x - x, a.z - z) < a.r * 0.6);
     for (let i = 0; i < cfg.ferns; i++) {
       const x = (r() * 2 - 1) * (this.half - 2), z = (r() * 2 - 1) * (this.half - 2);
       if (!plantOK(x, z)) continue;
@@ -531,24 +510,6 @@ export class World {
         dummy.rotation.set(0, (f / n) * 6.28 + r() * 0.5, 0.5 + r() * 0.4);
         dummy.scale.set(sc, sc, sc); dummy.updateMatrix();
         ferns.add(dummy.matrix, color.setHSL(hue, 0.55, 0.22 + r() * 0.1));
-      }
-    }
-    const leafShape = new THREE.Shape();
-    leafShape.moveTo(0, 0);
-    leafShape.bezierCurveTo(0.5, 0.5, 0.7, 1.3, 0, 1.9);
-    leafShape.bezierCurveTo(-0.7, 1.3, -0.5, 0.5, 0, 0);
-    const bigLeafGeo = new THREE.ShapeGeometry(leafShape, 8).rotateX(-Math.PI / 2).rotateY(-Math.PI / 2);
-    const bigLeaves = new Batch(bigLeafGeo, plantMat, { shadow: true, shade: 0.45 });
-    for (let i = 0; i < cfg.bigLeafPlants; i++) {
-      const x = (r() * 2 - 1) * (this.half - 2), z = (r() * 2 - 1) * (this.half - 2);
-      if (Math.hypot(x, z) < 4 || !plantOK(x, z)) continue;
-      const y = this.heightAt(x, z);
-      const n = 3 + Math.floor(r() * 3), sc = 0.6 + r() * 0.7;
-      for (let f = 0; f < n; f++) {
-        dummy.position.set(x, y + 0.3 * sc, z);
-        dummy.rotation.set(0, r() * 6.28, 0.3 + r() * 0.5);
-        dummy.scale.set(sc, sc, sc); dummy.updateMatrix();
-        bigLeaves.add(dummy.matrix, color.setHSL(0.27 + r() * 0.05, 0.55, 0.2 + r() * 0.08));
       }
     }
     dummy.rotation.order = 'XYZ';
@@ -572,13 +533,13 @@ export class World {
       made++;
     }
 
-    for (const b of [trunks, roots, canopy, fronds, vines, logs, rocks, ferns, bigLeaves, puddles, brokenCrowns]) {
+    for (const b of [trunks, roots, logs, rocks, mossCaps, ferns, puddles, deadCrowns]) {
       if (b.matrices.length) b.build(scene);
     }
     // Falling trees move their trunk and crown copies: point each tree at the mesh + slot they ended up in.
     for (const t of this.brokenTrees) {
       t.trunkRef = trunks.refs[t.index];
-      for (const c of t.crown) c.ref = brokenCrowns.refs[c.index];
+      for (const c of t.crown) c.ref = deadCrowns.refs[c.index];
     }
 
     this.buildMist(scene);
