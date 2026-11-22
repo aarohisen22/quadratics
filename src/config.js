@@ -22,7 +22,7 @@ export const CONFIG = {
     lookouts: 15,         // treehouses / lookout towers you can climb
     // The samurai camp. Waves march out of it; past the red-ribboned posts (territory meters
     // from the camp) no more samurai come, so you can explore.
-    outpost: { x: -130, z: -55, territory: 58, wall: 15, fireDamage: 25 },   // in the cedar forest (areas.js). fireDamage: health per second in the campfire
+    outpost: { x: -130, z: -55, territory: 195, wall: 15, fireDamage: 25 },   // in the cedar forest (areas.js). territory 195 m reaches shrine hill, the pagoda, the minka huts and the castle; the village and maple valley stay calm. fireDamage: health per second in the campfire
   },
 
   weather: {
@@ -175,7 +175,7 @@ export const CONFIG = {
   },
 
   // The Shogun, final boss. Phase 1: sword duel, blocks and leaps aside. Phase 2 (below 2/3 health):
-  // also dashes (red streak) and calls gunners (red lanes across the ground, then a volley).
+  // also dashes (red streak) and calls gunners (they kneel at the side and aim red beams along red lanes, then a volley).
   // Phase 3 (below 1/3): enraged: faster and quicker to strike.
   shogun: {
     health: 1600, damage: 18, speed: 3.6, attackRange: 2.3,
@@ -185,7 +185,7 @@ export const CONFIG = {
       chop:  { chance: 0.2, windup: 0.75, damage: 1.6, range: 2.7, arc: 0.3, recover: 0.8 },
       dash:  { chance: 0, windup: 0.75, damage: 1.5, range: 0, arc: 1, recover: 0.8, dash: true,
                minRange: 5, maxRange: 14, speed: 22, cooldown: 4 },
-      lanes: { windup: 1.4, cooldown: 9, count: 3, width: 2.2, length: 26, damage: 1.4 },
+      lanes: { windup: 2.0, cooldown: 9, count: 3, width: 2.2, length: 26, damage: 1.4 },
     },
     defense: {
       blockChance: 0.5, blockArcDegrees: 150, shurikenBlock: 0.4, katanaParry: 0.3,
@@ -211,6 +211,7 @@ export const CONFIG = {
     quietSeconds: [20, 20], // between waves (a random time in this range)
     // The countdown only runs while someone is inside samurai territory.
     fromCamp: 0.6,          // share of each wave that marches out of the camp gate (the rest slide down vines)
+    marchRange: 60,         // ...but only when someone is this close to the camp; further away they all come down vines near you
     leashExtra: 8,          // samurai give up chasing you this far past the territory posts and go back to camp
   },
 

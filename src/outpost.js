@@ -344,7 +344,7 @@ export function buildOutpost(world, scene, cfg) {
 
   // --- posts with red ribbons around the edge of samurai territory ---
   const ribbon = new THREE.MeshStandardMaterial({ color: 0xc4161c, roughness: 0.8, side: THREE.DoubleSide });
-  const posts = Math.round(O.r * 0.75);
+  const posts = Math.min(90, Math.round(O.r * 0.75));   // about one every 14 m on the big ring
   for (let i = 0; i < posts; i++) {
     const a = (i / posts) * Math.PI * 2;
     const x = O.x + Math.cos(a) * O.r, z = O.z + Math.sin(a) * O.r;

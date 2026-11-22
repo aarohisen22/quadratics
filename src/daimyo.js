@@ -10,6 +10,7 @@ import { part, buildKatana } from './models.js';
 import { buildArrow } from './samurai.js';
 import { sfx } from './sound.js';
 import { groundMark, updateSlamRing, slamHit } from './bossmoves.js';
+import { dressBoss } from './bossarmor.js';
 
 // A crest (mon) picture: white on a colored disc, used on his surcoat and fan.
 function monTexture(bg, fg, kind = 'crane') {
@@ -36,27 +37,6 @@ function monTexture(bg, fg, kind = 'crane') {
   return t;
 }
 
-// A jinbaori: sleeveless surcoat worn over the armor, open at the front, crest on the back.
-export function buildJinbaori(body, color, crestTex, mats) {
-  const wool = new THREE.MeshStandardMaterial({ color, roughness: 0.95, side: THREE.DoubleSide });
-  mats.push(wool);
-  const coat = part(new THREE.CylinderGeometry(0.33, 0.44, 0.95, 18, 1, true, 0.55, Math.PI * 2 - 1.1), wool, 0, 1.02, -0.01);
-  coat.rotation.y = Math.PI;   // the gap at the front
-  coat.scale.set(1, 1, 0.85);
-  body.add(coat);
-  for (const s of [-1, 1]) {   // stiff shoulders
-    const sh = part(new THREE.BoxGeometry(0.2, 0.05, 0.36), wool, s * 0.3, 1.5, -0.01);
-    sh.rotation.z = s * 0.2;
-    body.add(sh);
-  }
-  const monMat = new THREE.MeshStandardMaterial({ map: crestTex, roughness: 0.9, transparent: true });
-  mats.push(monMat);
-  const mon = part(new THREE.CircleGeometry(0.17, 24), monMat, 0, 1.22, -0.39);
-  mon.rotation.y = Math.PI;
-  body.add(mon);
-  return coat;
-}
-
 export class Daimyo extends Samurai {
   constructor(scene, world, cfg, x, z, toughness = 1, vineTop = 13) {
     super(scene, world, cfg, x, z, toughness, 0.8, 'samurai', vineTop);
@@ -69,9 +49,7 @@ export class Daimyo extends Samurai {
     this.root.scale.setScalar(1.75);
     if (this.vine) this.vine.scale.set(2.5, 1, 2.5);
 
-    // Dark blue lacing, bright gold, no back banner (his bannermen carry those).
-    this.mats[0].color.set(0x22306a);
-    this.mats[2].color.set(0xe2b347);
+    // No back banner (his bannermen carry those).
     this.banner.visible = false;
     // A huge gilded crescent and sun on the helmet instead of the plain horns.
     this.crest.clear();
@@ -80,7 +58,9 @@ export class Daimyo extends Samurai {
     moon.rotation.z = -Math.PI * 0.05;
     this.crest.add(moon);
     this.crest.add(part(new THREE.CylinderGeometry(0.07, 0.07, 0.015, 16).rotateX(Math.PI / 2), gold, 0, 0.1, 0.01));
-    buildJinbaori(this.body, 0x9a1c1c, monTexture('#9a1c1c', '#f2ede0', 'crane'), this.mats);
+    // Blue lacing, gold trim, a red surcoat with his white crane crest.
+    dressBoss(this, { lace: 0x3f63c8, coat: 0xa01f1c, gold: 0xe2b347, goldCss: '#d9ad45', cord: 0xc23a2a,
+                      crest: monTexture('#a01f1c', '#f2ede0', 'crane') });
     // Nodachi: a very long sword.
     this.sword.remove(this.blade);
     this.blade = buildKatana(1.25);

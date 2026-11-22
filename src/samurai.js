@@ -4,6 +4,7 @@ import * as THREE from 'three';
 import { part, buildKatana } from './models.js';
 import { sfx } from './sound.js';
 import { defend, updateDefense } from './bossmoves.js';
+import { addCutaway } from './world.js';
 
 // ---------- armor textures (shared by every samurai; each gets its own tinted material) ----------
 // Kebiki-odoshi armor: rows of lacquered plates laced together with silk cords. Drawn in white
@@ -223,7 +224,7 @@ const LOOKS = {
 // Dots on the minimap.
 export const MAP_COLORS = { ronin: '#d9a35a', yari: '#ff8a3a', yumi: '#ff8a3a', teppo: '#ff8a3a', samurai: '#ff3b30', hatamoto: '#ff2fb0' };
 
-function buildSamurai(kind = 'samurai') {
+export function buildSamurai(kind = 'samurai') {
   // Each warrior gets his own materials so he can flash and fade on his own.
   // (mats[0] = armor, [1] = dark, [2] = gold: the bosses recolor these.)
   const L = LOOKS[kind] || LOOKS.samurai;
@@ -248,6 +249,9 @@ function buildSamurai(kind = 'samurai') {
     straw: new THREE.MeshStandardMaterial({ color: 0xc4a35e, roughness: 0.95, side: THREE.DoubleSide }),
   };
   if (!mats.skirt) mats.skirt = mats.armor;
+  mats.sode.userData.kind = 'sode';
+  mats.laceSmall.userData.kind = 'small';
+  const lacedMats = [mats.armor, mats.skirt, mats.sode, mats.laceSmall].filter((m, i, a) => m.map && a.indexOf(m) === i);
   if (kind !== 'hatamoto') mats.banner.color.lerp(new THREE.Color(0xffffff), 0.25);
   const root = new THREE.Group();
   const body = new THREE.Group();
@@ -463,14 +467,15 @@ function buildSamurai(kind = 'samurai') {
   }
 
   return { root, body, legs, sword: shoulder, blade, leftArm, bow, gun, weapon, steel: mats.steel,
-           mask, helmet, crest, banner, mats: Object.values(mats).filter((m, i, a) => m && a.indexOf(m) === i) };
+           mask, helmet, crest, banner, lacedMats, mats: Object.values(mats).filter((m, i, a) => m && a.indexOf(m) === i) };
 }
 
 // The vine a samurai slides down on: a thin green rope hanging from the canopy, with a few leaves.
 const VINE_TOP = 13;        // meters above the ground where the vine hangs from
 const DROP_SECONDS = 1.4;   // time to slide all the way down
-const vineMat = new THREE.MeshStandardMaterial({ color: 0x3f5a22, roughness: 0.8 });
-const vineLeafMat = new THREE.MeshStandardMaterial({ color: 0x4f7a2a, roughness: 0.6, side: THREE.DoubleSide });
+// The vine fades out with the treetops near the ninjas (the see-through canopy), so it never hangs from nothing.
+const vineMat = addCutaway(new THREE.MeshStandardMaterial({ color: 0x3f5a22, roughness: 0.8 }));
+const vineLeafMat = addCutaway(new THREE.MeshStandardMaterial({ color: 0x4f7a2a, roughness: 0.6, side: THREE.DoubleSide }));
 const vineGeo = new THREE.CylinderGeometry(0.035, 0.035, 1, 5).translate(0, -0.5, 0);   // hangs down from its top
 const vineLeafGeo = new THREE.PlaneGeometry(0.18, 0.1);
 function buildVine(length) {

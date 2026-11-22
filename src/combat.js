@@ -112,7 +112,8 @@ export class Combat {
     const O = this.world.outpost;
     let marched = 0, dropped = 0;
     const size = this.waveSize + (this.wave - 1) * (this.levelsCfg.extraPerWave || 0);   // each wave bigger than the last
-    const fromCamp = O && !this.vs ? Math.round(size * this.levelsCfg.fromCamp) : 0;
+    const near = O && players.some(p => p.alive && Math.hypot(p.pos.x - O.x, p.pos.z - O.z) < (this.levelsCfg.marchRange ?? 60));
+    const fromCamp = near && !this.vs ? Math.round(size * this.levelsCfg.fromCamp) : 0;
     for (let i = 0; i < size; i++) {
       if (i < fromCamp) {
         // Lined up inside the gate, then they march out one after another.
@@ -126,9 +127,9 @@ export class Combat {
         marched++;
       } else {
         // The rest come down their vines near you, one after another.
-        const spot = this.spawnSpot(players);
-        this.enlist(new Samurai(this.scene, this.world, this.samuraiCfg, spot.x, spot.z, this.toughness,
-          dropped * 0.45 + Math.random() * 0.3, this.pickKind(), spot.vineTop));
+        const spot = this.spawnSpot(players), delay = dropped * 0.45 + Math.random() * 0.3;
+        this.enlist(this.arrive(new Samurai(this.scene, this.world, this.samuraiCfg, spot.x, spot.z, this.toughness,
+          delay, this.pickKind(), spot.vineTop), spot, delay));
         dropped++;
       }
     }
@@ -175,12 +176,15 @@ export class Combat {
 
   startBoss(players, hud, type = 'daimyo') {
     this.bossFor = this.level;
-    // A lord doesn't slide down a vine: he marches out of the camp gate (or comes down the vine if there's no camp).
-    const O = !this.vs && this.world.outpost;
+    // A lord marches out of the camp gate when you're near it; further away he comes down a vine near you
+    // (or runs in, where there are no trees).
+    const C = this.world.outpost;
+    const O = !this.vs && C && players.some(p => p.alive && Math.hypot(p.pos.x - C.x, p.pos.z - C.z) < (this.levelsCfg.marchRange ?? 60)) && C;
     const spot = O ? { x: O.gate.x - Math.cos(O.gateAngle) * 2, z: O.gate.z - Math.sin(O.gateAngle) * 2, vineTop: 13 } : this.spawnSpot(players);
     const Cls = type === 'shogun' ? Shogun : Daimyo;
     const boss = new Cls(this.scene, this.world, type === 'shogun' ? this.shogunCfg : this.daimyoCfg, spot.x, spot.z, this.toughness, spot.vineTop);
     if (O) { boss.startOnGround(0); boss.facing = O.gateAngle; }
+    else this.arrive(boss, spot, 0);
     this.bossName = boss.bossName;
     boss.onShake = v => this.onShake?.(v);
     this.enlist(boss);
@@ -189,7 +193,7 @@ export class Combat {
       boss.onSummon = b => {   // at half health he calls his bodyguards
         for (let i = 0; i < this.daimyoCfg.summon; i++) {
           const sp = this.spawnSpot(players, b.pos, 3, 14);
-          this.enlist(new Samurai(this.scene, this.world, this.samuraiCfg, sp.x, sp.z, this.toughness, 0.3 + i * 0.4, 'hatamoto', sp.vineTop));
+          this.enlist(this.arrive(new Samurai(this.scene, this.world, this.samuraiCfg, sp.x, sp.z, this.toughness, 0.3 + i * 0.4, 'hatamoto', sp.vineTop), sp, 0.3 + i * 0.4));
         }
         hud.toast(bilingual('旗本、来い！', 'The Daimyo calls his hatamoto bodyguards!'), 4);
       };
@@ -197,7 +201,7 @@ export class Combat {
       hud.toast(bilingual('赤い円から逃げろ！', 'Fan raised = arrows coming: get out of the red circles! Red ring = ground slam.'), 6);
     } else {
       boss.onPhase = n => {
-        if (n === 2) hud.toast(bilingual('鉄砲隊！', 'He calls his gunners: get out of the red lanes! Red streak = dash.'), 5);
+        if (n === 2) hud.toast(bilingual('鉄砲隊！', 'He calls his gunners: they kneel at the side and aim red beams. Get out of the beams before they blink! Red streak = dash.'), 5);
         if (n === 3) hud.toast(bilingual('将軍の怒り！', 'The Shogun is enraged: faster and quicker to strike!'), 4);
       };
       hud.banner(bilingual('将軍', 'The Shogun!'), 3);
@@ -301,22 +305,30 @@ export class Combat {
       const c = spots[Math.floor(Math.random() * spots.length)];
       if (free(c.x, c.z)) return { x: c.x, z: c.z, vineTop: c.top - this.world.heightAt(c.x, c.z) };
     }
-    // No tree in range (rare): the nearest free canopy anywhere further than 8 m.
+    // No tree in range (rare): the nearest free canopy further than 6 m (and not too far away).
     let best = null, bestD = Infinity;
     for (const c of this.world.canopySpots) {
       const d = Math.hypot(c.x - center.x, c.z - center.z);
-      if (d > 8 && d < bestD && free(c.x, c.z)) { best = c; bestD = d; }
+      if (d > 6 && d < 70 && d < bestD && free(c.x, c.z)) { best = c; bestD = d; }
     }
     if (best) return { x: best.x, z: best.z, vineTop: best.top - this.world.heightAt(best.x, best.z) };
+    // Still nothing (open ground, like the village or the castle): no vine at all, he runs in on foot.
+    // Never a vine hanging from empty sky.
     for (let tries = 0; tries < 80; tries++) {
-      const a = Math.random() * Math.PI * 2, d = 14 + Math.random() * 12;
+      const a = Math.random() * Math.PI * 2, d = 18 + Math.random() * 10;
       const x = center.x + Math.cos(a) * d, z = center.z + Math.sin(a) * d;
       if (Math.abs(x) > lim || Math.abs(z) > lim) continue;
       if (this.world.blocked(x, z, 1)) continue;
-      if (alive.some(p => Math.hypot(p.pos.x - x, p.pos.z - z) < 12)) continue;
-      return { x, z };
+      if (alive.some(p => Math.hypot(p.pos.x - x, p.pos.z - z) < 14)) continue;
+      return { x, z, ground: true };
     }
-    return { x: center.x + 15, z: center.z };
+    return { x: center.x + 20, z: center.z, ground: true };
+  }
+
+  // A warrior arriving at a spawnSpot: down his vine, or running in on foot where there's no tree.
+  arrive(s, spot, delay) {
+    if (spot.ground) s.startOnGround(delay);
+    return s;
   }
 
   reset() {

@@ -396,6 +396,24 @@ export class World {
     return this.bridges?.length ? Math.max(h, this.deckAt(x, z)) : h;
   }
 
+  // The height of the ground as it's DRAWN: the ground tiles are triangles every 0.75 m, so between
+  // their corners the drawn ground can sit a little below (or above) terrainAt. Plants, rocks and
+  // tree roots use this so they sit on the ground you see instead of floating. (No bridge decks.)
+  groundY(x, z) {
+    const s = TILE / Math.round(TILE * 4 / 3);
+    const gx = (x + this.half) / s, gz = (z + this.half) / s;
+    const ix = Math.floor(gx), iz = Math.floor(gz), u = gx - ix, v = gz - iz;
+    const X0 = -this.half + ix * s, Z0 = -this.half + iz * s, X1 = X0 + s, Z1 = Z0 + s;
+    // Each cell is split along the diagonal from (x0, z1) to (x1, z0), like THREE.PlaneGeometry.
+    const hb = this.terrainAt(X0, Z1), hd = this.terrainAt(X1, Z0);
+    if (u + v <= 1) {
+      const ha = this.terrainAt(X0, Z0);
+      return ha + u * (hd - ha) + v * (hb - ha);
+    }
+    const hc = this.terrainAt(X1, Z1);
+    return hc + (1 - u) * (hb - hc) + (1 - v) * (hd - hc);
+  }
+
   // The shape of the land itself.
   terrainAt(x, z) {
     let h = this.baseHeight(x, z);
@@ -593,7 +611,7 @@ export class World {
     for (let i = 0; i < cfg.brokenTrees; i++) {
       const s = this.freeSpot(10, 5, placed); if (!s) continue;
       placed.push(s);
-      const y = this.heightAt(s.x, s.z);
+      const y = this.groundY(s.x, s.z);
       const rad = 0.3 + r() * 0.2, h = 5 + r() * 3;
       const lean = 0.2 + r() * 0.3, yaw = r() * 6.28;
       dummy.rotation.order = 'YZX';
@@ -633,7 +651,7 @@ export class World {
       const s = this.freeSpot(6, 4, placed); if (!s) continue;
       placed.push(s);
       const len = 5 + r() * 5, rad = 0.35 + r() * 0.25, yaw = r() * 6.28;
-      const y = this.heightAt(s.x, s.z);
+      const y = this.groundY(s.x, s.z);
       dummy.position.set(s.x, y + rad * 0.6, s.z);
       dummy.rotation.set(0, yaw, (r() - 0.5) * 0.1);
       dummy.scale.set(len, rad, rad); dummy.updateMatrix();
@@ -641,7 +659,7 @@ export class World {
       const dx = Math.cos(yaw), dz = -Math.sin(yaw);
       for (let t = -len / 2; t <= len / 2; t += 0.7) {
         const ox = s.x + dx * t, oz = s.z + dz * t;
-        this.obstacles.push({ x: ox, z: oz, r: rad + 0.15, base: this.heightAt(ox, oz), h: rad * 1.6 });
+        this.obstacles.push({ x: ox, z: oz, r: rad + 0.15, base: this.groundY(ox, oz), h: rad * 1.6 });
       }
     }
 
@@ -651,7 +669,7 @@ export class World {
     for (let i = 0; i < cfg.rocks; i++) {
       const s = this.freeSpot(5, 2, placed); if (!s) continue;
       const sc = 0.4 + r() * r() * 2.2;
-      const y = this.heightAt(s.x, s.z);
+      const y = this.groundY(s.x, s.z);
       dummy.position.set(s.x, y - sc * 0.25, s.z);
       dummy.rotation.set(r() * 3, r() * 3, r() * 3);
       dummy.scale.set(sc, sc * (0.6 + r() * 0.3), sc * (0.8 + r() * 0.4)); dummy.updateMatrix();
@@ -671,11 +689,11 @@ export class World {
     for (let i = 0; i < cfg.ferns; i++) {
       const x = (r() * 2 - 1) * (this.half - 2), z = (r() * 2 - 1) * (this.half - 2);
       if (!plantOK(x, z)) continue;
-      const y = this.heightAt(x, z);
+      const y = this.groundY(x, z);
       const n = 6 + Math.floor(r() * 4), sc = 0.6 + r() * 0.8;
       const hue = 0.22 + r() * 0.08;
       for (let f = 0; f < n; f++) {
-        dummy.position.set(x, y, z);
+        dummy.position.set(x, y - 0.05, z);
         dummy.rotation.set(0, (f / n) * 6.28 + r() * 0.5, 0.5 + r() * 0.4);
         dummy.scale.set(sc, sc, sc); dummy.updateMatrix();
         ferns.add(dummy.matrix, color.setHSL(hue, 0.55, 0.22 + r() * 0.1));

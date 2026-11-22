@@ -240,7 +240,7 @@ export function buildForest(world, scene, cfg, m) {
   // An ancient giant (shinboku) with a thick straw rope (shimenawa) round it and zig-zag paper (shide).
   const S = areas.byId.shrine;
   if (S) {
-    const sx = S.x + 11, sz = S.z - 13, sy = world.heightAt(sx, sz);
+    const sx = S.x + 11, sz = S.z - 13, sy = world.groundY(sx, sz);
     world.reserved.push({ x: sx, z: sz, r: 5 });
     const g = new THREE.Group();
     g.position.set(sx, sy, sz);
@@ -294,7 +294,7 @@ export function buildForest(world, scene, cfg, m) {
     if (r() > mix.density) continue;
     m.placed.push(s);
     const kind = pick(mix.kinds);
-    const y = world.heightAt(s.x, s.z);
+    const y = world.groundY(s.x, s.z);
     const t = kinds[kind](s.x, y, s.z);
     world.obstacles.push({ x: s.x, z: s.z, r: t.rad + 0.25, base: y, h: 99 });
     if (kind !== 'maple' && kind !== 'sakura') world.bigTrees.push({ x: s.x, z: s.z, y, h: t.h, rad: t.rad, kind });
@@ -310,11 +310,11 @@ export function buildForest(world, scene, cfg, m) {
     const patch = want >= 1 ? 1 : (Math.sin(s.x * 0.05 + 1.7) * Math.cos(s.z * 0.043 - 0.6) > 0.55 ? 6 : 0.3);
     if (r() > want * patch) continue;
     m.placed.push(s);
-    const y0 = world.heightAt(s.x, s.z);
+    const y0 = world.groundY(s.x, s.z);
     const n = 6 + Math.floor(r() * 9), spread = 0.7 + r() * 0.7;
     for (let i = 0; i < n; i++) {
       const a = r() * 6.28, d = Math.sqrt(r()) * spread;
-      const x = s.x + Math.cos(a) * d, z = s.z + Math.sin(a) * d, y = world.heightAt(x, z);
+      const x = s.x + Math.cos(a) * d, z = s.z + Math.sin(a) * d, y = world.groundY(x, z);
       const h = 9 + r() * 6, rad = 0.05 + r() * 0.04, lean = 0.02 + r() * 0.07;
       dummy.position.set(x, y - 0.1, z);
       dummy.rotation.set(Math.sin(a) * lean, 0, -Math.cos(a) * lean);
@@ -347,9 +347,10 @@ export function buildForest(world, scene, cfg, m) {
     const x = (r() * 2 - 1) * (world.half - 2), z = (r() * 2 - 1) * (world.half - 2);
     if (!m.plantOK(x, z) || Math.hypot(x, z) < 5) continue;
     if (r() > (SASA[areaName(x, z)] ?? 0.5)) continue;
-    const y = world.heightAt(x, z);
     for (let k = 0; k < 5; k++) {
-      dummy.position.set(x + (r() - 0.5) * 1.6, y, z + (r() - 0.5) * 1.6);
+      // Each blade on the ground right under it (a clump spreads over a slope), sunk a little.
+      const bx = x + (r() - 0.5) * 1.6, bz = z + (r() - 0.5) * 1.6;
+      dummy.position.set(bx, world.groundY(bx, bz) - 0.06, bz);
       dummy.rotation.set(0, r() * 6.28, 0);
       const sc = 1.1 + r() * 0.8;
       dummy.scale.set(sc, sc * (0.9 + r() * 0.6), sc); dummy.updateMatrix();
