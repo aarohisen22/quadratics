@@ -1,6 +1,6 @@
 // Starts the game: sets up the 3D view, builds the jungle and runs the game loop.
 import * as THREE from 'three';
-import { CONFIG, LOW_GRAPHICS } from './config.js';
+import { CONFIG, LOW_GRAPHICS, PLAYER_NAMES } from './config.js';
 import { World, cutaway } from './world.js';
 import { setupLighting, Rain } from './weather.js';
 import { Input } from './input.js';
@@ -198,9 +198,9 @@ function describeControls() {
   const pads = input.pads().length;
   if (mode === 'fps') return pads ? 'Left stick move · right stick look · RT fire' : 'Mouse to look around (click to grab the mouse, Esc to pause) · WASD move · click to fire';
   if (playerCount === 1) return pads ? 'Use the controller or keyboard + mouse' : 'Keyboard + mouse (plug in a controller and press a button to use it)';
-  if (pads >= 2) return 'Red brother: controller 1 · Blue brother: controller 2';
-  if (pads === 1) return 'Red brother: keyboard + mouse · Blue brother: the controller';
-  return 'Red brother: WASD + mouse · Blue brother: arrow keys, / fire, . shuriken, Right Shift jump';
+  if (pads >= 2) return `${PLAYER_NAMES[0]} (red): controller 1 · ${PLAYER_NAMES[1]} (blue): controller 2`;
+  if (pads === 1) return `${PLAYER_NAMES[0]} (red): keyboard + mouse · ${PLAYER_NAMES[1]} (blue): the controller`;
+  return `${PLAYER_NAMES[0]} (red): WASD + mouse · ${PLAYER_NAMES[1]} (blue): arrow keys, / fire, . shuriken, Right Shift jump`;
 }
 
 // Mouse aiming: find where the mouse points at ninja height.
@@ -273,8 +273,8 @@ function step(dt) {
       versus.update(dt, players, hud);
       if (versus.winner) {
         state = 'won';
-        const name = versus.winner.index ? 'Blue' : 'Red';
-        hud.showEnd(`${name} brother wins!`, `Final score: Red ${versus.score[0]} – ${versus.score[1]} Blue`, versus.winner.bandColor);
+        const name = PLAYER_NAMES[versus.winner.index];
+        hud.showEnd(`${name} wins!`, `Final score: ${PLAYER_NAMES[0]} ${versus.score[0]} – ${versus.score[1]} ${PLAYER_NAMES[1]}`, versus.winner.bandColor);
       }
     } else if (players.every(p => !p.alive)) { state = 'dying'; dyingTimer = 1.2; }
   } else if (state === 'dying') {

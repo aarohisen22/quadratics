@@ -1,3 +1,4 @@
+import { PLAYER_NAMES } from './config.js';
 // On-screen info: health bar with a number, ammo, level, messages.
 const $ = id => document.getElementById(id);
 // Our own bilingual messages are built from <span class="jp"> / <span class="en">; anything else is plain text.
@@ -10,7 +11,7 @@ export class Hud {
       card.className = 'pcard';
       card.style.setProperty('--band', '#' + p.bandColor.toString(16).padStart(6, '0'));
       card.innerHTML = `
-        <div class="name">Brother ${i + 1}</div>
+        <div class="name">${PLAYER_NAMES[i]}</div>
         <div class="bar"><div class="fill"></div><div class="num"></div></div>
         <div class="ammo"><span class="uzi"></span><span class="spec"></span><span class="shur"></span></div>
         <div class="status"></div>`;
@@ -78,7 +79,7 @@ export class Hud {
           ? `Back in ${Math.max(1, Math.ceil(p.respawnIn))}…`
           : p.reviveProgress > 0
           ? `Reviving… ${Math.floor(p.reviveProgress * 100)}%`
-          : 'DOWN! Brother, stand next to him to revive';
+          : `DOWN! ${PLAYER_NAMES[1 - i]}, stand next to ${PLAYER_NAMES[i]} to revive`;
       }
       if (p.justHurt) { this.hurtAlpha = 0.9; p.justHurt = false; }
     });
@@ -128,7 +129,7 @@ export class Hud {
     $('defeat-title').textContent = 'Defeated';
     $('defeat-title').style.color = '';
     $('defeat-text').textContent = playerCount > 1
-      ? `Both brothers are down. You reached level ${level}.`
+      ? `${PLAYER_NAMES[0]} and ${PLAYER_NAMES[1]} are both down. You reached level ${level}.`
       : `You reached level ${level}.`;
     $('defeat').classList.remove('hidden');
   }

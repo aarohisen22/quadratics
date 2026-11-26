@@ -1,7 +1,7 @@
 // VS mode: the brothers fight each other. First to 5 knock-downs wins.
 import { sfx } from './sound.js';
 
-const NAMES = ['Red', 'Blue'];
+import { PLAYER_NAMES as NAMES } from './config.js';
 
 export class Versus {
   constructor(world, cfg) {
@@ -53,7 +53,7 @@ export class Versus {
           sfx.levelUp();
           return;
         }
-        hud.toast(`${NAMES[scorer.index]} brother scores! ${this.score[0]} – ${this.score[1]}`);
+        hud.toast(`${NAMES[scorer.index]} scores! ${this.score[0]} – ${this.score[1]}`);
       } else if (!p.alive) {
         p.respawnIn -= dt;
         if (p.respawnIn <= 0) {

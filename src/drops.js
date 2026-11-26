@@ -2,6 +2,7 @@
 import * as THREE from 'three';
 import { buildCrate } from './models.js';
 import { sfx } from './sound.js';
+import { PLAYER_NAMES } from './config.js';
 
 const SPECIAL_NAMES = { shotgun: 'SHOTGUN', katana: 'KATANA', smoke: 'SMOKE BOMBS', gatling: 'GATLING' };
 
@@ -116,7 +117,7 @@ export class Drops {
   collect(p, c, hud) {
     c.taken = true;
     this.scene.remove(c.group, c.beam);
-    const name = `Brother ${p.index + 1}`;
+    const name = PLAYER_NAMES[p.index];
     if (c.type === 'health') {
       const before = p.health;
       p.health = Math.min(p.cfg.health, p.health + this.cfg.healthAmount);
