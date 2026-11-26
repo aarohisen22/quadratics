@@ -138,3 +138,5 @@ Steps A–D of `PLAN-japan.md` are committed: 420 m map, Japanese forest, Japane
 **Testing tip: jump to the boss:** in the console, `game.paused = true; game.combat.reset(); game.combat.level = 5; game.combat.wave = game.combat.waveTotal = 3;` then `game.step(1/60)` a few hundred times. If the browser pane is hidden, screenshots can be stale; render with `game.renderer.render(game.scene, game.camera)` and copy `game.renderer.domElement.toDataURL()` into an <img> on the page.
 
 **Testing tip for the next session:** in the browser console, `game.paused = true` stops the loop and `game.step(1/60)` advances one frame; `game.players`, `game.combat`, `game.sky`, `game.world` are exposed.
+
+**Publishing tip:** GitHub Pages lets browsers keep files for 10 minutes. When `style.css` or `src/main.js` changes, bump the `?v=` tag on both links in `index.html`, so players get the new files at the same time as the new page.
