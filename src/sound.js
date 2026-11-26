@@ -17,7 +17,7 @@ export function startSound(volume) {
   comp.threshold.value = -14; comp.ratio.value = 4; comp.attack.value = 0.002; comp.release.value = 0.15;
   comp.connect(ctx.destination);
   master = ctx.createGain();
-  master.gain.value = volume;
+  master.gain.value = wantVolume ?? volume;
   master.connect(comp);
   // A short echo of the jungle, added to gunshots and impacts so they sound outdoors.
   reverb = ctx.createConvolver();
@@ -43,6 +43,13 @@ export function startSound(volume) {
     }
   }
   startRain();
+}
+
+// Volume from the settings screen (0 = silent, 1 = loud). Works before or after the sound starts.
+let wantVolume = null;
+export function setVolume(v) {
+  wantVolume = v;
+  if (master) master.gain.setTargetAtTime(v, ctx.currentTime, 0.05);
 }
 
 function startRain() {

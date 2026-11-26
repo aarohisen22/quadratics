@@ -4,7 +4,7 @@ Done already: the game is called **Quadratics** and the players are **Anay** (re
 
 The story follows the map we already have. You start at shrine hill, then go through the bamboo grove (ronin), cedar forest (ashigaru), village (samurai), maple valley (hatamoto and the Daimyo), and finally the castle (the Shogun). Each area becomes one chapter. This fits the planned step E (a camp per area), so step E becomes part of this plan.
 
-## Step S1: Opening screen
+## Step S1: Opening screen ✅ done 2026-11-26
 - A title scene: the camera drifts slowly past shrine hill at dusk while lanterns light up. "QUADRATICS" fades in in big brush-style letters, with a small Japanese subtitle.
 - Anay and Arha stand on the torii steps in idle poses: headbands blowing, one spinning a shuriken.
 - Menu: **Story**, **Free play** (today's endless waves), **2 Player VS**, **First-Person**, **Settings**, **How to play**.
@@ -64,3 +64,9 @@ S1 opening screen → S2 story + chapters (includes the old step E) → S3 dialo
 - Story: **the stolen shrine treasure**. The Shogun steals the shrine's sacred Quadratic Stone, which keeps the forest alive. The brothers win back its 4 pieces, one from each area leader (bamboo grove, cedar forest, village, maple valley/Daimyo), then storm the castle to face the Shogun.
 - Voices: **the kids record them** with a record page. The computer voice stands in for any line that isn't recorded yet.
 - NPCs going in first: shrine keeper, villagers and farmers, blacksmith and tea house, animals and the fox guide.
+
+## S1 as built
+- `src/title.js`: dusk title scene. The camera drifts around the brothers at the foot of the torii tunnel; the lanterns light up and flicker; a warm title-only light shines on the brothers.
+- `src/menu.js`: main menu, Free play (1 or 2 players), How to play, Settings. Works with mouse, keyboard and controller. Story is in the list, marked "coming soon".
+- `src/settings.js`: volume, first-person mouse speed and low graphics, saved in the browser.
+- Not done yet: separate music/effects/voice volumes and subtitles. These come with S3/S4, when there are voices.

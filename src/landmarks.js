@@ -825,6 +825,9 @@ function buildRoadside(world, scene, rnd) {
 }
 
 // ---------- put it all into the world ----------
+// How brightly the stone lanterns glow (1 = normal). The title screen lights them up slowly.
+export function lanternGlow(k) { if (M.glow) M.glow.emissiveIntensity = 0.8 * k; }
+
 export function buildLandmarks(world, scene) {
   materials();
   const rnd = makeRandom(world.cfg.seed + 5);

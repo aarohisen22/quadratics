@@ -3,12 +3,13 @@
 //  Save the file and refresh the browser to see the change.
 // ============================================================
 
-// Add ?low to the address (http://localhost:8080/?low) for slower computers.
+// Low graphics for slower computers: Settings in the menu, or add ?low to the address.
 // The game's name and the two players' names (player 1 = red headband, player 2 = blue).
 export const GAME_NAME = 'Quadratics';
 export const PLAYER_NAMES = ['Anay', 'Arha'];
 
-export const LOW_GRAPHICS = new URLSearchParams(location.search).has('low');
+import { settings } from './settings.js';
+export const LOW_GRAPHICS = new URLSearchParams(location.search).has('low') || settings.lowGraphics;
 
 export const CONFIG = {
   world: {

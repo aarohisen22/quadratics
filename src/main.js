@@ -12,13 +12,16 @@ import { Minimap } from './minimap.js';
 import { buildTreehouses } from './treehouses.js';
 import { Combat } from './combat.js';
 import { Hud } from './hud.js';
-import { startSound } from './sound.js';
+import { startSound, setVolume } from './sound.js';
 import { Team } from './team.js';
 import { Drops } from './drops.js';
 import { FallingTrees } from './trees.js';
 import { Versus } from './versus.js';
 import { Sky } from './sky.js';
 import { FpsView } from './fps.js';
+import { Menu } from './menu.js';
+import { TitleScene } from './title.js';
+import { settings } from './settings.js';
 
 const renderer = new THREE.WebGLRenderer({ antialias: !LOW_GRAPHICS, powerPreference: 'high-performance' });
 renderer.setPixelRatio(LOW_GRAPHICS ? 1 : Math.min(devicePixelRatio, 1.75));
@@ -68,7 +71,6 @@ let state = 'menu';
 let dyingTimer = 0;
 let playerCount = 1;
 let mode = 'solo';   // 'solo', 'coop' or 'vs'
-const MODES = ['solo', 'coop', 'vs', 'fps'];
 const fpsView = new FpsView(CONFIG.fps);
 fpsView.scene.environment = scene.environment;   // metal needs something to reflect
 
@@ -113,18 +115,33 @@ function newGame() {
   state = 'playing';
 }
 
-// ---------- start menu ----------
-const start = document.getElementById('start');
-const modeButtons = [...document.querySelectorAll('.mode')];
-let selected = 0;
-function selectMode(i) {
-  selected = i;
-  mode = MODES[i];
-  modeButtons.forEach((b, j) => b.classList.toggle('selected', j === i));
-  setPlayerCount(mode === 'solo' || mode === 'fps' ? 1 : 2);
+// ---------- title screen and start menu ----------
+const title = new TitleScene(camera, world, scene);
+const BASE_MOUSE = CONFIG.fps.mouseSensitivity;
+function applySetting(name, v) {
+  if (name === 'volume') setVolume(v / 10);
+  if (name === 'mouse') CONFIG.fps.mouseSensitivity = BASE_MOUSE * v / 5;
+  if (name === 'lowGraphics') location.reload();   // the graphics are built once, at the start
 }
-function beginGame() {
-  start.classList.add('hidden');
+applySetting('volume', settings.volume);
+applySetting('mouse', settings.mouse);
+// Browsers only play sound after a click or key press, so the rain and lanterns start humming then.
+const wakeSound = () => startSound(CONFIG.weather.rainVolume);
+addEventListener('pointerdown', wakeSound, { once: true });
+addEventListener('keydown', wakeSound, { once: true });
+
+const menu = new Menu({
+  onStart: (m, byMouse) => { if (m === 'fps' && byMouse) input.lockMouse(); beginGame(m); },
+  onSetting: applySetting,
+  describe: m => describeControls(m),
+});
+
+function beginGame(m) {
+  mode = m;
+  setPlayerCount(mode === 'coop' || mode === 'vs' ? 2 : 1);
+  menu.hide();
+  document.body.classList.remove('menu');
+  title.end(rig);
   startSound(CONFIG.weather.rainVolume);
   newGame();
 }
@@ -132,19 +149,19 @@ function openMenu() {
   combat.reset();
   drops.reset();
   trees.reset();
+  foam.clear();
   combat.level = 0;
   combat.vs = false;
   hud.hideDefeat();
-  players.forEach((p, i) => p.reset(players.length > 1 ? (i ? 1.5 : -1.5) : 0, 0));
   setFirstPerson(false);
   if (document.pointerLockElement) document.exitPointerLock();
-  start.classList.remove('hidden');
+  setPlayerCount(2);          // both brothers stand on the title screen
+  title.begin(allPlayers);
+  sky.set('dusk', true);
+  menu.reopen();
+  document.body.classList.add('menu');
   state = 'menu';
 }
-modeButtons.forEach((b, i) => {
-  b.addEventListener('mouseenter', () => selectMode(i));
-  b.addEventListener('click', () => { selectMode(i); if (mode === 'fps') input.lockMouse(); beginGame(); });
-});
 
 // ---------- pause menu ----------
 // The ❚❚ button, Esc, P or a controller's Start button pause the game (and leaving the window does too).
@@ -193,9 +210,9 @@ document.addEventListener('pointerlockchange', () => {
 });
 
 // Tells the players who controls which brother.
-const whoEl = document.getElementById('who');
-function describeControls() {
+function describeControls(mode) {
   const pads = input.pads().length;
+  const playerCount = mode === 'coop' || mode === 'vs' ? 2 : 1;
   if (mode === 'fps') return pads ? 'Left stick move · right stick look · RT fire' : 'Mouse to look around (click to grab the mouse, Esc to pause) · WASD move · click to fire';
   if (playerCount === 1) return pads ? 'Use the controller or keyboard + mouse' : 'Keyboard + mouse (plug in a controller and press a button to use it)';
   if (pads >= 2) return `${PLAYER_NAMES[0]} (red): controller 1 · ${PLAYER_NAMES[1]} (blue): controller 2`;
@@ -224,7 +241,7 @@ function updatePadInfo(dt) {
   padsEl.textContent = pads.length
     ? pads.map((p, i) => `Controller ${i + 1}: connected`).join(' · ')
     : 'No controller found: press a button on it, or use the keyboard';
-  whoEl.textContent = describeControls();
+  if (state === 'menu') menu.updateWho();
 }
 
 const clock = new THREE.Clock();
@@ -239,11 +256,11 @@ function frame() {
 }
 function step(dt) {
   time += dt;
-  const menu = input.menu();
+  const keys = input.menu();
 
   const ctrls = players.map((p, i) => input.read(i, playerCount));
   if (state !== 'playing') ctrls.forEach(c => { c.fire = false; c.throwPressed = false; c.jumpPressed = false; });
-  if (state === 'menu') ctrls.forEach(c => { c.move = { x: 0, y: 0, mag: 0 }; });
+  if (state === 'menu') ctrls.forEach(c => { c.move = { x: 0, y: 0, mag: 0 }; c.aim = null; c.aimMouse = false; });
   const fps = mode === 'fps' && state !== 'menu';
   if (fps) {
     // Look with the mouse or right stick; move relative to where you're looking.
@@ -259,12 +276,10 @@ function step(dt) {
   if (fps) players[0].facing = fpsView.yaw;
 
   if (state === 'menu') {
-    if (menu.left) selectMode(Math.max(0, selected - 1));
-    if (menu.right) selectMode(Math.min(MODES.length - 1, selected + 1));
-    if (menu.confirm) beginGame();
+    menu.update(dt, keys);
   } else if (state === 'playing') {
-    if (menu.pause) { pauseGame(); return; }
-    if (menu.map) minimap.toggleFull();
+    if (keys.pause) { pauseGame(); return; }
+    if (keys.map) minimap.toggleFull();
     combat.update(dt, players, ctrls, hud);
     drops.update(dt, players, hud);
     trees.update(dt, players, combat.samurai, hud);
@@ -283,18 +298,21 @@ function step(dt) {
     if (dyingTimer <= 0) { state = 'defeated'; hud.showDefeat(combat.level, playerCount); }
   } else if (state === 'defeated' || state === 'won') {
     combat.update(dt, players, ctrls, hud);  // samurai keep moving behind the message
-    if (menu.confirm) newGame();
-    else if (menu.back) openMenu();
+    if (keys.confirm) newGame();
+    else if (keys.back) openMenu();
   }
 
   if (fps) {
     fpsView.update(dt, camera, sky, effects.flashes[0].intensity);
     rig.focus.copy(players[0].pos);
+  } else if (state === 'menu') {
+    title.update(dt, players);
+    rig.focus.copy(title.target);
   } else {
     rig.update(dt, players.map(p => p.pos));
   }
   allPlayers.forEach((p, i) => {
-    if (i < playerCount && !fps) cutaway.uCutTargets.value[i].copy(p.pos);
+    if (i < playerCount && !fps && state !== 'menu') cutaway.uCutTargets.value[i].copy(p.pos);
     else cutaway.uCutTargets.value[i].set(0, -9999, 0);
   });
 
@@ -318,6 +336,7 @@ function step(dt) {
   renderer.render(scene, camera);
   if (fps) fpsView.render(renderer);   // hands and weapon drawn on top
 }
+openMenu();
 requestAnimationFrame(frame);
 
 addEventListener('resize', () => {
@@ -328,4 +347,4 @@ addEventListener('resize', () => {
 });
 
 // Handy for testing in the browser console.
-window.game = { scene, world, get players() { return players; }, allPlayers, combat, team, drops, trees, foam, minimap, versus, sky, fpsView, camera, input, CONFIG, get state() { return state; }, step, renderer, rig, get paused() { return paused; }, set paused(v) { paused = v; } };
+window.game = { scene, world, get players() { return players; }, allPlayers, combat, menu, title, team, drops, trees, foam, minimap, versus, sky, fpsView, camera, input, CONFIG, get state() { return state; }, step, renderer, rig, get paused() { return paused; }, set paused(v) { paused = v; } };

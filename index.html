@@ -4,6 +4,9 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Quadratics</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Yuji+Syuku&display=swap">
   <link rel="stylesheet" href="style.css">
   <script type="importmap">
   {
@@ -16,18 +19,49 @@
 </head>
 <body>
   <div id="start">
-    <h1>Quadratics</h1>
-    <div id="modes">
-      <button class="mode selected" data-players="1">1 Player</button>
-      <button class="mode" data-players="2">2 Player Co-op</button>
-      <button class="mode" data-players="2">2 Player VS</button>
-      <button class="mode" data-players="1">1 Player First-Person</button>
+    <div class="titlepanel">
+      <h1 class="logo">Quadratics</h1>
+      <div class="logo-jp">クアドラティクス</div>
+      <div class="screen" data-screen="main">
+        <button class="mi" data-note="Story mode is on its way: Anay and Arha's quest for the Quadratic Stone comes in the next update.">Story <span class="tag">coming soon</span></button>
+        <button class="mi" data-go="free">Free play</button>
+        <button class="mi" data-start="vs">2 Player VS</button>
+        <button class="mi" data-start="fps">First-Person</button>
+        <button class="mi" data-go="howto">How to play</button>
+        <button class="mi" data-go="settings">Settings</button>
+      </div>
+      <div class="screen hidden" data-screen="free">
+        <h2>Free play</h2>
+        <p class="sub">Endless waves of samurai, getting tougher every level.</p>
+        <button class="mi" data-start="solo">1 Player</button>
+        <button class="mi" data-start="coop">2 Players together</button>
+        <button class="mi back" data-back>Back</button>
+      </div>
+      <div class="screen hidden" data-screen="settings">
+        <h2>Settings</h2>
+        <div class="mi row" data-set="volume"><span class="lbl">Volume</span><button class="arr" data-d="-1">◀</button><span class="val"></span><button class="arr" data-d="1">▶</button></div>
+        <div class="mi row" data-set="mouse"><span class="lbl">Mouse speed <small>(first-person)</small></span><button class="arr" data-d="-1">◀</button><span class="val"></span><button class="arr" data-d="1">▶</button></div>
+        <div class="mi row" data-set="lowGraphics"><span class="lbl">Low graphics <small>(restarts the game)</small></span><button class="arr" data-d="-1">◀</button><span class="val"></span><button class="arr" data-d="1">▶</button></div>
+        <button class="mi back" data-back>Back</button>
+      </div>
+      <div class="screen hidden" data-screen="howto">
+        <h2>How to play</h2>
+        <div class="howto">
+          <h3>Controller</h3>
+          <p>Left stick move · right stick aim · RT fire · RB throw shuriken · Y switch weapon · A jump · LB run · Start pause · Back/View map</p>
+          <h3>Keyboard + mouse</h3>
+          <p>WASD move · mouse aim · left click fire · right click or E shuriken · Q switch weapon · Space jump · Shift run · Esc or P pause · M map</p>
+          <h3>Two players on one keyboard</h3>
+          <p>Anay: WASD + mouse. Arha: arrow keys move, / fire, . shuriken, Right Shift jump, comma switch weapon.</p>
+          <h3>Tips</h3>
+          <p>Walk into supply crates for ammo, health and special weapons. Hide in the ruins or up a tree. In 2 players, stand next to your downed brother to revive him. Shoot trees to topple them onto samurai.</p>
+        </div>
+        <button class="mi back" data-back>Back</button>
+      </div>
+      <p id="who"></p>
+      <p id="menunote"></p>
+      <p class="hint">Arrows or stick to choose · Enter or A to pick · Esc or B to go back</p>
     </div>
-    <p class="cta">Pick with the stick or arrow keys · A or Enter to start</p>
-    <p class="small" id="who"></p>
-    <p class="small">Controller: left stick move · right stick aim · RT fire · RB throw shuriken · Y switch weapon · A jump · LB run<br>
-      Keyboard: WASD move · mouse aim · left click fire · right click or E shuriken · Q switch weapon · Space jump · Shift run<br>
-      Walk into supply crates to grab ammo and special weapons</p>
   </div>
   <div id="players"></div>
   <div id="level"></div>
