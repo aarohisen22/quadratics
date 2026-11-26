@@ -58,3 +58,9 @@ NPCs never get hurt by your shots: bullets pass through them. Samurai ignore the
 
 ## Order and save points
 S1 opening screen → S2 story + chapters (includes the old step E) → S3 dialogue → S5 NPCs → S4 voices (recordings can come in over time). I'll commit and push after each step, so the live link updates every time. Seasons (old step F) can come after.
+
+## Decisions (2026-11-26)
+- Anay and Arha are **two brothers** ("the brothers" stays).
+- Story: **the stolen shrine treasure**. The Shogun steals the shrine's sacred Quadratic Stone, which keeps the forest alive. The brothers win back its 4 pieces, one from each area leader (bamboo grove, cedar forest, village, maple valley/Daimyo), then storm the castle to face the Shogun.
+- Voices: **the kids record them** with a record page. The computer voice stands in for any line that isn't recorded yet.
+- NPCs going in first: shrine keeper, villagers and farmers, blacksmith and tea house, animals and the fox guide.
