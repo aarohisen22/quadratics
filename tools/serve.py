@@ -13,6 +13,7 @@ class NoCache(http.server.SimpleHTTPRequestHandler):
 class Server(socketserver.ThreadingMixIn, http.server.HTTPServer):
     daemon_threads = True
     allow_reuse_address = True
+    request_queue_size = 128   # the game asks for ~35 files at once; the default (5) dropped some
 
 with Server(('', 8080), NoCache) as httpd:
     print('Game running at http://localhost:8080  (Ctrl+C to stop)')

@@ -22,6 +22,10 @@ import { FpsView } from './fps.js';
 import { Menu } from './menu.js';
 import { TitleScene } from './title.js';
 import { settings } from './settings.js';
+import { QuadStone, Beacon } from './stone.js';
+import { Cutscene } from './cutscene.js';
+import { StoryMode, loadProgress } from './storymode.js';
+import { MESSAGES } from './story.js';
 
 const renderer = new THREE.WebGLRenderer({ antialias: !LOW_GRAPHICS, powerPreference: 'high-performance' });
 renderer.setPixelRatio(LOW_GRAPHICS ? 1 : Math.min(devicePixelRatio, 1.75));
@@ -70,7 +74,7 @@ combat.onHit = shooter => { if (shooter.view) hud.hitMarker(); };
 let state = 'menu';
 let dyingTimer = 0;
 let playerCount = 1;
-let mode = 'solo';   // 'solo', 'coop' or 'vs'
+let mode = 'solo';   // 'solo', 'coop', 'vs', 'fps' or 'story'
 const fpsView = new FpsView(CONFIG.fps);
 fpsView.scene.environment = scene.environment;   // metal needs something to reflect
 
@@ -94,6 +98,29 @@ function setFirstPerson(on) {
   if (!on) rig.first = true;
 }
 
+// ---------- Story mode ----------
+const stone = new QuadStone(scene, world);
+const beacon = new Beacon(scene);
+const cutscene = new Cutscene(camera, name => story.places(name, players));
+const story = new StoryMode({ scene, world, combat, effects, hud, sky, stone, beacon, cutscene,
+  onCredits: (lines, nextRound) => showCredits(lines, nextRound) });
+let storyChoice = 'new';    // from the menu: 'new' or 'continue'
+let storyFresh = true;      // the next newGame() starts the story (false: try the chapter again)
+const creditsEl = document.getElementById('credits');
+function showCredits(lines, nextRound) {
+  creditsEl.querySelector('.roll').innerHTML = lines.map(([a, b], i) =>
+    i === 0 ? `<div><span class="big">${a}</span></div>` : `<div><b>${a}</b><span>${b}</span></div>`).join('');
+  document.getElementById('credits-cta').textContent = `A or Enter: Round ${nextRound} (tougher!) · B or Esc: main menu`;
+  creditsEl.classList.remove('hidden');
+  state = 'credits';
+}
+function updateStoryMenu() {
+  const prog = loadProgress(), btn = document.getElementById('story-continue');
+  const any = prog.chapter > 0 || prog.round > 1;
+  btn.classList.toggle('hidden', !any);
+  btn.textContent = `Continue: Chapter ${prog.chapter + 1}${prog.round > 1 ? ` · Round ${prog.round}` : ''}`;
+}
+
 function newGame() {
   combat.reset();
   drops.reset();
@@ -106,6 +133,13 @@ function newGame() {
     combat.level = 0;
     versus.start(players);
     hud.banner('Fight!', 1.5);
+  } else if (mode === 'story') {
+    if (storyFresh) {
+      players.forEach((p, i) => p.reset(players.length > 1 ? (i ? 1.5 : -1.5) : 0, 0));
+      const prog = storyChoice === 'continue' ? loadProgress() : { chapter: 0, round: 1 };
+      story.begin(players, prog.chapter, prog.round);
+    } else story.retry(players);
+    storyFresh = false;
   } else {
     players.forEach((p, i) => p.reset(players.length > 1 ? (i ? 1.5 : -1.5) : 0, 0));
     sky.set('rain', true);
@@ -134,11 +168,18 @@ const menu = new Menu({
   onStart: (m, byMouse) => { if (m === 'fps' && byMouse) input.lockMouse(); beginGame(m); },
   onSetting: applySetting,
   describe: m => describeControls(m),
+  onStory: choice => {
+    storyChoice = choice;
+    document.getElementById('storyplayers-title').textContent = choice === 'new' ? 'New story' : 'Continue the story';
+  },
 });
+updateStoryMenu();
 
 function beginGame(m) {
-  mode = m;
-  setPlayerCount(mode === 'coop' || mode === 'vs' ? 2 : 1);
+  const two = m === 'coop' || m === 'vs' || m === 'story2';
+  mode = m.startsWith('story') ? 'story' : m;
+  storyFresh = true;
+  setPlayerCount(two ? 2 : 1);
   menu.hide();
   document.body.classList.remove('menu');
   title.end(rig);
@@ -146,6 +187,10 @@ function beginGame(m) {
   newGame();
 }
 function openMenu() {
+  story.stop();
+  creditsEl.classList.add('hidden');
+  document.body.classList.remove('film');
+  updateStoryMenu();
   combat.reset();
   drops.reset();
   trees.reset();
@@ -212,7 +257,7 @@ document.addEventListener('pointerlockchange', () => {
 // Tells the players who controls which brother.
 function describeControls(mode) {
   const pads = input.pads().length;
-  const playerCount = mode === 'coop' || mode === 'vs' ? 2 : 1;
+  const playerCount = mode === 'coop' || mode === 'vs' || mode === 'story2' ? 2 : 1;
   if (mode === 'fps') return pads ? 'Left stick move · right stick look · RT fire' : 'Mouse to look around (click to grab the mouse, Esc to pause) · WASD move · click to fire';
   if (playerCount === 1) return pads ? 'Use the controller or keyboard + mouse' : 'Keyboard + mouse (plug in a controller and press a button to use it)';
   if (pads >= 2) return `${PLAYER_NAMES[0]} (red): controller 1 · ${PLAYER_NAMES[1]} (blue): controller 2`;
@@ -260,7 +305,8 @@ function step(dt) {
 
   const ctrls = players.map((p, i) => input.read(i, playerCount));
   if (state !== 'playing') ctrls.forEach(c => { c.fire = false; c.throwPressed = false; c.jumpPressed = false; });
-  if (state === 'menu') ctrls.forEach(c => { c.move = { x: 0, y: 0, mag: 0 }; c.aim = null; c.aimMouse = false; });
+  const film = mode === 'story' && (cutscene.active || state === 'credits');   // a story film or the credits: nobody moves
+  if (state === 'menu' || film) ctrls.forEach(c => { c.move = { x: 0, y: 0, mag: 0 }; c.aim = null; c.aimMouse = false; c.fire = false; c.throwPressed = false; c.jumpPressed = false; c.switchPressed = false; });
   const fps = mode === 'fps' && state !== 'menu';
   if (fps) {
     // Look with the mouse or right stick; move relative to where you're looking.
@@ -277,13 +323,25 @@ function step(dt) {
 
   if (state === 'menu') {
     menu.update(dt, keys);
+  } else if (state === 'credits') {
+    if (keys.confirm) {
+      creditsEl.classList.add('hidden');
+      state = 'playing';
+      players.forEach((p, i) => p.reset(players.length > 1 ? (i ? 1.5 : -1.5) : 0, 0));
+      const prog = loadProgress();
+      story.begin(players, 0, prog.round);
+    } else if (keys.back) openMenu();
+  } else if (state === 'playing' && cutscene.active) {
+    cutscene.update(dt, keys);
+    combat.update(dt, players, ctrls, hud);
   } else if (state === 'playing') {
     if (keys.pause) { pauseGame(); return; }
     if (keys.map) minimap.toggleFull();
     combat.update(dt, players, ctrls, hud);
     drops.update(dt, players, hud);
     trees.update(dt, players, combat.samurai, hud);
-    team.update(dt, players, time, mode === 'coop');
+    team.update(dt, players, time, mode === 'coop' || (mode === 'story' && playerCount > 1));
+    if (mode === 'story') story.update(dt, players);
     if (mode === 'vs') {
       versus.update(dt, players, hud);
       if (versus.winner) {
@@ -295,7 +353,11 @@ function step(dt) {
   } else if (state === 'dying') {
     combat.update(dt, players, ctrls, hud);
     dyingTimer -= dt;
-    if (dyingTimer <= 0) { state = 'defeated'; hud.showDefeat(combat.level, playerCount); }
+    if (dyingTimer <= 0) {
+      state = 'defeated';
+      hud.showDefeat(combat.level, playerCount);
+      if (mode === 'story') document.getElementById('defeat-text').textContent = MESSAGES.defeated;
+    }
   } else if (state === 'defeated' || state === 'won') {
     combat.update(dt, players, ctrls, hud);  // samurai keep moving behind the message
     if (keys.confirm) newGame();
@@ -308,6 +370,9 @@ function step(dt) {
   } else if (state === 'menu') {
     title.update(dt, players);
     rig.focus.copy(title.target);
+  } else if (film) {
+    rig.focus.copy(cutscene.lookAt);
+    rig.lookAt.copy(cutscene.lookAt);   // when the film ends the play camera glides back from here
   } else {
     rig.update(dt, players.map(p => p.pos));
   }
@@ -321,16 +386,21 @@ function step(dt) {
   sun.position.copy(rig.focus).add(sky.sunOffset);
   sun.target.position.copy(rig.focus);
 
+  stone.update(dt);
+  beacon.update(dt);
+  document.body.classList.toggle('film', film);
   world.update(dt);
   rain.update(dt, rig.focus);
   effects.update(dt);
   foam.update(dt, [...players, ...combat.samurai]);
   const status = mode === 'vs' && state !== 'menu' ? versus.text
+    : mode === 'story' && state !== 'menu' ? story.statusText(players)
     : combat.statusText();
   hud.update(dt, players, status);
   minimap.show(state !== 'menu');
   pauseBtn.classList.toggle('hidden', state === 'menu');
-  minimap.update(dt, camera, { players, samurai: combat.samurai, crates: drops.crates, boss: combat.boss, territory: mode !== 'vs' });
+  minimap.update(dt, camera, { players, samurai: combat.samurai, crates: drops.crates, boss: combat.boss, territory: mode !== 'vs' && mode !== 'story',
+    objective: mode === 'story' && state !== 'menu' ? story.objective : null });
   hud.bossBar(state === 'menu' ? null : combat.boss);
   updatePadInfo(dt);
   renderer.render(scene, camera);
@@ -347,4 +417,4 @@ addEventListener('resize', () => {
 });
 
 // Handy for testing in the browser console.
-window.game = { scene, world, get players() { return players; }, allPlayers, combat, menu, title, team, drops, trees, foam, minimap, versus, sky, fpsView, camera, input, CONFIG, get state() { return state; }, step, renderer, rig, get paused() { return paused; }, set paused(v) { paused = v; } };
+window.game = { scene, world, get players() { return players; }, allPlayers, combat, menu, title, story, stone, cutscene, beacon, team, drops, trees, foam, minimap, versus, sky, fpsView, camera, input, CONFIG, get state() { return state; }, step, renderer, rig, get paused() { return paused; }, set paused(v) { paused = v; } };

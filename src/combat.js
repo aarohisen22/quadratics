@@ -52,6 +52,7 @@ export class Combat {
     this.samurai = [];
     this.shurikens = [];
     this.level = 0;
+    this.camp = null;   // Story mode: { x, z, r, wall } of the area being fought over
     this.betweenLevels = 0;
     this.shurikenGeo = makeShurikenGeometry();
     this.shurikenMat = new THREE.MeshStandardMaterial({ color: 0xb8c0c8, metalness: 0.9, roughness: 0.25 });
@@ -90,8 +91,9 @@ export class Combat {
   }
 
   // Every samurai belongs to the camp: he won't chase you far outside its territory.
+  // In Story mode `this.camp` is the area being fought over (instead of the camp in the cedar forest).
   enlist(s) {
-    const O = this.world.outpost;
+    const O = this.camp || this.world.outpost;
     if (O && !this.vs) s.leash = { x: O.x, z: O.z, r: O.r + this.levelsCfg.leashExtra, camp: O.wall * 0.6 };
     s.effects = this.effects;
     s.shoot = (from, dir, damage) => this.fireArrow(from, dir, damage);
@@ -178,7 +180,7 @@ export class Combat {
     this.bossFor = this.level;
     // A lord marches out of the camp gate when you're near it; further away he comes down a vine near you
     // (or runs in, where there are no trees).
-    const C = this.world.outpost;
+    const C = this.camp ? null : this.world.outpost;
     const O = !this.vs && C && players.some(p => p.alive && Math.hypot(p.pos.x - C.x, p.pos.z - C.z) < (this.levelsCfg.marchRange ?? 60)) && C;
     const spot = O ? { x: O.gate.x - Math.cos(O.gateAngle) * 2, z: O.gate.z - Math.sin(O.gateAngle) * 2, vineTop: 13 } : this.spawnSpot(players);
     const Cls = type === 'shogun' ? Shogun : Daimyo;

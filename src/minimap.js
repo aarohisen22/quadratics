@@ -158,6 +158,24 @@ export class Minimap {
       c.beginPath(); c.arc(px, py, 3, 0, Math.PI * 2); c.fill();
     }
 
+    // Story mode: where to go next, a golden ring (an arrow at the edge when it's off the small map).
+    const ob = actors.objective;
+    if (ob) {
+      let [px, py] = map(ob.x, ob.z);
+      const dx = px - half, dy = py - half, dd = Math.hypot(dx, dy), edge = half - 12;
+      const pulse = 1 + Math.sin(performance.now() / 220) * 0.2;
+      c.strokeStyle = '#ffd070'; c.fillStyle = '#ffd070'; c.lineWidth = 2.5;
+      if (dd > edge) {
+        px = half + dx / dd * edge; py = half + dy / dd * edge;
+        c.save(); c.translate(px, py); c.rotate(Math.atan2(dy, dx) + Math.PI / 2);
+        c.beginPath(); c.moveTo(0, -8 * pulse); c.lineTo(6, 4); c.lineTo(-6, 4); c.closePath(); c.fill();
+        c.restore();
+      } else {
+        c.beginPath(); c.arc(px, py, 7 * pulse, 0, Math.PI * 2); c.stroke();
+        c.beginPath(); c.arc(px, py, 2.5, 0, Math.PI * 2); c.fill();
+      }
+    }
+
     // The boss: a big pulsing red ring.
     const b = actors.boss;
     if (b && b.alive) {

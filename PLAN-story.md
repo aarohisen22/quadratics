@@ -13,7 +13,7 @@ The story follows the map we already have. You start at shrine hill, then go thr
 - The game remembers your settings and your furthest story chapter (saved in the browser).
 - Plays fine with a controller, a keyboard or a mouse.
 
-## Step S2: Story and cutscenes
+## Step S2: Story and cutscenes ✅ done 2026-11-26
 - **Intro cutscene** (about 30–45 s, skippable): drawn-style panels or in-game camera shots with captions and narration. It sets up why Anay and Arha are fighting the Shogun. The premise is your choice (options below).
 - **Chapters**: one per area, so 5 in all.
   - Each chapter starts with a short scene: an NPC tells you what's wrong there.
@@ -70,3 +70,11 @@ S1 opening screen → S2 story + chapters (includes the old step E) → S3 dialo
 - `src/menu.js`: main menu, Free play (1 or 2 players), How to play, Settings. Works with mouse, keyboard and controller. Story is in the list, marked "coming soon".
 - `src/settings.js`: volume, first-person mouse speed and low graphics, saved in the browser.
 - Not done yet: separate music/effects/voice volumes and subtitles. These come with S3/S4, when there are voices.
+
+## S2 as built
+- `src/story.js`: every word of Story mode (opening film, 5 chapters, ending, credits, messages). Kids can edit it.
+- `src/storymode.js`: chapter flow. Talk at the shrine → follow the golden beam → 2 waves of that area's rank → the leader (Kage, Captain Tetsu, Lord Ryū, the Daimyo, the Shogun) → pick up the piece → talk → next chapter. Saved after every chapter (Continue in the menu). Defeat = try the chapter again from the edge of the area. After the Shogun: ending film, credits, then Round 2 (×1.4 tougher).
+- `src/cutscene.js`: camera shots with captions, the talking box (portrait circle, name, typed text), skip with Esc/B.
+- `src/stone.js`: the Quadratic Stone at the shrine (fills in piece by piece, dark under the curse after chapter 4), the dropped piece, the golden beam.
+- The minimap shows a golden ring (or an edge arrow) for where to go.
+- Not done yet (later steps): the shrine keeper as a 3D person (S5, NPCs), voices (S4), speech bubbles during fights (S3), seasons per area.

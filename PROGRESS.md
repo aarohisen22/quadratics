@@ -116,8 +116,8 @@ Then open http://localhost:8080 (this server turns off browser caching so refres
 - Treetops dissolve near the ninjas so the overhead camera can see them (`cutaway` in world.js).
 - Files: src/config.js (settings to tune), world.js (land, tiles, obstacle grid, groundY), bossarmor.js (lords' armor), areas.js, flora.js (trees), landmarks.js (buildings), jptext.js (Japanese text), outpost.js (samurai camp + territory), weather.js (light, rain), sound.js, effects.js, combat.js (weapons + levels + arrows + gunners + boss fights), samurai.js (the six ranks, vines, attacks, obstacle steering), daimyo.js, shogun.js, bossmoves.js (shared boss moves), treehouses.js, foam.js (water foam), minimap.js, hud.js, ninja.js, input.js, camera.js, main.js.
 
-## Where we left off (2026-11-26): Quadratics, story plan step S1 done
-The game is now called **Quadratics**. The players are Anay (red) and Arha (blue), two brothers. It's live at https://aarohisen22.github.io/quadratics/ (GitHub Pages serves `main`, so every push updates it). The new plan is `PLAN-story.md`: S1 opening screen ✅ → S2 story and chapters (includes the old Japan step E) → S3 dialogue → S5 NPCs → S4 voices recorded by the kids.
+## Where we left off (2026-11-26): Quadratics, story plan steps S1 and S2 done
+The game is now called **Quadratics**. The players are Anay (red) and Arha (blue), two brothers. It's live at https://aarohisen22.github.io/quadratics/ (GitHub Pages serves `main`, so every push updates it). The new plan is `PLAN-story.md`: S1 opening screen ✅ → S2 story and chapters ✅ (replaces the old Japan step E) → S3 dialogue → S5 NPCs → S4 voices recorded by the kids.
 
 ## Earlier notes (2026-11-18, Japan makeover steps A–D done, paused for the kids' playtest)
 Steps A–D of `PLAN-japan.md` are committed: 420 m map, Japanese forest, Japanese buildings, the six ranks and the Daimyo/Shogun bosses. Paused so the family can test. To resume, say "continue the Japan makeover from PROGRESS.md": next is **step E** (a camp per area, leaders, next-camp marker, victory + Round 2), then F (seasons), then G (title: the kids pick; ideas 静寂の森 Seijaku no Mori, 森林浴 Shinrin-yoku, 森の心 Mori no Kokoro).
@@ -138,5 +138,7 @@ Steps A–D of `PLAN-japan.md` are committed: 420 m map, Japanese forest, Japane
 **Testing tip: jump to the boss:** in the console, `game.paused = true; game.combat.reset(); game.combat.level = 5; game.combat.wave = game.combat.waveTotal = 3;` then `game.step(1/60)` a few hundred times. If the browser pane is hidden, screenshots can be stale; render with `game.renderer.render(game.scene, game.camera)` and copy `game.renderer.domElement.toDataURL()` into an <img> on the page.
 
 **Testing tip for the next session:** in the browser console, `game.paused = true` stops the loop and `game.step(1/60)` advances one frame; `game.players`, `game.combat`, `game.sky`, `game.world` are exposed.
+
+**Testing Story mode:** in the console, `localStorage.setItem('quadratics.story', JSON.stringify({chapter: 3, round: 1}))`, then reload and pick Story → Continue to jump to a chapter. `game.story`, `game.cutscene` and `game.stone` are exposed.
 
 **Publishing tip:** GitHub Pages lets browsers keep files for 10 minutes. When `style.css` or `src/main.js` changes, bump the `?v=` tag on both links in `index.html`, so players get the new files at the same time as the new page.

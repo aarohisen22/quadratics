@@ -13,8 +13,8 @@ const SETTINGS = {
 
 export class Menu {
   // onStart(mode): 'solo' | 'coop' | 'vs' | 'fps'.  onSetting(name, value).  describe(mode): who controls what.
-  constructor({ onStart, onSetting, describe }) {
-    Object.assign(this, { onStart, onSetting, describe });
+  constructor({ onStart, onSetting, describe, onStory }) {
+    Object.assign(this, { onStart, onSetting, describe, onStory });
     this.root = $('#start');
     this.screens = Object.fromEntries([...document.querySelectorAll('#start .screen')].map(s => [s.dataset.screen, s]));
     this.whoEl = $('#who');
@@ -46,7 +46,7 @@ export class Menu {
 
   get open() { return !this.root.classList.contains('hidden'); }
 
-  items() { return [...this.screens[this.current].querySelectorAll('.mi')]; }
+  items() { return [...this.screens[this.current].querySelectorAll('.mi')].filter(b => !b.classList.contains('hidden')); }
 
   show(name, remember = true) {
     if (remember && this.current) this.history.push({ name: this.current, sel: this.sel });
@@ -79,7 +79,8 @@ export class Menu {
     const item = this.items()[this.sel];
     if (!item) return;
     const d = item.dataset;
-    if (d.start) this.onStart(d.start, byMouse);
+    if (d.story) { this.onStory?.(d.story); this.show('storyplayers'); }
+    else if (d.start) this.onStart(d.start, byMouse);
     else if (d.go) this.show(d.go);
     else if (d.set) this.change(d.set, 1, true);
     else if ('back' in d) this.back();
