@@ -1,5 +1,0 @@
-# Only the game itself goes online; notes and tools stay in the repo.
-PLAN*.md
-PROGRESS.md
-tools/
-.claude/
